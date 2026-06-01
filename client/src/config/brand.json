@@ -1,0 +1,27 @@
+{
+  "defaultBrandId": "biglittlethings",
+  "brands": [
+    {
+      "id": "biglittlethings",
+      "label": "Biglittlethings",
+      "sourceUrl": "https://www.biglittlethings.de/",
+      "companyName": "Big Little Things",
+      "description": "Big Little Things",
+      "logo": null,
+      "logoType": null,
+      "favicon": "https://a0.muscache.com/airbnb/static/icons/favicon.ico",
+      "primaryColor": "#ff385c",
+      "secondaryColor": "#ffffff",
+      "otherColors": ["#222222", "#ffffff", "#717171"],
+      "fonts": ["Cereal", "Circular", "system-ui", "sans-serif"],
+      "customization": {
+        "borderRadius": "12px",
+        "spacing": "8px",
+        "buttonStyle": "pill",
+        "theme": "light",
+        "shadows": "0 6px 16px rgba(0,0,0,0.12)",
+        "notes": "Warm hospitality marketplace"
+      }
+    }
+  ]
+}
