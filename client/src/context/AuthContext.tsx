@@ -7,13 +7,13 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { extractBrand } from '@/api/extract'
 import { getDefaultPreset, presetToConfig } from '@/config/brands'
 import { domainInputSchema } from '@/lib/domainSchema'
-import {
-  mapExtractionToBrand,
-  type ExtractionPayload,
-} from '@/lib/mapExtractionToBrand'
+import { mapExtractionToBrand } from '@/lib/mapExtractionToBrand'
 import { useBrand } from '@/context/BrandContext'
+import { AxiosError } from 'axios'
 
 const SESSION_KEY = 'shop-domain-session'
 const DEFAULT_BRAND_ID = 'airbnb'
@@ -22,11 +22,9 @@ export type ShopSessionMode = 'default' | 'extracted'
 
 export interface ShopSession {
   mode: ShopSessionMode
-  /** Set when mode is `extracted`. */
   domain: string | null
   sourceUrl: string
   loggedInAt: string
-  /** Bumped when customized product images are regenerated for this login. */
   customizationGeneration?: number
 }
 
@@ -48,7 +46,6 @@ function loadSession(): ShopSession | null {
     if (parsed.mode === 'default' || parsed.mode === 'extracted') {
       return parsed
     }
-    // Legacy sessions (before mode field): treat as extracted if domain present
     if (parsed.domain) {
       return {
         mode: 'extracted',
@@ -79,6 +76,7 @@ function isStaleExtractedSession(
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
   const {
     applyExtractedBrand,
     clearExtractedBrand,
@@ -117,7 +115,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     saveSession(nextSession)
     setSession(nextSession)
-  }, [clearExtractedBrand, selectBrand])
+    queryClient.invalidateQueries({ queryKey: ['products'] })
+  }, [clearExtractedBrand, selectBrand, queryClient])
 
   const login = useCallback(
     async (domainInput: string) => {
@@ -129,58 +128,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(message)
       }
 
-      const response = await fetch('/api/extract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain: parsed.data.domain }),
-      })
+      try {
+        const payload = await extractBrand(parsed.data.domain)
+        const brand = mapExtractionToBrand(payload)
+        applyExtractedBrand(brand)
 
-      const body = (await response.json()) as
-        | ExtractionPayload
-        | { error?: string }
+        if (payload.customizationError) {
+          console.warn('[customize]', payload.customizationError)
+        } else if (payload.customizationSkipped) {
+          console.warn('[customize] skipped:', payload.customizationSkipped)
+        } else if (payload.customizedProducts?.length) {
+          console.info(
+            '[customize] updated products:',
+            payload.customizedProducts.map((p) => p.productId).join(', '),
+          )
+        }
 
-      if (!response.ok) {
-        throw new Error(
-          'error' in body && body.error
-            ? body.error
-            : 'Could not extract brand for this domain',
-        )
+        const nextSession: ShopSession = {
+          mode: 'extracted',
+          domain: parsed.data.domain,
+          sourceUrl: brand.sourceUrl,
+          loggedInAt: new Date().toISOString(),
+          customizationGeneration:
+            payload.customizationGeneration ?? Date.now(),
+        }
+        saveSession(nextSession)
+        setSession(nextSession)
+        queryClient.invalidateQueries({ queryKey: ['products'] })
+      } catch (err) {
+        if (err instanceof AxiosError) {
+          const message =
+            err.response?.data?.error ?? 'Could not extract brand for this domain'
+          throw new Error(message)
+        }
+        throw err
       }
-
-      const payload = body as ExtractionPayload
-      const brand = mapExtractionToBrand(payload)
-      applyExtractedBrand(brand)
-
-      if (payload.customizationError) {
-        console.warn('[customize]', payload.customizationError)
-      } else if (payload.customizationSkipped) {
-        console.warn('[customize] skipped:', payload.customizationSkipped)
-      } else if (payload.customizedProducts?.length) {
-        console.info(
-          '[customize] updated products:',
-          payload.customizedProducts.map((p) => p.productId).join(', '),
-        )
-      }
-
-      const nextSession: ShopSession = {
-        mode: 'extracted',
-        domain: parsed.data.domain,
-        sourceUrl: brand.sourceUrl,
-        loggedInAt: new Date().toISOString(),
-        customizationGeneration:
-          payload.customizationGeneration ?? Date.now(),
-      }
-      saveSession(nextSession)
-      setSession(nextSession)
     },
-    [applyExtractedBrand],
+    [applyExtractedBrand, queryClient],
   )
 
   const logout = useCallback(() => {
     saveSession(null)
     setSession(null)
     clearExtractedBrand()
-  }, [clearExtractedBrand])
+    queryClient.removeQueries({ queryKey: ['products'] })
+  }, [clearExtractedBrand, queryClient])
 
   const value = useMemo(
     () => ({

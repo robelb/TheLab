@@ -14,6 +14,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
+    "embed": "tsx scripts/generate-embeddings.ts",
     "extract": "tsx scripts/extract-brand.ts",
     "customize": "tsx scripts/generate-customized-images.ts"
   },

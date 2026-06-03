@@ -1,67 +1,34 @@
-import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { fetchProduct } from '@/api/products'
 import { useAuth } from '@/context/AuthContext'
+import { useProduct } from '@/hooks/use-product'
 import { getProductDisplayImage } from '@/lib/productImage'
 import { AddToCartButton } from '@/components/AddToCartButton'
+import { ProductDetailSkeleton } from '@/components/ProductDetailSkeleton'
 import { formatPrice } from '@/utils/format'
-import type { Product } from '@/types/product'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 
 export function ProductPage() {
   const { session } = useAuth()
   const { id } = useParams<{ id: string }>()
-  const [product, setProduct] = useState<Product | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!id) {
-      setLoading(false)
-      return
-    }
+  const { data: product, isLoading, error } = useProduct(
+    id,
+    session?.domain ?? undefined,
+  )
 
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-
-    fetchProduct(id, session?.domain ?? undefined)
-      .then((data) => {
-        if (!cancelled) setProduct(data)
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Product not found')
-          setProduct(null)
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [id, session?.domain])
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-24 text-muted-foreground">
-        <Loader2 className="size-5 animate-spin" />
-        Loading product…
-      </div>
-    )
+  if (isLoading) {
+    return <ProductDetailSkeleton />
   }
 
   if (!product || error) {
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-center">
         <h1 className="font-display text-2xl font-bold">
-          {error ?? 'Product not found'}
+          {error instanceof Error ? error.message : 'Product not found'}
         </h1>
         <Button asChild variant="outline">
           <Link to="/">Back to shop</Link>

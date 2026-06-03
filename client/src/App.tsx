@@ -1,3 +1,4 @@
+import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { BrandProvider } from '@/context/BrandContext'
 import { AuthProvider } from '@/context/AuthContext'
@@ -10,32 +11,35 @@ import { CartPage } from '@/pages/CartPage'
 import { CheckoutPage } from '@/pages/CheckoutPage'
 import { BrandSettingsPage } from '@/pages/BrandSettingsPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { queryClient } from '@/lib/query-client'
 
 export default function App() {
   return (
-    <BrandProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <CartProvider>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route
-                element={
-                  <RequireAuth>
-                    <Layout />
-                  </RequireAuth>
-                }
-              >
-                <Route index element={<HomePage />} />
-                <Route path="product/:id" element={<ProductPage />} />
-                <Route path="cart" element={<CartPage />} />
-                <Route path="checkout" element={<CheckoutPage />} />
-                <Route path="brand" element={<BrandSettingsPage />} />
-              </Route>
-            </Routes>
-          </CartProvider>
-        </BrowserRouter>
-      </AuthProvider>
-    </BrandProvider>
+    <QueryClientProvider client={queryClient}>
+      <BrandProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <CartProvider>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route
+                  element={
+                    <RequireAuth>
+                      <Layout />
+                    </RequireAuth>
+                  }
+                >
+                  <Route index element={<HomePage />} />
+                  <Route path="product/:id" element={<ProductPage />} />
+                  <Route path="cart" element={<CartPage />} />
+                  <Route path="checkout" element={<CheckoutPage />} />
+                  <Route path="brand" element={<BrandSettingsPage />} />
+                </Route>
+              </Routes>
+            </CartProvider>
+          </BrowserRouter>
+        </AuthProvider>
+      </BrandProvider>
+    </QueryClientProvider>
   )
 }

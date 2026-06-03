@@ -33,12 +33,29 @@ export interface ProductWithCategory {
   isFeatured: boolean
 }
 
-function toProductWithCategory(
-  row: typeof products.$inferSelect & {
-    categoryName: string
-    categorySlug: string
-  },
-): ProductWithCategory {
+interface ProductRow {
+  id: string
+  sourceId: string
+  variantId: string | null
+  sku: string
+  name: string
+  tagline: string
+  price: string
+  currency: string
+  stock: number
+  categoryId: string
+  image: string
+  customizedImage: string | null
+  description: string
+  details: string[] | null
+  isFeatured: boolean
+  createdAt: Date
+  updatedAt: Date
+  categoryName: string
+  categorySlug: string
+}
+
+function toProductWithCategory(row: ProductRow): ProductWithCategory {
   return {
     id: row.id,
     sourceId: row.sourceId,

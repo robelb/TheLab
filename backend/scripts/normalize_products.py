@@ -249,7 +249,7 @@ def write_ts_module(path: Path, products: list[dict[str, Any]]) -> None:
 
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[2]
-    default_input = repo_root / "backend" / "src" / "data" / "realProducts.ts"
+    default_input = repo_root / "backend" / "src" / "data" / "realProducts.json"
     default_out_dir = repo_root / "backend" / "src" / "data"
 
     parser = argparse.ArgumentParser(description="Normalize supplier catalog to shop products")

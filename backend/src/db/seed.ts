@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { db } from './index.js'
 import { categories, products } from './schema/index.js'
 
@@ -36,51 +36,57 @@ async function seed() {
 
   console.log(`Seeding ${rawProducts.length} products...`)
 
-  // Extract unique categories
+  // 1. Collect unique categories from JSON
   const categoryMap = new Map<string, string>()
   for (const p of rawProducts) {
     categoryMap.set(p.categorySlug, p.category)
   }
 
-  // Upsert categories
-  const categoryIdMap = new Map<string, string>()
+  // 2. Fetch all existing categories in one query
+  const existingCategories = await db.select().from(categories)
+  const categoryIdMap = new Map<string, string>(
+    existingCategories.map((c) => [c.slug, c.id]),
+  )
 
-  for (const [slug, name] of categoryMap) {
-    const existing = await db
-      .select()
-      .from(categories)
-      .where(eq(categories.slug, slug))
-      .limit(1)
+  // 3. Insert missing categories in one batch
+  const newCategories = [...categoryMap.entries()]
+    .filter(([slug]) => !categoryIdMap.has(slug))
+    .map(([slug, name]) => ({ id: randomUUID(), name, slug }))
 
-    if (existing.length > 0) {
-      categoryIdMap.set(slug, existing[0].id)
-    } else {
-      const [inserted] = await db
-        .insert(categories)
-        .values({ id: randomUUID(), name, slug })
-        .returning({ id: categories.id })
-      categoryIdMap.set(slug, inserted.id)
+  if (newCategories.length > 0) {
+    const inserted = await db
+      .insert(categories)
+      .values(newCategories)
+      .returning({ id: categories.id, slug: categories.slug })
+
+    for (const c of inserted) {
+      categoryIdMap.set(c.slug, c.id)
     }
   }
 
-  console.log(`Seeded ${categoryIdMap.size} categories`)
+  console.log(
+    `Categories: ${newCategories.length} new, ${existingCategories.length} existing`,
+  )
 
-  // Upsert products (match by SKU since IDs are now UUIDs)
-  let inserted = 0
-  let updated = 0
+  // 4. Fetch all existing product SKUs in one query
+  const allSkus = rawProducts.map((p) => p.sku)
+  const existingProducts = await db
+    .select({ id: products.id, sku: products.sku })
+    .from(products)
+    .where(inArray(products.sku, allSkus))
+
+  const existingSkuMap = new Map(existingProducts.map((p) => [p.sku, p.id]))
+
+  // 5. Split into inserts and updates
+  const toInsert: Array<Record<string, unknown>> = []
+  const toUpdate: Array<{ id: string; values: Record<string, unknown> }> = []
 
   for (const p of rawProducts) {
     const categoryId = categoryIdMap.get(p.categorySlug)
     if (!categoryId) {
-      console.warn(`Skipping product ${p.sku}: unknown category ${p.categorySlug}`)
+      console.warn(`Skipping ${p.sku}: unknown category ${p.categorySlug}`)
       continue
     }
-
-    const existing = await db
-      .select({ id: products.id })
-      .from(products)
-      .where(eq(products.sku, p.sku))
-      .limit(1)
 
     const values = {
       sourceId: p.sourceId,
@@ -99,16 +105,25 @@ async function seed() {
       isFeatured: FEATURED_SKUS.has(p.sku),
     }
 
-    if (existing.length > 0) {
-      await db.update(products).set(values).where(eq(products.id, existing[0].id))
-      updated++
+    const existingId = existingSkuMap.get(p.sku)
+    if (existingId) {
+      toUpdate.push({ id: existingId, values })
     } else {
-      await db.insert(products).values({ id: randomUUID(), ...values })
-      inserted++
+      toInsert.push({ id: randomUUID(), ...values })
     }
   }
 
-  console.log(`Products: ${inserted} inserted, ${updated} updated`)
+  // 6. Batch insert new products
+  if (toInsert.length > 0) {
+    await db.insert(products).values(toInsert as never)
+  }
+
+  // 7. Update existing products (sequential but only for changed rows)
+  for (const { id, values } of toUpdate) {
+    await db.update(products).set(values).where(eq(products.id, id))
+  }
+
+  console.log(`Products: ${toInsert.length} inserted, ${toUpdate.length} updated`)
   console.log('Seed complete.')
 }
 

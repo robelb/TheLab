@@ -1,115 +1,67 @@
-import { useCallback, useEffect, useState } from 'react'
-import { fetchProducts } from '@/api/products'
+import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useBrand } from '@/context/BrandContext'
+import { useDebounce } from '@/hooks/use-debounce'
+import { useProducts } from '@/hooks/use-products'
+import { isPriceRangeFiltered } from '@/components/PriceRangeFilter'
 import { ProductCard } from '@/components/ProductCard'
+import { ProductGridSkeleton } from '@/components/ProductCardSkeleton'
 import { ProductFilters } from '@/components/ProductFilters'
 import { ProductSearchBar } from '@/components/ProductSearchBar'
 import { ProductsListToolbar } from '@/components/ProductsListToolbar'
-import { isPriceRangeFiltered } from '@/components/PriceRangeFilter'
 import { Button } from '@/components/ui/button'
-import type { PageSize, PriceRange, Product } from '@/types/product'
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import type { PageSize, PriceRange } from '@/types/product'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+
+const SEARCH_DEBOUNCE_MS = 2000
+const PRICE_DEBOUNCE_MS = 2000
 
 export function HomePage() {
   const { session } = useAuth()
   const { brand } = useBrand()
-  const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<string[]>([])
-  const [priceBounds, setPriceBounds] = useState<PriceRange | undefined>()
-  const [priceSelection, setPriceSelection] = useState<[number, number] | undefined>()
-  const [debouncedPriceSelection, setDebouncedPriceSelection] = useState<
-    [number, number] | undefined
-  >()
-  const [filter, setFilter] = useState<string>('all')
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<PageSize>(20)
-  const [totalPages, setTotalPages] = useState(0)
-  const [total, setTotal] = useState(0)
-  const [hasNextPage, setHasNextPage] = useState(false)
-  const [hasPrevPage, setHasPrevPage] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [category, setCategory] = useState('all')
+  const [search, setSearch] = useState('')
+  const [priceBounds, setPriceBounds] = useState<PriceRange | undefined>()
+  const [priceSelection, setPriceSelection] = useState<
+    [number, number] | undefined
+  >()
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(search), 300)
-    return () => window.clearTimeout(timer)
-  }, [search])
-
-  useEffect(() => {
-    const timer = window.setTimeout(
-      () => setDebouncedPriceSelection(priceSelection),
-      400,
-    )
-    return () => window.clearTimeout(timer)
-  }, [priceSelection])
+  const debouncedSearch = useDebounce(search, SEARCH_DEBOUNCE_MS)
+  const debouncedPrice = useDebounce(priceSelection, PRICE_DEBOUNCE_MS)
 
   const priceFilterActive =
     priceBounds &&
-    debouncedPriceSelection &&
-    isPriceRangeFiltered(priceBounds, debouncedPriceSelection)
+    debouncedPrice &&
+    isPriceRangeFiltered(priceBounds, debouncedPrice)
 
-  const loadProducts = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await fetchProducts({
-        page,
-        limit,
-        category: filter,
-        q: debouncedSearch,
-        minPrice: priceFilterActive
-          ? debouncedPriceSelection![0]
-          : undefined,
-        maxPrice: priceFilterActive
-          ? debouncedPriceSelection![1]
-          : undefined,
-        domain: session?.domain ?? undefined,
-      })
-      setProducts(result.data)
-      setCategories(result.categories)
-      if (result.priceRange) {
-        setPriceBounds(result.priceRange)
-        setPriceSelection((prev) => {
-          if (prev) return prev
-          return [result.priceRange!.min, result.priceRange!.max]
-        })
-      }
-      setTotalPages(result.pagination.totalPages)
-      setTotal(result.pagination.total)
-      setHasNextPage(result.pagination.hasNextPage)
-      setHasPrevPage(result.pagination.hasPrevPage)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load products')
-      setProducts([])
-    } finally {
-      setLoading(false)
-    }
-  }, [
+  const { data, isLoading, isFetching, error } = useProducts({
     page,
     limit,
-    filter,
-    debouncedSearch,
-    debouncedPriceSelection,
-    priceFilterActive,
-    session?.domain,
-  ])
+    category: category !== 'all' ? category : undefined,
+    q: debouncedSearch || undefined,
+    minPrice: priceFilterActive ? debouncedPrice![0] : undefined,
+    maxPrice: priceFilterActive ? debouncedPrice![1] : undefined,
+    domain: session?.domain ?? undefined,
+  })
 
-  useEffect(() => {
-    void loadProducts()
-  }, [loadProducts])
+  const products = data?.data ?? []
+  const categories = data?.categories ?? []
+  const pagination = data?.pagination
+  const total = pagination?.total ?? 0
+  const totalPages = pagination?.totalPages ?? 0
+  const hasNextPage = pagination?.hasNextPage ?? false
+  const hasPrevPage = pagination?.hasPrevPage ?? false
 
-  /** Refetch after domain login so featured products include new customizedImage URLs. */
-  useEffect(() => {
-    if (session?.mode === 'extracted' && session.loggedInAt) {
-      void loadProducts()
-    }
-  }, [session?.mode, session?.loggedInAt, loadProducts])
+  if (data?.priceRange && !priceBounds) {
+    setPriceBounds(data.priceRange)
+    setPriceSelection([data.priceRange.min, data.priceRange.max])
+  }
 
   function changeCategory(cat: string) {
-    setFilter(cat)
+    setCategory(cat)
     setPage(1)
   }
 
@@ -129,7 +81,7 @@ export function HomePage() {
   }
 
   function clearAllFilters() {
-    setFilter('all')
+    setCategory('all')
     setSearch('')
     if (priceBounds) {
       setPriceSelection([priceBounds.min, priceBounds.max])
@@ -137,10 +89,10 @@ export function HomePage() {
     setPage(1)
   }
 
+  const loading = isLoading || isFetching
   const hasSearch = search.trim().length > 0
-
   const priceKey = priceFilterActive
-    ? `${debouncedPriceSelection![0]}-${debouncedPriceSelection![1]}`
+    ? `${debouncedPrice![0]}-${debouncedPrice![1]}`
     : 'full'
 
   return (
@@ -160,7 +112,7 @@ export function HomePage() {
       <div className="grid gap-8 lg:grid-cols-[minmax(0,15.5rem)_1fr] lg:items-start">
         <ProductFilters
           categories={categories}
-          category={filter}
+          category={category}
           onCategoryChange={changeCategory}
           priceBounds={priceBounds}
           priceSelection={priceSelection}
@@ -184,20 +136,17 @@ export function HomePage() {
 
           {error && (
             <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error}
+              {error instanceof Error ? error.message : 'Failed to load products'}
             </p>
           )}
 
-          {loading ? (
-            <div className="flex items-center justify-center gap-2 py-24 text-muted-foreground">
-              <Loader2 className="size-5 animate-spin" />
-              Loading products…
-            </div>
+          {isLoading ? (
+            <ProductGridSkeleton count={limit} />
           ) : (
             <>
               <div
                 className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4"
-                key={`${filter}-${page}-${limit}-${debouncedSearch}-${priceKey}`}
+                key={`${category}-${page}-${limit}-${debouncedSearch}-${priceKey}`}
               >
                 {products.map((product, i) => (
                   <ProductCard key={product.id} product={product} index={i} />

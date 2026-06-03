@@ -1,5 +1,6 @@
 import {
   boolean,
+  customType,
   integer,
   jsonb,
   numeric,
@@ -10,6 +11,21 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 import { categories } from './categories.js'
+
+const vector = customType<{ data: number[]; dpiverName: string }>({
+  dataType() {
+    return 'vector(768)'
+  },
+  toDriver(value: number[]) {
+    return `[${value.join(',')}]`
+  },
+  fromDriver(value: unknown) {
+    if (typeof value === 'string') {
+      return JSON.parse(value.replace('(', '[').replace(')', ']')) as number[]
+    }
+    return value as number[]
+  },
+})
 
 export const products = pgTable(
   'products',
@@ -38,6 +54,10 @@ export const products = pgTable(
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
+    embedding: vector('embedding'),
+    embeddingUpdatedAt: timestamp('embedding_updated_at', {
+      withTimezone: true,
+    }),
   },
   (table) => [
     uniqueIndex('products_sku_idx').on(table.sku),
