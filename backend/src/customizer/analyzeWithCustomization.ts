@@ -19,21 +19,16 @@ export interface CustomizedProductSummary {
 
 export interface AnalyzeWithCustomizationResult extends ExtractionResult {
   customizedProducts?: CustomizedProductSummary[]
-  /** Changes on each login so clients can bust image caches. */
   customizationGeneration?: number
   customizationSkipped?: string
   customizationError?: string
 }
 
-/**
- * Brand extract for login, then customized mockups for featured products in parallel.
- * Customization failures do not fail extraction (brand still applies).
- */
 export async function analyzeWithCustomization(
-  inputUrl: string,
+  domain: string,
   llm: LlmConfig,
 ): Promise<AnalyzeWithCustomizationResult> {
-  const extraction = await analyze(inputUrl, llm)
+  const extraction = await analyze(domain, llm)
   const brandAssets = getBrandImageAssetsFromExtraction(extraction)
 
   if (!hasAnyBrandImage(brandAssets)) {
@@ -57,6 +52,7 @@ export async function analyzeWithCustomization(
 
   try {
     const { generation, results, failures } = await runCustomize({
+      domain,
       companyName: brandAssets.companyName,
       logoImageUrl,
       faviconImageUrl,
@@ -69,7 +65,7 @@ export async function analyzeWithCustomization(
         ...extraction,
         customizationGeneration: generation,
         customizationError: failures
-          .map((f) => `${f.productId}: ${f.message}`)
+          .map((f) => `${f.sku}: ${f.message}`)
           .join('; '),
       }
     }
@@ -81,7 +77,7 @@ export async function analyzeWithCustomization(
       ...(failures.length > 0
         ? {
             customizationError: failures
-              .map((f) => `${f.productId}: ${f.message}`)
+              .map((f) => `${f.sku}: ${f.message}`)
               .join('; '),
           }
         : {}),

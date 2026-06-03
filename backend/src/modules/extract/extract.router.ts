@@ -1,8 +1,11 @@
 import { Router } from 'express'
-import { analyzeWithCustomization } from '../customizer/analyzeWithCustomization.js'
-import { logExtractFailure } from '../extractor/logExtractFailure.js'
-import { missingLlmConfigMessage, resolveLlmConfig } from '../extractor/llmConfig.js'
-import { domainInputSchema } from '../schemas/domainSchema.js'
+import { analyzeWithCustomization } from '../../customizer/analyzeWithCustomization.js'
+import { logExtractFailure } from '../../extractor/logExtractFailure.js'
+import {
+  missingLlmConfigMessage,
+  resolveLlmConfig,
+} from '../../extractor/llmConfig.js'
+import { domainInputSchema } from './extract.schema.js'
 
 export const extractRouter = Router()
 

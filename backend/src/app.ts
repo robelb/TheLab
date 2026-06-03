@@ -2,8 +2,8 @@ import cors from 'cors'
 import express from 'express'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { extractRouter } from './routes/extract.js'
-import { productsRouter } from './routes/products.js'
+import { extractRouter } from './modules/extract/extract.router.js'
+import { productsRouter } from './modules/products/products.router.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 

@@ -29,7 +29,7 @@ export function ProductPage() {
     setLoading(true)
     setError(null)
 
-    fetchProduct(id)
+    fetchProduct(id, session?.domain ?? undefined)
       .then((data) => {
         if (!cancelled) setProduct(data)
       })
@@ -46,7 +46,7 @@ export function ProductPage() {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, session?.domain])
 
   if (loading) {
     return (

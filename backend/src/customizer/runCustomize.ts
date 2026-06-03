@@ -1,21 +1,24 @@
+import { eq } from 'drizzle-orm'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { db } from '../db/index.js'
+import { products } from '../db/schema/index.js'
 import { FEATURED_CUSTOM_PRODUCTS } from './featuredProducts.js'
 import { fetchBrandImages } from './fetchBrandImages.js'
 import { generateCustomImage } from './generateCustomImage.js'
 import type { ImageLlmConfig } from './llmImageConfig.js'
 import { resolveLogoUrl } from './resolveLogoUrl.js'
 import {
-  clearFeaturedCustomizedImages,
   customizedImagePublicUrl,
-  updateCatalogCustomizedImages,
+  upsertBrandCustomizations,
 } from './updateCatalog.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const customizedDir = path.resolve(__dirname, '../../public/customized')
 
 export interface RunCustomizeOptions {
+  domain: string
   companyName?: string | null
   logoImageUrl?: string | null
   faviconImageUrl?: string | null
@@ -26,18 +29,47 @@ export interface RunCustomizeOptions {
 
 export interface RunCustomizeResult {
   productId: string
+  sku: string
   filePath: string
   publicUrl: string
 }
 
 export interface RunCustomizeOutcome {
-  /** Bumped on every run so image URLs change and browsers fetch the new brand. */
   generation: number
   results: RunCustomizeResult[]
-  failures: Array<{ productId: string; message: string }>
+  failures: Array<{ sku: string; message: string }>
 }
 
-/** Generate customized mockups for pinned products and persist to catalog + disk. */
+interface ResolvedFeaturedProduct {
+  dbId: string
+  sku: string
+  mainImageUrl: string
+}
+
+async function resolveFeaturedProducts(): Promise<ResolvedFeaturedProduct[]> {
+  const resolved: ResolvedFeaturedProduct[] = []
+
+  for (const fp of FEATURED_CUSTOM_PRODUCTS) {
+    const rows = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.sku, fp.sku))
+      .limit(1)
+
+    if (rows.length > 0) {
+      resolved.push({
+        dbId: rows[0].id,
+        sku: fp.sku,
+        mainImageUrl: fp.mainImageUrl,
+      })
+    } else {
+      console.warn(`[customize] featured product SKU ${fp.sku} not found in DB`)
+    }
+  }
+
+  return resolved
+}
+
 export async function runCustomize(
   options: RunCustomizeOptions,
 ): Promise<RunCustomizeOutcome> {
@@ -54,9 +86,14 @@ export async function runCustomize(
   await mkdir(customizedDir, { recursive: true })
 
   const generation = Date.now()
-  clearFeaturedCustomizedImages()
+  const featuredProducts = await resolveFeaturedProducts()
+
+  if (featuredProducts.length === 0) {
+    throw new Error('No featured products found in database.')
+  }
+
   console.error(
-    `[customize] new brand session — regenerating featured images (v=${generation}), replacing any previous files`,
+    `[customize] domain="${options.domain}" — generating ${featuredProducts.length} images (v=${generation})`,
   )
 
   const brandImages = await fetchBrandImages({
@@ -66,17 +103,20 @@ export async function runCustomize(
   })
 
   console.error(
-    `Generating ${FEATURED_CUSTOM_PRODUCTS.length} customized images in parallel (${options.imageLlm.provider}) …`,
+    `Generating ${featuredProducts.length} customized images in parallel (${options.imageLlm.provider}) …`,
     options.companyName ? `brand: ${options.companyName}` : '',
     brandImages.logo ? 'logo: ok' : '',
     brandImages.favicon ? 'favicon: ok' : '',
   )
 
+  // Use domain+sku for filenames so different domains don't overwrite each other
+  const domainSlug = options.domain.replace(/[^a-z0-9.-]/gi, '_')
+
   const settled = await Promise.allSettled(
-    FEATURED_CUSTOM_PRODUCTS.map(async (product) => {
+    featuredProducts.map(async (product) => {
       const png = await generateCustomImage(
         {
-          productId: product.id,
+          productId: product.sku,
           mainImageUrl: product.mainImageUrl,
           companyName: options.companyName,
           logoImage: brandImages.logo,
@@ -85,25 +125,31 @@ export async function runCustomize(
         options.imageLlm,
       )
 
-      const filePath = path.join(customizedDir, `${product.id}.png`)
+      const filename = `${domainSlug}_${product.sku}.png`
+      const filePath = path.join(customizedDir, filename)
       await writeFile(filePath, png)
 
       const publicUrl = customizedImagePublicUrl(
-        product.id,
+        `${domainSlug}_${product.sku}`,
         options.publicApiUrl,
         generation,
       )
-      console.error(`  → ${product.id}: ${publicUrl}`)
-      return { productId: product.id, filePath, publicUrl }
+      console.error(`  → ${product.sku}: ${publicUrl}`)
+      return {
+        productId: product.dbId,
+        sku: product.sku,
+        filePath,
+        publicUrl,
+      }
     }),
   )
 
   const results: RunCustomizeResult[] = []
-  const failures: Array<{ productId: string; message: string }> = []
+  const failures: Array<{ sku: string; message: string }> = []
 
   for (let i = 0; i < settled.length; i++) {
     const outcome = settled[i]
-    const productId = FEATURED_CUSTOM_PRODUCTS[i].id
+    const sku = featuredProducts[i].sku
     if (outcome.status === 'fulfilled') {
       results.push(outcome.value)
     } else {
@@ -111,16 +157,18 @@ export async function runCustomize(
         outcome.reason instanceof Error
           ? outcome.reason.message
           : String(outcome.reason)
-      failures.push({ productId, message })
-      console.error(`[customize] ${productId} failed:`, message)
+      failures.push({ sku, message })
+      console.error(`[customize] ${sku} failed:`, message)
     }
   }
 
   if (results.length > 0) {
-    updateCatalogCustomizedImages(
-      Object.fromEntries(results.map((r) => [r.productId, r.publicUrl])),
+    await upsertBrandCustomizations(
+      options.domain,
+      String(generation),
+      results.map((r) => ({ productId: r.productId, imageUrl: r.publicUrl })),
     )
-    console.error('Updated normalizedProducts.json and normalizedProducts.ts')
+    console.error('Saved customizations to database')
   }
 
   return { generation, results, failures }

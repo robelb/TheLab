@@ -14,7 +14,8 @@ export const productsQuerySchema = z
       .number()
       .int()
       .refine(
-        (n) => PAGE_SIZE_OPTIONS.includes(n as (typeof PAGE_SIZE_OPTIONS)[number]),
+        (n) =>
+          PAGE_SIZE_OPTIONS.includes(n as (typeof PAGE_SIZE_OPTIONS)[number]),
         { message: `limit must be one of: ${PAGE_SIZE_OPTIONS.join(', ')}` },
       )
       .default(20),
@@ -31,6 +32,7 @@ export const productsQuerySchema = z
       }),
     minPrice: optionalPrice,
     maxPrice: optionalPrice,
+    domain: z.string().optional(),
   })
   .refine(
     (data) =>

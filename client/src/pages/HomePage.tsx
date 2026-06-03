@@ -66,6 +66,7 @@ export function HomePage() {
         maxPrice: priceFilterActive
           ? debouncedPriceSelection![1]
           : undefined,
+        domain: session?.domain ?? undefined,
       })
       setProducts(result.data)
       setCategories(result.categories)
@@ -93,6 +94,7 @@ export function HomePage() {
     debouncedSearch,
     debouncedPriceSelection,
     priceFilterActive,
+    session?.domain,
   ])
 
   useEffect(() => {

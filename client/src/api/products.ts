@@ -7,6 +7,7 @@ export async function fetchProducts(params: {
   q?: string
   minPrice?: number
   maxPrice?: number
+  domain?: string
 }): Promise<ProductsResponse> {
   const search = new URLSearchParams({
     page: String(params.page),
@@ -24,6 +25,9 @@ export async function fetchProducts(params: {
   if (params.maxPrice !== undefined && !Number.isNaN(params.maxPrice)) {
     search.set('maxPrice', String(params.maxPrice))
   }
+  if (params.domain) {
+    search.set('domain', params.domain)
+  }
 
   const response = await fetch(`/api/products?${search}`)
   const body = (await response.json()) as ProductsResponse | { error?: string }
@@ -39,8 +43,9 @@ export async function fetchProducts(params: {
   return body as ProductsResponse
 }
 
-export async function fetchProduct(id: string): Promise<Product> {
-  const response = await fetch(`/api/products/${encodeURIComponent(id)}`)
+export async function fetchProduct(id: string, domain?: string): Promise<Product> {
+  const search = domain ? `?domain=${encodeURIComponent(domain)}` : ''
+  const response = await fetch(`/api/products/${encodeURIComponent(id)}${search}`)
   const body = (await response.json()) as Product | { error?: string }
 
   if (!response.ok) {
