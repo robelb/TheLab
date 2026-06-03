@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchProducts } from '@/api/products'
+import { useAuth } from '@/context/AuthContext'
 import { useBrand } from '@/context/BrandContext'
 import { ProductCard } from '@/components/ProductCard'
 import { ProductFilters } from '@/components/ProductFilters'
@@ -11,6 +12,7 @@ import type { PageSize, PriceRange, Product } from '@/types/product'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 
 export function HomePage() {
+  const { session } = useAuth()
   const { brand } = useBrand()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<string[]>([])
@@ -96,6 +98,13 @@ export function HomePage() {
   useEffect(() => {
     void loadProducts()
   }, [loadProducts])
+
+  /** Refetch after domain login so featured products include new customizedImage URLs. */
+  useEffect(() => {
+    if (session?.mode === 'extracted' && session.loggedInAt) {
+      void loadProducts()
+    }
+  }, [session?.mode, session?.loggedInAt, loadProducts])
 
   function changeCategory(cat: string) {
     setFilter(cat)

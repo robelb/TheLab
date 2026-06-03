@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom'
+import { useAuth } from '@/context/AuthContext'
+import { getProductDisplayImage } from '@/lib/productImage'
 import type { Product } from '@/types/product'
 import { AddToCartButton } from '@/components/AddToCartButton'
 import { formatPrice } from '@/utils/format'
@@ -17,7 +19,14 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, index = 0 }: ProductCardProps) {
+  const { session } = useAuth()
   const detailUrl = `/product/${product.id}`
+  const displayImage = getProductDisplayImage(
+    product,
+    session?.customizationGeneration != null
+      ? String(session.customizationGeneration)
+      : session?.loggedInAt,
+  )
 
   return (
     <Card
@@ -37,13 +46,13 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
         <div className="overflow-hidden">
           <div className="relative aspect-4/3 overflow-hidden">
             <img
-              src={product.image}
+              src={displayImage}
               alt=""
               aria-hidden
               className="absolute inset-0 h-full w-full object-cover blur-sm"
             />
             <img
-              src={product.image}
+              src={displayImage}
               alt={product.name}
               className="relative z-10 h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
               loading="lazy"

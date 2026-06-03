@@ -8,6 +8,10 @@ import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { analyze } from '../src/extractor/analyze.js'
+import {
+  missingLlmConfigMessage,
+  resolveLlmConfig,
+} from '../src/extractor/llmConfig.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 config({ path: path.resolve(__dirname, '../.env') })
@@ -34,17 +38,17 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) {
-    console.error('Missing GEMINI_API_KEY. Set it in backend/.env')
+  const llm = resolveLlmConfig()
+  if (!llm) {
+    console.error(missingLlmConfigMessage())
     process.exit(1)
   }
 
-  const model = process.env.GEMINI_MODEL
-
-  console.error(`Fetching and analyzing ${url} ...`)
+  console.error(
+    `Fetching and analyzing ${url} (${llm.provider}, ${llm.model}) ...`,
+  )
   try {
-    const result = await analyze(url, apiKey, model)
+    const result = await analyze(url, llm)
     const json = JSON.stringify(result, null, 2)
 
     if (out) {

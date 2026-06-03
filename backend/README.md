@@ -1,6 +1,6 @@
 # TheLab API
 
-TypeScript Express backend for the shop and brand extraction (Gemini).
+TypeScript Express backend for the shop and brand extraction (OpenAI or Gemini).
 
 ## Setup
 
@@ -8,7 +8,8 @@ TypeScript Express backend for the shop and brand extraction (Gemini).
 cd backend
 pnpm install
 cp .env.example .env
-# Set GEMINI_API_KEY in .env for POST /api/extract
+# Set OPENAI_API_KEY and/or GEMINI_API_KEY in .env for POST /api/extract
+# (OpenAI is preferred when OPENAI_API_KEY is set)
 ```
 
 ## Run
@@ -35,6 +36,20 @@ pnpm extract -- stripe.com --out brand.json
 ```
 
 Extractor code lives in `src/extractor/`.
+
+### CLI (customized product images)
+
+Composites the brand logo into the print area on the two featured products (`mo9518-13`, `mo9243-03`), saves PNGs under `public/customized/`, and updates `customizedImage` in the catalog.
+
+```bash
+pnpm customize
+pnpm customize -- --logo https://example.com/logo.png
+pnpm customize -- --domain biglittlethings.de
+```
+
+Logo resolution: `--logo` → extract `--domain` → `client/src/config/brand.json` (logo URL, else favicon).
+
+Customizer code lives in `src/customizer/`.
 
 ### Products
 

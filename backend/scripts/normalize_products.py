@@ -175,11 +175,32 @@ def normalize_product(product: dict[str, Any]) -> dict[str, Any] | None:
         "category": str(category),
         "categorySlug": slugify(str(category)),
         "image": image,
+        "customizedImage": None,
         "description": description,
         "details": build_details(
             product, variant, sku=sku, stock=stock, currency=currency
         ),
     }
+
+
+PINNED_PRODUCT_IDS = ("mo9518-13", "mo9243-03")
+
+
+def apply_pinned_product_order(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep mo9518-13 first and mo9243-03 second in catalog output."""
+    by_id = {p["id"]: p for p in products}
+    first = by_id.get(PINNED_PRODUCT_IDS[0])
+    second = by_id.get(PINNED_PRODUCT_IDS[1])
+    if not first and not second:
+        return products
+
+    rest = [p for p in products if p["id"] not in PINNED_PRODUCT_IDS]
+    head: list[dict[str, Any]] = []
+    if first:
+        head.append(first)
+    if second:
+        head.append(second)
+    return head + rest
 
 
 def load_catalog(path: Path) -> list[dict[str, Any]]:
@@ -217,6 +238,7 @@ def write_ts_module(path: Path, products: list[dict[str, Any]]) -> None:
         "  category: string\n"
         "  categorySlug: string\n"
         "  image: string\n"
+        "  customizedImage: string | null\n"
         "  description: string\n"
         "  details: string[]\n"
         "}\n\n"
@@ -253,6 +275,8 @@ def main() -> int:
             skipped += 1
             continue
         normalized.append(row)
+
+    normalized = apply_pinned_product_order(normalized)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     json_path = args.output_dir / "normalizedProducts.json"

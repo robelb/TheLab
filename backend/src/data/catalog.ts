@@ -15,21 +15,83 @@ export interface CatalogProduct {
   category: string
   categorySlug: string
   image: string
+  /** Brand-customized product image; null until set for featured products. */
+  customizedImage: string | null
   description: string
   details: string[]
+}
+
+/** First two slots are reserved for later customization work. */
+export const PINNED_PRODUCT_IDS = ['mo9518-13', 'mo9243-03'] as const
+
+type CatalogProductInput = Omit<CatalogProduct, 'customizedImage'> & {
+  customizedImage?: string | null
+}
+
+function hydrateProduct(raw: CatalogProductInput): CatalogProduct {
+  return {
+    ...raw,
+    customizedImage: raw.customizedImage ?? null,
+  }
+}
+
+/** Keep mo9518-13 first and mo9243-03 second whenever they appear in a list. */
+export function applyPinnedProductOrder(
+  products: CatalogProduct[],
+): CatalogProduct[] {
+  const first = products.find((p) => p.id === PINNED_PRODUCT_IDS[0])
+  const second = products.find((p) => p.id === PINNED_PRODUCT_IDS[1])
+  if (!first && !second) return products
+
+  const rest = products.filter(
+    (p) => p.id !== PINNED_PRODUCT_IDS[0] && p.id !== PINNED_PRODUCT_IDS[1],
+  )
+  const head: CatalogProduct[] = []
+  if (first) head.push(first)
+  if (second) head.push(second)
+  return [...head, ...rest]
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const catalogPath = path.join(__dirname, 'normalizedProducts.json')
 
-const raw = readFileSync(catalogPath, 'utf-8')
-export const catalogProducts: CatalogProduct[] = JSON.parse(raw) as CatalogProduct[]
+function readCatalogFromDisk(): CatalogProduct[] {
+  const raw = readFileSync(catalogPath, 'utf-8')
+  const parsed = JSON.parse(raw) as CatalogProductInput[]
+  return applyPinnedProductOrder(parsed.map(hydrateProduct))
+}
 
-export const catalogCategories = [
+let catalogProducts = readCatalogFromDisk()
+let catalogCategories = [
   ...new Set(catalogProducts.map((p) => p.category)),
 ].sort((a, b) => a.localeCompare(b))
+let byId = new Map(catalogProducts.map((p) => [p.id, p]))
 
-const byId = new Map(catalogProducts.map((p) => [p.id, p]))
+/** Patch customizedImage URLs in the in-memory catalog (no full reload). */
+export function patchCatalogCustomizedImages(
+  updates: Record<string, string | null>,
+): void {
+  for (const product of catalogProducts) {
+    if (product.id in updates) {
+      const url = updates[product.id]
+      product.customizedImage = url
+      byId.get(product.id)!.customizedImage = url
+    }
+  }
+}
+
+/** Reload catalog from disk (after customized images are written). */
+export function reloadCatalog(): void {
+  catalogProducts = readCatalogFromDisk()
+  catalogCategories = [
+    ...new Set(catalogProducts.map((p) => p.category)),
+  ].sort((a, b) => a.localeCompare(b))
+  byId = new Map(catalogProducts.map((p) => [p.id, p]))
+}
+
+export function getCatalogCategories(): string[] {
+  return catalogCategories
+}
 
 export function getCatalogProduct(id: string): CatalogProduct | undefined {
   return byId.get(id)
@@ -80,5 +142,5 @@ export function filterCatalogProducts(
     list = list.filter((p) => p.price <= maxPrice)
   }
 
-  return list
+  return applyPinnedProductOrder(list)
 }

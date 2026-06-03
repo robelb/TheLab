@@ -1,13 +1,22 @@
 import cors from 'cors'
 import express from 'express'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { extractRouter } from './routes/extract.js'
 import { productsRouter } from './routes/products.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export function createApp() {
   const app = express()
 
   app.use(cors({ origin: true }))
   app.use(express.json())
+
+  app.use(
+    '/api/customized',
+    express.static(path.join(__dirname, '../public/customized')),
+  )
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true })

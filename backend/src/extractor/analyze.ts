@@ -1,5 +1,11 @@
 import { extractBrandData } from './extract.js'
 import { fetchHtml, normalizeUrl } from './fetchHtml.js'
+import { logExtractFailure } from './logExtractFailure.js'
+import {
+  missingLlmConfigMessage,
+  resolveLlmConfig,
+  type LlmConfig,
+} from './llmConfig.js'
 import type { ExtractionResult } from './types.js'
 
 /** Resolve a possibly-relative URL against the page's base URL. */
@@ -13,16 +19,46 @@ function toAbsolute(maybeUrl: string | null, base: string): string | null {
 }
 
 /**
- * Run the full pipeline: fetch HTML → extract with Gemini → normalize URLs.
+ * Run the full pipeline: fetch HTML → extract with OpenAI or Gemini → normalize URLs.
+ * Uses OpenAI when OPENAI_API_KEY is set; otherwise GEMINI_API_KEY.
  */
 export async function analyze(
   inputUrl: string,
-  apiKey: string,
-  model?: string,
+  llmConfig?: LlmConfig,
 ): Promise<ExtractionResult> {
+  const llm = llmConfig ?? resolveLlmConfig()
+  if (!llm) {
+    throw new Error(missingLlmConfigMessage())
+  }
+
   const url = normalizeUrl(inputUrl)
-  const { finalUrl, html } = await fetchHtml(url)
-  const data = await extractBrandData(html, finalUrl, apiKey, model)
+
+  let finalUrl: string
+  let html: string
+  try {
+    ;({ finalUrl, html } = await fetchHtml(url))
+  } catch (err) {
+    logExtractFailure('fetch', { inputUrl, url }, err)
+    throw err
+  }
+
+  let data: Awaited<ReturnType<typeof extractBrandData>>
+  try {
+    data = await extractBrandData(html, finalUrl, llm)
+  } catch (err) {
+    logExtractFailure(
+      'llm',
+      {
+        inputUrl,
+        finalUrl,
+        provider: llm.provider,
+        model: llm.model,
+        htmlLength: html.length,
+      },
+      err,
+    )
+    throw err
+  }
 
   const logo =
     data.logoType === 'url' ? toAbsolute(data.logo, finalUrl) : data.logo

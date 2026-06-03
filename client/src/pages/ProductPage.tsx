@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { fetchProduct } from '@/api/products'
+import { useAuth } from '@/context/AuthContext'
+import { getProductDisplayImage } from '@/lib/productImage'
 import { AddToCartButton } from '@/components/AddToCartButton'
 import { formatPrice } from '@/utils/format'
 import type { Product } from '@/types/product'
@@ -11,6 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
 export function ProductPage() {
+  const { session } = useAuth()
   const { id } = useParams<{ id: string }>()
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
@@ -67,6 +70,13 @@ export function ProductPage() {
     )
   }
 
+  const displayImage = getProductDisplayImage(
+    product,
+    session?.customizationGeneration != null
+      ? String(session.customizationGeneration)
+      : session?.loggedInAt,
+  )
+
   return (
     <article className="space-y-8">
       <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
@@ -79,13 +89,13 @@ export function ProductPage() {
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
         <div className="relative aspect-4/5 overflow-hidden rounded-brand bg-muted/10 shadow-brand lg:aspect-square">
           <img
-            src={product.image}
+            src={displayImage}
             alt=""
             aria-hidden
             className="absolute inset-0 h-full w-full scale-105 object-cover blur-sm"
           />
           <img
-            src={product.image}
+            src={displayImage}
             alt={product.name}
             className="relative z-10 h-full w-full object-contain p-4 lg:p-6"
           />

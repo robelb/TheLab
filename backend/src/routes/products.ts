@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import {
-  catalogCategories,
   filterCatalogProducts,
+  getCatalogCategories,
   getCatalogPriceBounds,
   getCatalogProduct,
 } from '../data/catalog.js'
@@ -31,7 +31,7 @@ productsRouter.get('/', (req, res) => {
 
   res.json({
     data,
-    categories: catalogCategories,
+    categories: getCatalogCategories(),
     priceRange: getCatalogPriceBounds(),
     pagination: {
       page,

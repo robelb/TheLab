@@ -157,7 +157,8 @@ export function LoginPage() {
             </Button>
 
             <p className="text-center text-xs text-muted-foreground">
-              Custom brands may take 15–30 seconds while we analyze the site.
+              Custom brands may take 30–90 seconds while we analyze the site and
+              apply your logo to featured products.
             </p>
           </form>
         </CardContent>

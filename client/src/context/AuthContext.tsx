@@ -26,6 +26,8 @@ export interface ShopSession {
   domain: string | null
   sourceUrl: string
   loggedInAt: string
+  /** Bumped when customized product images are regenerated for this login. */
+  customizationGeneration?: number
 }
 
 interface AuthContextValue {
@@ -145,15 +147,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         )
       }
 
-      const brand = mapExtractionToBrand(body as ExtractionPayload)
-      console.log('brand', brand)
+      const payload = body as ExtractionPayload
+      const brand = mapExtractionToBrand(payload)
       applyExtractedBrand(brand)
+
+      if (payload.customizationError) {
+        console.warn('[customize]', payload.customizationError)
+      } else if (payload.customizationSkipped) {
+        console.warn('[customize] skipped:', payload.customizationSkipped)
+      } else if (payload.customizedProducts?.length) {
+        console.info(
+          '[customize] updated products:',
+          payload.customizedProducts.map((p) => p.productId).join(', '),
+        )
+      }
 
       const nextSession: ShopSession = {
         mode: 'extracted',
         domain: parsed.data.domain,
         sourceUrl: brand.sourceUrl,
         loggedInAt: new Date().toISOString(),
+        customizationGeneration:
+          payload.customizationGeneration ?? Date.now(),
       }
       saveSession(nextSession)
       setSession(nextSession)

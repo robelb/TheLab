@@ -1,5 +1,10 @@
 import type { BrandConfig } from '@/config/brand.types'
 
+export interface CustomizedProductSummary {
+  productId: string
+  publicUrl: string
+}
+
 /** Subset of backend brand extraction response used by the shop. */
 export interface ExtractionPayload {
   sourceUrl: string
@@ -34,6 +39,10 @@ export interface ExtractionPayload {
     shadows?: string | null
     notes?: string | null
   }
+  customizedProducts?: CustomizedProductSummary[]
+  customizationGeneration?: number
+  customizationSkipped?: string
+  customizationError?: string
 }
 
 const DEFAULT_PRIMARY = '#6366f1'

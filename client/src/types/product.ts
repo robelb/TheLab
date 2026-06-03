@@ -11,6 +11,7 @@ export interface Product {
   category: string
   categorySlug?: string
   image: string
+  customizedImage: string | null
   description: string
   details: string[]
 }

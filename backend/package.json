@@ -9,13 +9,16 @@
     "start": "node dist/index.js",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "extract": "tsx scripts/extract-brand.ts"
+    "extract": "tsx scripts/extract-brand.ts",
+    "customize": "tsx scripts/generate-customized-images.ts"
   },
   "dependencies": {
     "@google/genai": "^1.5.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
+    "openai": "^4.104.0",
+    "sharp": "^0.34.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {
