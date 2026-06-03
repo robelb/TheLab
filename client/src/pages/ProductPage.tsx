@@ -1,8 +1,11 @@
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useProduct } from '@/hooks/use-product'
+import { useRelatedProducts } from '@/hooks/use-related-products'
 import { getProductDisplayImage } from '@/lib/productImage'
 import { AddToCartButton } from '@/components/AddToCartButton'
+import { ProductCard } from '@/components/ProductCard'
+import { ProductCardSkeleton } from '@/components/ProductCardSkeleton'
 import { ProductDetailSkeleton } from '@/components/ProductDetailSkeleton'
 import { formatPrice } from '@/utils/format'
 import { Badge } from '@/components/ui/badge'
@@ -14,10 +17,13 @@ import { ArrowLeft } from 'lucide-react'
 export function ProductPage() {
   const { session } = useAuth()
   const { id } = useParams<{ id: string }>()
+  const domain = session?.domain ?? undefined
 
-  const { data: product, isLoading, error } = useProduct(
+  const { data: product, isLoading, error } = useProduct(id, domain)
+  const { data: related, isLoading: relatedLoading } = useRelatedProducts(
     id,
-    session?.domain ?? undefined,
+    4,
+    domain,
   )
 
   if (isLoading) {
@@ -45,7 +51,7 @@ export function ProductPage() {
   )
 
   return (
-    <article className="space-y-8">
+    <article className="space-y-12">
       <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
         <Link to="/">
           <ArrowLeft className="size-4" />
@@ -108,6 +114,22 @@ export function ProductPage() {
           </Card>
         </div>
       </div>
+
+      <section className="space-y-6">
+        <Separator />
+        <h2 className="font-display text-xl font-semibold tracking-tight">
+          You might also like
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+          {relatedLoading
+            ? Array.from({ length: 4 }, (_, i) => (
+                <ProductCardSkeleton key={i} />
+              ))
+            : related?.map((p, i) => (
+                <ProductCard key={p.id} product={p} index={i} />
+              ))}
+        </div>
+      </section>
     </article>
   )
 }

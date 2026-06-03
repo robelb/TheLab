@@ -11,7 +11,7 @@ import {
   min,
   or,
 } from 'drizzle-orm'
-import { db } from '../../db/index.js'
+import { db, rawSql } from '../../db/index.js'
 import { brandCustomizations, categories, products } from '../../db/schema/index.js'
 
 export interface ProductWithCategory {
@@ -285,5 +285,82 @@ function applyCustomizations(
     const url = customizations.get(p.id)
     return url ? { ...p, customizedImage: url } : p
   })
+}
+
+interface RelatedProductRow {
+  id: string
+  source_id: string
+  variant_id: string | null
+  sku: string
+  name: string
+  tagline: string
+  price: string
+  currency: string
+  stock: number
+  image: string
+  customized_image: string | null
+  description: string
+  details: string[] | null
+  is_featured: boolean
+  created_at: Date
+  updated_at: Date
+  category_name: string
+  category_slug: string
+  similarity: number
+}
+
+function toProductFromRelatedRow(row: RelatedProductRow): ProductWithCategory {
+  return {
+    id: row.id,
+    sourceId: row.source_id,
+    variantId: row.variant_id,
+    sku: row.sku,
+    name: row.name,
+    tagline: row.tagline,
+    price: Number(row.price),
+    currency: row.currency,
+    stock: row.stock,
+    category: row.category_name,
+    categorySlug: row.category_slug,
+    image: row.image,
+    customizedImage: row.customized_image,
+    description: row.description,
+    details: (row.details as string[]) ?? [],
+    isFeatured: row.is_featured,
+  }
+}
+
+export async function getRelatedProducts(
+  productId: string,
+  limit = 4,
+  domain?: string,
+): Promise<ProductWithCategory[]> {
+  const rows = (await rawSql`
+    SELECT
+      p.id, p.source_id, p.variant_id, p.sku, p.name, p.tagline,
+      p.price, p.currency, p.stock, p.image, p.customized_image,
+      p.description, p.details, p.is_featured, p.created_at, p.updated_at,
+      c.name AS category_name, c.slug AS category_slug,
+      1 - (p.embedding <=> ref.embedding) AS similarity
+    FROM products p
+    INNER JOIN categories c ON c.id = p.category_id
+    CROSS JOIN (
+      SELECT embedding FROM products WHERE id = ${productId}::uuid
+    ) ref
+    WHERE p.id != ${productId}::uuid
+      AND p.embedding IS NOT NULL
+      AND ref.embedding IS NOT NULL
+    ORDER BY p.embedding <=> ref.embedding ASC
+    LIMIT ${limit}
+  `) as RelatedProductRow[]
+
+  let data = rows.map(toProductFromRelatedRow)
+
+  if (domain) {
+    const customizations = await getCustomizationMap(domain)
+    data = applyCustomizations(data, customizations)
+  }
+
+  return data
 }
 

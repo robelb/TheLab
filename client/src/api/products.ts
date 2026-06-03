@@ -52,3 +52,17 @@ export async function fetchProduct(
   )
   return data
 }
+
+export async function fetchRelatedProducts(
+  id: string,
+  limit = 4,
+  domain?: string,
+): Promise<Product[]> {
+  const params: Record<string, string | number> = { limit }
+  if (domain) params.domain = domain
+  const { data } = await apiClient.get<{ data: Product[] }>(
+    `/products/${encodeURIComponent(id)}/related`,
+    { params },
+  )
+  return data.data
+}
