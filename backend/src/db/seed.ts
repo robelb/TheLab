@@ -5,26 +5,9 @@ import { fileURLToPath } from 'node:url'
 import { eq, inArray } from 'drizzle-orm'
 import { db } from './index.js'
 import { categories, products } from './schema/index.js'
+import type { RawProductJson } from '../types/product.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-interface RawProduct {
-  id: string
-  sourceId: string
-  variantId: string | null
-  sku: string
-  name: string
-  tagline: string
-  price: number
-  currency: string
-  stock: number
-  category: string
-  categorySlug: string
-  image: string
-  customizedImage: string | null
-  description: string
-  details: string[]
-}
 
 const FEATURED_SKUS = new Set(['MO9518-13', 'MO9243-03'])
 
@@ -32,7 +15,7 @@ async function seed() {
   const catalogPath = path.join(__dirname, '../data/normalizedProducts.json')
   const rawProducts = JSON.parse(
     readFileSync(catalogPath, 'utf-8'),
-  ) as RawProduct[]
+  ) as RawProductJson[]
 
   console.log(`Seeding ${rawProducts.length} products...`)
 

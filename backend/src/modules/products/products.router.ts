@@ -1,12 +1,39 @@
 import { Router } from 'express'
-import { productsQuerySchema } from './products.schema.js'
+import { imageSearchSchema, productsQuerySchema } from './products.schema.js'
 import {
   getProductById,
   getRelatedProducts,
   listProducts,
+  searchByImage,
 } from './products.service.js'
 
 export const productsRouter = Router()
+
+productsRouter.post('/search/image', async (req, res) => {
+  const parsed = imageSearchSchema.safeParse(req.body)
+
+  if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors
+    const formErrors = parsed.error.flatten().formErrors
+    const message =
+      fieldErrors.image?.[0] ??
+      fieldErrors.limit?.[0] ??
+      formErrors[0] ??
+      'Invalid image search request'
+    return res.status(400).json({ error: message })
+  }
+
+  try {
+    const { image, ...rest } = parsed.data
+    const result = await searchByImage({ ...rest, imageBase64: image })
+    res.json(result)
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Image search failed'
+    console.warn('[search] image search failed:', message)
+    res.status(502).json({ error: message })
+  }
+})
 
 productsRouter.get('/', async (req, res) => {
   const parsed = productsQuerySchema.safeParse(req.query)

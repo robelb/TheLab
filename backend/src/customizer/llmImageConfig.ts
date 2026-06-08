@@ -1,11 +1,7 @@
 import { env } from '../config/env.js'
-import type { LlmProvider } from '../extractor/llmConfig.js'
+import type { LlmConfig } from '../types/llm.js'
 
-export interface ImageLlmConfig {
-  provider: LlmProvider
-  apiKey: string
-  model: string
-}
+export type ImageLlmConfig = LlmConfig
 
 export function resolveImageLlmConfig(): ImageLlmConfig | null {
   if (env.OPENAI_API_KEY) {

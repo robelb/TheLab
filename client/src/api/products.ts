@@ -11,6 +11,44 @@ export interface FetchProductsParams {
   domain?: string
 }
 
+export interface ImageSearchParams {
+  /** Data URL (`data:<mime>;base64,...`) or raw base64 string. */
+  image: string
+  category?: string
+  minPrice?: number
+  maxPrice?: number
+  domain?: string
+  limit?: number
+}
+
+export interface ImageSearchResponse extends ProductsResponse {
+  caption: string
+}
+
+export async function searchProductsByImage(
+  params: ImageSearchParams,
+): Promise<ImageSearchResponse> {
+  const body: Record<string, string | number> = { image: params.image }
+
+  if (params.category && params.category !== 'all') {
+    body.category = params.category
+  }
+  if (params.minPrice !== undefined && !Number.isNaN(params.minPrice)) {
+    body.minPrice = params.minPrice
+  }
+  if (params.maxPrice !== undefined && !Number.isNaN(params.maxPrice)) {
+    body.maxPrice = params.maxPrice
+  }
+  if (params.domain) body.domain = params.domain
+  if (params.limit) body.limit = params.limit
+
+  const { data } = await apiClient.post<ImageSearchResponse>(
+    '/products/search/image',
+    body,
+  )
+  return data
+}
+
 export async function fetchProducts(
   params: FetchProductsParams,
 ): Promise<ProductsResponse> {

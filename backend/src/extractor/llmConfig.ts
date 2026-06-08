@@ -1,12 +1,7 @@
 import { env } from '../config/env.js'
+import type { LlmConfig } from '../types/llm.js'
 
-export type LlmProvider = 'openai' | 'gemini'
-
-export interface LlmConfig {
-  provider: LlmProvider
-  apiKey: string
-  model: string
-}
+export type { LlmConfig, LlmProvider } from '../types/llm.js'
 
 export function resolveLlmConfig(): LlmConfig | null {
   if (env.OPENAI_API_KEY) {

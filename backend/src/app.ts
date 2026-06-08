@@ -11,7 +11,8 @@ export function createApp() {
   const app = express()
 
   app.use(cors({ origin: true }))
-  app.use(express.json())
+  // Larger limit so base64-encoded image uploads (image search) fit in the body.
+  app.use(express.json({ limit: '15mb' }))
 
   app.use(
     '/api/customized',

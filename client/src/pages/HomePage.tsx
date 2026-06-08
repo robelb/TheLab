@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useBrand } from '@/context/BrandContext'
 import { useDebounce } from '@/hooks/use-debounce'
-import { useProducts } from '@/hooks/use-products'
+import { useImageSearch, useProducts } from '@/hooks/use-products'
 import { isPriceRangeFiltered } from '@/components/PriceRangeFilter'
+import { ImageSearch } from '@/components/ImageSearch'
 import { ProductCard } from '@/components/ProductCard'
 import { ProductGridSkeleton } from '@/components/ProductCardSkeleton'
 import { ProductFilters } from '@/components/ProductFilters'
@@ -15,6 +16,15 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 const SEARCH_DEBOUNCE_MS = 2000
 const PRICE_DEBOUNCE_MS = 2000
+
+function extractErrorMessage(err: unknown): string {
+  if (err && typeof err === 'object' && 'response' in err) {
+    const data = (err as { response?: { data?: { error?: string } } }).response
+      ?.data
+    if (data?.error) return data.error
+  }
+  return err instanceof Error ? err.message : 'Image search failed'
+}
 
 export function HomePage() {
   const { session } = useAuth()
@@ -28,6 +38,11 @@ export function HomePage() {
   const [priceSelection, setPriceSelection] = useState<
     [number, number] | undefined
   >()
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [imageError, setImageError] = useState<string | null>(null)
+
+  const imageSearch = useImageSearch()
+  const imageActive = imagePreview !== null
 
   const debouncedSearch = useDebounce(search, SEARCH_DEBOUNCE_MS)
   const debouncedPrice = useDebounce(priceSelection, PRICE_DEBOUNCE_MS)
@@ -37,7 +52,7 @@ export function HomePage() {
     debouncedPrice &&
     isPriceRangeFiltered(priceBounds, debouncedPrice)
 
-  const { data, isLoading, isFetching, error } = useProducts({
+  const { data, isLoading, isFetching, isPlaceholderData, error } = useProducts({
     page,
     limit,
     category: category !== 'all' ? category : undefined,
@@ -47,13 +62,18 @@ export function HomePage() {
     domain: session?.domain ?? undefined,
   })
 
-  const products = data?.data ?? []
   const categories = data?.categories ?? []
+  const products = imageActive
+    ? (imageSearch.data?.data ?? [])
+    : (data?.data ?? [])
   const pagination = data?.pagination
-  const total = pagination?.total ?? 0
-  const totalPages = pagination?.totalPages ?? 0
-  const hasNextPage = pagination?.hasNextPage ?? false
-  const hasPrevPage = pagination?.hasPrevPage ?? false
+  // Image search returns a single ranked page — hide pagination while it's active.
+  const total = imageActive
+    ? (imageSearch.data?.data.length ?? 0)
+    : (pagination?.total ?? 0)
+  const totalPages = imageActive ? 0 : (pagination?.totalPages ?? 0)
+  const hasNextPage = imageActive ? false : (pagination?.hasNextPage ?? false)
+  const hasPrevPage = imageActive ? false : (pagination?.hasPrevPage ?? false)
 
   if (data?.priceRange && !priceBounds) {
     setPriceBounds(data.priceRange)
@@ -80,17 +100,45 @@ export function HomePage() {
     setPage(1)
   }
 
+  function runImageSearch(dataUrl: string) {
+    setImageError(null)
+    setImagePreview(dataUrl)
+    setPage(1)
+    imageSearch.mutate({
+      image: dataUrl,
+      category: category !== 'all' ? category : undefined,
+      minPrice: priceFilterActive ? debouncedPrice![0] : undefined,
+      maxPrice: priceFilterActive ? debouncedPrice![1] : undefined,
+      domain: session?.domain ?? undefined,
+    })
+  }
+
+  function clearImageSearch() {
+    setImagePreview(null)
+    setImageError(null)
+    imageSearch.reset()
+  }
+
   function clearAllFilters() {
     setCategory('all')
     setSearch('')
+    clearImageSearch()
     if (priceBounds) {
       setPriceSelection([priceBounds.min, priceBounds.max])
     }
     setPage(1)
   }
 
-  const loading = isLoading || isFetching
+  const loading = imageActive
+    ? imageSearch.isPending
+    : isLoading || isFetching
   const hasSearch = search.trim().length > 0
+  const imageCaption = imageSearch.data?.caption
+  const imageSearchError =
+    imageError ??
+    (imageSearch.isError
+      ? extractErrorMessage(imageSearch.error)
+      : null)
   const priceKey = priceFilterActive
     ? `${debouncedPrice![0]}-${debouncedPrice![1]}`
     : 'full'
@@ -107,7 +155,41 @@ export function HomePage() {
         <p className="text-lg text-muted-foreground">{brand.description}</p>
       </section>
 
-      <ProductSearchBar value={search} onChange={changeSearch} />
+      <div className="flex flex-col gap-3 min-[280px]:flex-row sm:items-center">
+        <ProductSearchBar
+          value={search}
+          onChange={changeSearch}
+          className="flex-1"
+        />
+        <div className="ml-auto">
+        <ImageSearch
+          onSearch={runImageSearch}
+          onClear={clearImageSearch}
+          isSearching={imageSearch.isPending}
+          previewUrl={imagePreview}
+          onError={setImageError}
+        />
+        </div>
+      </div>
+
+      {imageActive && (
+        <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border/50 bg-card/40 px-4 py-2 text-sm">
+          <span className="text-muted-foreground">
+            {imageCaption
+              ? `Visual matches for: “${imageCaption}”`
+              : 'Finding visual matches…'}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-7"
+            onClick={clearImageSearch}
+          >
+            Clear
+          </Button>
+        </div>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,15.5rem)_1fr] lg:items-start">
         <ProductFilters
@@ -134,13 +216,18 @@ export function HomePage() {
             loading={loading}
           />
 
-          {error && (
+          {(imageActive ? imageSearchError : error) && (
             <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {error instanceof Error ? error.message : 'Failed to load products'}
+              {imageActive
+                ? imageSearchError
+                : error instanceof Error
+                  ? error.message
+                  : 'Failed to load products'}
             </p>
           )}
 
-          {isLoading ? (
+          {(imageActive && imageSearch.isPending) ||
+          (!imageActive && (isLoading || (isFetching && isPlaceholderData))) ? (
             <ProductGridSkeleton count={limit} />
           ) : (
             <>
