@@ -51,12 +51,13 @@ export function buildCustomizePrompt(ctx: CustomizePromptContext): string {
 
   // ── Compositing rules ────────────────────────────────────────────────────
   parts.push('Design rules:')
-  parts.push('- Place the brand mark ON the product surface, inside the visible print/branding zone.')
+  parts.push('- Place the brand mark ON the product surface, inside the visible print/branding zone. And remove zone indicator.')
   parts.push('- Match the product\'s perspective, curvature, lighting, and material so it looks printed or embossed.')
   parts.push('- Make sure the mark is clearly visible.')
   parts.push('- Keep the rest of the product photo exactly as it is: same framing, same background, nothing cropped.')
   parts.push('- Do NOT put the logo or any text outside the print area.')
   parts.push('- Do NOT produce a collage, banner, or split layout. Output one product photo with branding on it. same product photo size and aspect ratio.')
+  parts.push('- As much as possible, keep the product photo background as it is and with same scale. if you can add more same color background and make the image ratio square.')
 
   return parts.join('\n')
 }

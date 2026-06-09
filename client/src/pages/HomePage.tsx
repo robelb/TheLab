@@ -52,7 +52,7 @@ export function HomePage() {
     debouncedPrice &&
     isPriceRangeFiltered(priceBounds, debouncedPrice)
 
-  const { data, isLoading, isFetching, isPlaceholderData, error } = useProducts({
+  const { data, isLoading, isFetching, error } = useProducts({
     page,
     limit,
     category: category !== 'all' ? category : undefined,
@@ -226,8 +226,7 @@ export function HomePage() {
             </p>
           )}
 
-          {(imageActive && imageSearch.isPending) ||
-          (!imageActive && (isLoading || (isFetching && isPlaceholderData))) ? (
+          {loading ? (
             <ProductGridSkeleton count={limit} />
           ) : (
             <>
