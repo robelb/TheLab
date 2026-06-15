@@ -1,5 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
-import { SYSTEM_INSTRUCTION } from "./brandPrompt.js";
+import {
+  SYSTEM_INSTRUCTION,
+  buildBrandExtractionUserPrompt,
+} from "../systemInstruction/brandExtraction.js";
 import { geminiResponseSchema } from "./geminiSchema.js";
 import { parseBrandResponse } from "./parseBrandResponse.js";
 import type { BrandData } from "./types.js";
@@ -11,7 +14,7 @@ export async function extractBrandDataGemini(
   model: string
 ): Promise<BrandData> {
   const ai = new GoogleGenAI({ apiKey });
-  const prompt = `Source URL: ${pageUrl}\n\nHTML:\n${html}`;
+  const prompt = buildBrandExtractionUserPrompt(pageUrl, html);
 
   const response = await ai.models.generateContent({
     model,

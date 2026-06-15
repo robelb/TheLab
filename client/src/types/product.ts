@@ -11,9 +11,11 @@ export interface Product {
   category: string
   categorySlug?: string
   image: string
+  images?: string[]
   customizedImage: string | null
   description: string
   details: string[]
+  isFeatured?: boolean
 }
 
 export interface ProductsPagination {

@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { cn } from '@/lib/utils'
 import { useProduct } from '@/hooks/use-product'
 import { useRelatedProducts } from '@/hooks/use-related-products'
 import { getProductDisplayImage } from '@/lib/productImage'
@@ -25,6 +27,7 @@ export function ProductPage() {
     4,
     domain,
   )
+  const [activeIndex, setActiveIndex] = useState(0)
 
   if (isLoading) {
     return <ProductDetailSkeleton />
@@ -43,12 +46,21 @@ export function ProductPage() {
     )
   }
 
-  const displayImage = getProductDisplayImage(
+  const coverImage = getProductDisplayImage(
     product,
     session?.customizationGeneration != null
       ? String(session.customizationGeneration)
       : session?.loggedInAt,
   )
+
+  // Gallery: the customized/cover image first, then any additional images.
+  const gallery =
+    product.images && product.images.length > 0
+      ? product.images
+      : [product.image]
+  // Index 0 keeps the customization overlay; other slots show raw images.
+  const safeIndex = Math.min(activeIndex, gallery.length - 1)
+  const activeImage = safeIndex === 0 ? coverImage : gallery[safeIndex]
 
   return (
     <article className="space-y-12">
@@ -60,18 +72,45 @@ export function ProductPage() {
       </Button>
 
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
-        <div className="relative aspect-4/5 overflow-hidden rounded-brand bg-muted/10 shadow-brand lg:aspect-square">
-          <img
-            src={displayImage}
-            alt=""
-            aria-hidden
-            className="absolute inset-0 h-full w-full scale-105 object-cover blur-sm"
-          />
-          <img
-            src={displayImage}
-            alt={product.name}
-            className="relative z-10 h-full w-full object-contain p-4 lg:p-6"
-          />
+        <div className="space-y-3">
+          <div className="relative aspect-4/5 overflow-hidden rounded-brand bg-muted/10 shadow-brand lg:aspect-square">
+            <img
+              src={activeImage}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 h-full w-full scale-105 object-cover blur-sm"
+            />
+            <img
+              src={activeImage}
+              alt={product.name}
+              className="relative z-10 h-full w-full object-contain p-4 lg:p-6"
+            />
+          </div>
+
+          {gallery.length > 1 && (
+            <div className="grid grid-cols-5 gap-2">
+              {gallery.map((src, i) => (
+                <button
+                  key={`${src}-${i}`}
+                  type="button"
+                  onClick={() => setActiveIndex(i)}
+                  aria-label={`View image ${i + 1}`}
+                  className={cn(
+                    'relative aspect-square overflow-hidden rounded-brand border bg-muted/10 transition-colors',
+                    i === safeIndex
+                      ? 'border-primary ring-1 ring-primary'
+                      : 'border-border/40 hover:border-primary/50',
+                  )}
+                >
+                  <img
+                    src={i === 0 ? coverImage : src}
+                    alt=""
+                    className="h-full w-full object-contain p-1"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-5">

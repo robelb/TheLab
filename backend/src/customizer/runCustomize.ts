@@ -6,6 +6,10 @@ import { db } from '../db/index.js'
 import { products } from '../db/schema/index.js'
 import { FEATURED_CUSTOM_PRODUCTS } from './featuredProducts.js'
 import { fetchBrandImages } from './fetchBrandImages.js'
+import {
+  isSupabaseStorageConfigured,
+  uploadToSupabase,
+} from '../services/supabaseStorage.js'
 import { generateCustomImage } from './generateCustomImage.js'
 import type { ImageLlmConfig } from './llmImageConfig.js'
 import { resolveLogoUrl } from './resolveLogoUrl.js'
@@ -46,28 +50,34 @@ interface ResolvedFeaturedProduct {
   mainImageUrl: string
 }
 
+/** Optional per-SKU image overrides (preferred print-position mockups). */
+const FEATURED_IMAGE_OVERRIDES = new Map<string, string>(
+  FEATURED_CUSTOM_PRODUCTS.map((p) => [p.sku, p.mainImageUrl]),
+)
+
+/**
+ * All featured products to customize, sourced from the DB (`is_featured`).
+ * Uses each product's catalog image, unless a pinned print-position image
+ * exists for that SKU. This way every featured product gets branded — even
+ * ones not in the hardcoded list.
+ */
 async function resolveFeaturedProducts(): Promise<ResolvedFeaturedProduct[]> {
-  const resolved: ResolvedFeaturedProduct[] = []
+  const rows = await db
+    .select({
+      id: products.id,
+      sku: products.sku,
+      image: products.image,
+    })
+    .from(products)
+    .where(eq(products.isFeatured, true))
 
-  for (const fp of FEATURED_CUSTOM_PRODUCTS) {
-    const rows = await db
-      .select({ id: products.id })
-      .from(products)
-      .where(eq(products.sku, fp.sku))
-      .limit(1)
-
-    if (rows.length > 0) {
-      resolved.push({
-        dbId: rows[0].id,
-        sku: fp.sku,
-        mainImageUrl: fp.mainImageUrl,
-      })
-    } else {
-      console.warn(`[customize] featured product SKU ${fp.sku} not found in DB`)
-    }
-  }
-
-  return resolved
+  return rows
+    .map((r) => ({
+      dbId: r.id,
+      sku: r.sku,
+      mainImageUrl: FEATURED_IMAGE_OVERRIDES.get(r.sku) ?? r.image,
+    }))
+    .filter((p) => Boolean(p.mainImageUrl))
 }
 
 export async function runCustomize(
@@ -83,7 +93,8 @@ export async function runCustomize(
     )
   }
 
-  await mkdir(customizedDir, { recursive: true })
+  const useSupabase = isSupabaseStorageConfigured()
+  if (!useSupabase) await mkdir(customizedDir, { recursive: true })
 
   const generation = Date.now()
   const featuredProducts = await resolveFeaturedProducts()
@@ -125,15 +136,30 @@ export async function runCustomize(
         options.imageLlm,
       )
 
-      const filename = `${domainSlug}_${product.sku}.png`
-      const filePath = path.join(customizedDir, filename)
-      await writeFile(filePath, png)
+      const baseName = `${domainSlug}_${product.sku}`
 
-      const publicUrl = customizedImagePublicUrl(
-        `${domainSlug}_${product.sku}`,
-        options.publicApiUrl,
-        generation,
-      )
+      // Login-time customized images live under `custome/` in Supabase; the
+      // deterministic path + upsert avoids orphans (the frontend cache-busts
+      // with the generation key). Falls back to local disk when unconfigured.
+      let publicUrl: string
+      let filePath = ''
+      if (useSupabase) {
+        publicUrl = await uploadToSupabase(png, {
+          contentType: 'image/png',
+          path: `custome/${baseName}.png`,
+          upsert: true,
+        })
+      } else {
+        const filename = `${baseName}.png`
+        filePath = path.join(customizedDir, filename)
+        await writeFile(filePath, png)
+        publicUrl = customizedImagePublicUrl(
+          baseName,
+          options.publicApiUrl,
+          generation,
+        )
+      }
+
       console.error(`  → ${product.sku}: ${publicUrl}`)
       return {
         productId: product.dbId,

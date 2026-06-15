@@ -24,6 +24,9 @@ export interface BrandConfig {
   secondaryColor: string
   otherColors: string[]
   fonts: string[]
+  /** Optional brand signals used by campaign assembly (extracted brands only). */
+  industry?: string | null
+  keywords?: string[]
   customization: BrandCustomization
 }
 

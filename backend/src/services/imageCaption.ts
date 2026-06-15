@@ -5,13 +5,10 @@ import {
   AI_SAFE_IMAGE_MIMES,
   canonicalizeImageMime,
 } from '../customizer/normalizeImageForAi.js'
-
-const CAPTION_INSTRUCTION =
-  'You are a product search assistant for an e-commerce catalog. ' +
-  'Describe the single main product shown in the image as a concise search query. ' +
-  'Mention the product type, color, material, and notable style features. ' +
-  'Do not mention the background, people, watermarks, or logos. ' +
-  'Respond with one short phrase only — no preamble, no punctuation at the end.'
+import {
+  CAPTION_SYSTEM_INSTRUCTION,
+  CAPTION_USER_PROMPT,
+} from '../systemInstruction/imageCaption.js'
 
 /**
  * Validate and canonicalize a user-supplied image MIME for multimodal input.
@@ -41,11 +38,11 @@ async function captionWithGemini(
         role: 'user',
         parts: [
           { inlineData: { mimeType, data: base64 } },
-          { text: 'Describe this product for a catalog search.' },
+          { text: CAPTION_USER_PROMPT },
         ],
       },
     ],
-    config: { systemInstruction: CAPTION_INSTRUCTION, temperature: 0 },
+    config: { systemInstruction: CAPTION_SYSTEM_INSTRUCTION, temperature: 0 },
   })
 
   const text = response.text
@@ -64,13 +61,13 @@ async function captionWithOpenAI(
     model,
     temperature: 0,
     messages: [
-      { role: 'system', content: CAPTION_INSTRUCTION },
+      { role: 'system', content: CAPTION_SYSTEM_INSTRUCTION },
       {
         role: 'user',
         content: [
           {
             type: 'text',
-            text: 'Describe this product for a catalog search.',
+            text: CAPTION_USER_PROMPT,
           },
           {
             type: 'image_url',

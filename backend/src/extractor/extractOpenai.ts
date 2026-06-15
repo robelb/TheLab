@@ -1,5 +1,8 @@
 import OpenAI from "openai";
-import { SYSTEM_INSTRUCTION } from "./brandPrompt.js";
+import {
+  SYSTEM_INSTRUCTION,
+  buildBrandExtractionUserPrompt,
+} from "../systemInstruction/brandExtraction.js";
 import { openaiBrandJsonSchema } from "./openaiBrandSchema.js";
 import { parseBrandResponse } from "./parseBrandResponse.js";
 import type { BrandData } from "./types.js";
@@ -11,7 +14,7 @@ export async function extractBrandDataOpenAI(
   model: string
 ): Promise<BrandData> {
   const client = new OpenAI({ apiKey });
-  const prompt = `Source URL: ${pageUrl}\n\nHTML:\n${html}`;
+  const prompt = buildBrandExtractionUserPrompt(pageUrl, html);
 
   const response = await client.chat.completions.create({
     model,

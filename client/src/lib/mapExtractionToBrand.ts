@@ -11,6 +11,8 @@ export interface ExtractionPayload {
   companyName: string | null
   tagline: string | null
   description: string | null
+  industry?: string | null
+  keywords?: string[]
   logo: string | null
   logoType: string | null
   favicon: string | null
@@ -126,6 +128,8 @@ export function mapExtractionToBrand(data: ExtractionPayload): BrandConfig {
     secondaryColor: pageBackground,
     otherColors,
     fonts: fonts.length > 0 ? fonts : ['system-ui'],
+    industry: data.industry ?? null,
+    keywords: data.keywords ?? [],
     customization: {
       borderRadius:
         customization.borderRadius ??

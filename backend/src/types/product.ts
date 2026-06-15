@@ -12,6 +12,7 @@ export interface ProductWithCategory {
   category: string
   categorySlug: string
   image: string
+  images: string[]
   customizedImage: string | null
   description: string
   details: string[]
@@ -31,6 +32,7 @@ export interface ProductRow {
   stock: number
   categoryId: string
   image: string
+  images: string[] | null
   customizedImage: string | null
   description: string
   details: string[] | null
@@ -53,6 +55,7 @@ export interface RawProductRow {
   currency: string
   stock: number
   image: string
+  images: string[] | null
   customized_image: string | null
   description: string
   details: string[] | null
@@ -86,6 +89,8 @@ export interface ListProductsParams {
   page: number
   limit: number
   category?: string
+  /** Multi-select category filter (names or slugs). Takes precedence over `category`. */
+  categories?: string[]
   q?: string
   minPrice?: number
   maxPrice?: number
@@ -120,6 +125,7 @@ export function toProductWithCategory(row: ProductRow): ProductWithCategory {
     category: row.categoryName,
     categorySlug: row.categorySlug,
     image: row.image,
+    images: row.images?.length ? row.images : [row.image],
     customizedImage: row.customizedImage,
     description: row.description,
     details: row.details ?? [],
@@ -140,6 +146,7 @@ export function rawRowToProductRow(row: RawProductRow): ProductRow {
     stock: row.stock,
     categoryId: '',
     image: row.image,
+    images: row.images,
     customizedImage: row.customized_image,
     description: row.description,
     details: row.details,

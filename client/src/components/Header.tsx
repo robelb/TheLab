@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LogOut, ShoppingBag, Palette } from 'lucide-react'
+import { LayoutDashboard, LogOut, ShoppingBag } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useBrand } from '@/context/BrandContext'
 import { useCart } from '@/context/CartContext'
@@ -38,10 +38,10 @@ export function Header() {
           <NavLink to="/" end className={navLinkClass}>
             Shop
           </NavLink>
-          <NavLink to="/brand" className={navLinkClass}>
+          <NavLink to="/dashboard" className={navLinkClass}>
             <span className="flex items-center gap-1.5">
-              <Palette className="size-4" />
-              <span className="hidden sm:inline">Brand</span>
+              <LayoutDashboard className="size-4" />
+              <span className="hidden sm:inline">Dashboard</span>
             </span>
           </NavLink>
           <NavLink to="/cart" className={navLinkClass}>

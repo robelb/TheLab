@@ -1,10 +1,13 @@
 import { apiClient } from '@/lib/api-client'
 import type { Product, ProductsResponse, PageSize } from '@/types/product'
+import type { ProductInput } from '@/types/dashboard'
 
 export interface FetchProductsParams {
   page: number
   limit: PageSize
   category?: string
+  /** Multi-select category filter (names). Sent as a comma-separated list. */
+  categories?: string[]
   q?: string
   minPrice?: number
   maxPrice?: number
@@ -60,6 +63,9 @@ export async function fetchProducts(
   if (params.category && params.category !== 'all') {
     search.category = params.category
   }
+  if (params.categories?.length) {
+    search.categories = params.categories.join(',')
+  }
   if (params.q?.trim()) {
     search.q = params.q.trim()
   }
@@ -89,6 +95,26 @@ export async function fetchProduct(
     { params },
   )
   return data
+}
+
+export async function createProduct(input: ProductInput): Promise<Product> {
+  const { data } = await apiClient.post<Product>('/products', input)
+  return data
+}
+
+export async function updateProduct(
+  id: string,
+  input: Partial<ProductInput>,
+): Promise<Product> {
+  const { data } = await apiClient.patch<Product>(
+    `/products/${encodeURIComponent(id)}`,
+    input,
+  )
+  return data
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  await apiClient.delete(`/products/${encodeURIComponent(id)}`)
 }
 
 export async function fetchRelatedProducts(

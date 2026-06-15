@@ -3,7 +3,7 @@ import { generateCustomImageOpenAI } from './generateOpenai.js'
 import {
   buildCustomizePrompt,
   type CustomizePromptContext,
-} from './customizePrompt.js'
+} from '../systemInstruction/brandCustomize.js'
 import type { CustomizeAiContext } from './logCustomizeAi.js'
 import type { ImageLlmConfig } from './llmImageConfig.js'
 import { fetchImage, fetchImageOptional, type FetchedImage } from './fetchImage.js'

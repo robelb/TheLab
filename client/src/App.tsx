@@ -10,6 +10,13 @@ import { ProductPage } from '@/pages/ProductPage'
 import { CartPage } from '@/pages/CartPage'
 import { CheckoutPage } from '@/pages/CheckoutPage'
 import { BrandSettingsPage } from '@/pages/BrandSettingsPage'
+import { DashboardLayout } from '@/pages/dashboard/DashboardLayout'
+import { DashboardHomePage } from '@/pages/dashboard/DashboardHomePage'
+import { ProductsAdminPage } from '@/pages/dashboard/ProductsAdminPage'
+import { ProductDetailPage } from '@/pages/dashboard/ProductDetailPage'
+import { BrandingPage } from '@/pages/dashboard/BrandingPage'
+import { CampaignsPage } from '@/pages/dashboard/CampaignsPage'
+import { CampaignDetailPage } from '@/pages/dashboard/CampaignDetailPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { queryClient } from '@/lib/query-client'
 
@@ -34,6 +41,21 @@ export default function App() {
                   <Route path="cart" element={<CartPage />} />
                   <Route path="checkout" element={<CheckoutPage />} />
                   <Route path="brand" element={<BrandSettingsPage />} />
+                </Route>
+                <Route
+                  path="/dashboard"
+                  element={
+                    <RequireAuth>
+                      <DashboardLayout />
+                    </RequireAuth>
+                  }
+                >
+                  <Route index element={<DashboardHomePage />} />
+                  <Route path="products" element={<ProductsAdminPage />} />
+                  <Route path="products/:id" element={<ProductDetailPage />} />
+                  <Route path="campaign" element={<CampaignsPage />} />
+                  <Route path="campaign/:id" element={<CampaignDetailPage />} />
+                  <Route path="branding" element={<BrandingPage />} />
                 </Route>
               </Routes>
             </CartProvider>

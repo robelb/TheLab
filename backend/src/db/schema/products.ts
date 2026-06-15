@@ -43,6 +43,7 @@ export const products = pgTable(
       .notNull()
       .references(() => categories.id),
     image: text('image').notNull(),
+    images: jsonb('images').$type<string[]>().notNull().default([]),
     customizedImage: text('customized_image'),
     description: text('description').notNull().default(''),
     details: jsonb('details').$type<string[]>().notNull().default([]),

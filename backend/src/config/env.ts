@@ -22,4 +22,11 @@ export const env = {
 
   PUBLIC_API_URL:
     process.env.PUBLIC_API_URL?.trim() || 'http://localhost:3001',
+
+  // Supabase Storage — when configured, uploaded/generated images are stored
+  // there instead of on local disk. Leave blank to keep local storage.
+  SUPABASE_URL: process.env.SUPABASE_URL?.trim() ?? '',
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? '',
+  SUPABASE_STORAGE_BUCKET:
+    process.env.SUPABASE_STORAGE_BUCKET?.trim() || 'product-images',
 } as const

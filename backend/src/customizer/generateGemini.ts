@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai'
-import { buildCustomizePrompt } from './customizePrompt.js'
+import { buildCustomizePrompt } from '../systemInstruction/brandCustomize.js'
 import type { FetchedImage } from './fetchImage.js'
 import type { BrandImagesForEdit } from './generateOpenai.js'
 import {

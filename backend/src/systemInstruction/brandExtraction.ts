@@ -1,3 +1,4 @@
+/** System instruction for the brand/design-token extraction model. */
 export const SYSTEM_INSTRUCTION = `You are a brand and design-system analyst.
 You receive the raw HTML (including <head>, meta tags, <style>, and <link> tags) of a website.
 Extract the brand identity and visual design tokens.
@@ -40,4 +41,12 @@ COLOR ROLES (critical — do not swap canvas and accent):
 - footerText: the copyright/footer line, e.g. "© 2026 Company, Inc.".
 - keywords: from <meta name="keywords">; language from <html lang>; themeColor from <meta name="theme-color">.
 - Return URLs exactly as they appear in the HTML (relative or absolute); do not invent them.
-- If something cannot be determined, return null (or an empty array for list fields). Never guess wildly.`;
+- If something cannot be determined, return null (or an empty array for list fields). Never guess wildly.`
+
+/** User message wrapping the page URL + HTML the model should analyse. */
+export function buildBrandExtractionUserPrompt(
+  pageUrl: string,
+  html: string,
+): string {
+  return `Source URL: ${pageUrl}\n\nHTML:\n${html}`
+}
