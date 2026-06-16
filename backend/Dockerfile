@@ -1,29 +1,32 @@
-FROM node:22-alpine AS base
-WORKDIR /app
-RUN corepack enable
+# Build stage
+FROM node:20-alpine AS builder
 
-FROM base AS deps
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@10.26.1 --activate
+
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-FROM base AS build
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm build
+RUN pnpm run build
 
-FROM base AS prod-deps
+# Production stage
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@10.26.1 --activate
+
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 
-FROM base AS runner
-ENV NODE_ENV=production
-
-COPY --from=prod-deps /app/node_modules ./node_modules
-COPY package.json ./
-COPY --from=build /app/dist ./dist
+COPY --from=builder /app/dist ./dist
 COPY src/data/*.json ./dist/data/
+
 RUN mkdir -p public/uploads public/customized && chown -R node:node /app
 
+ENV NODE_ENV=production
 USER node
 EXPOSE 3001
 
