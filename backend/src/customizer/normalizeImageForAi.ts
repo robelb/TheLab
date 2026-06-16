@@ -95,6 +95,33 @@ export function resolveImageMime(
   return 'image/png'
 }
 
+/**
+ * Max edge (px) for raster inputs sent to the image APIs. Token cost scales with
+ * input dimensions, not file compression — larger images just add tokens for
+ * detail the 1024-output models discard. Logos/favicons are usually smaller and
+ * are left untouched (withoutEnlargement).
+ */
+const MAX_AI_INPUT_EDGE = 1024
+
+async function downscaleForAi(buffer: Buffer, mimeType: string): Promise<Buffer> {
+  // GIFs may be animated; resizing would flatten them, so leave as-is.
+  if (mimeType === 'image/gif') return buffer
+
+  const { default: sharp } = await import('sharp')
+  const meta = await sharp(buffer).metadata()
+  const longest = Math.max(meta.width ?? 0, meta.height ?? 0)
+  if (longest <= MAX_AI_INPUT_EDGE) return buffer
+
+  // No explicit format call → sharp re-encodes in the original format,
+  // preserving PNG/WebP transparency for logos.
+  return sharp(buffer)
+    .resize(MAX_AI_INPUT_EDGE, MAX_AI_INPUT_EDGE, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .toBuffer()
+}
+
 async function convertSvgToPng(buffer: Buffer): Promise<Buffer> {
   const { default: sharp } = await import('sharp')
   return sharp(buffer, { density: 300 })
@@ -147,11 +174,13 @@ export async function normalizeImageForAi(
   )
 
   if (AI_SAFE_IMAGE_MIMES.has(mimeType)) {
+    const downscaled = await downscaleForAi(image.buffer, mimeType)
+    const resized = downscaled !== image.buffer
     return toFetched(
-      image.buffer,
+      downscaled,
       mimeType,
       originalMimeType,
-      mimeType !== originalMimeType,
+      resized || mimeType !== originalMimeType,
     )
   }
 

@@ -11,7 +11,7 @@ const BROWSER_HEADERS: Record<string, string> = {
 };
 
 /**
- * Turn user input like "airbnb.com" into a fully-qualified https URL.
+ * Turn user input like "biglittlethings.de" into a fully-qualified https URL.
  */
 export function normalizeUrl(input: string): string {
   const trimmed = input.trim();

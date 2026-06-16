@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * CLI: extract brand JSON for a URL (stdout or --out file).
- * Usage: pnpm extract -- airbnb.com [--out result.json]
+ * Usage: pnpm extract -- biglittlethings.de [--out result.json]
  */
 import { config } from 'dotenv'
 import { writeFile } from 'node:fs/promises'
@@ -34,7 +34,7 @@ async function main(): Promise<void> {
 
   if (!url) {
     console.error('Usage: pnpm extract -- <url> [--out result.json]')
-    console.error('Example: pnpm extract -- airbnb.com')
+    console.error('Example: pnpm extract -- biglittlethings.de')
     process.exit(1)
   }
 

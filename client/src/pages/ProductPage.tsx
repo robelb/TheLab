@@ -83,7 +83,7 @@ export function ProductPage() {
             <img
               src={activeImage}
               alt={product.name}
-              className="relative z-10 h-full w-full object-contain p-4 lg:p-6"
+              className="relative z-10 h-full w-full object-contain"
             />
           </div>
 

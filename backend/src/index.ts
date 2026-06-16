@@ -7,5 +7,5 @@ app.listen(env.PORT, () => {
   console.log(`TheLab API http://localhost:${env.PORT}`)
   console.log('  GET  /api/health')
   console.log('  GET  /api/products?page=1&limit=20')
-  console.log('  POST /api/extract  { "domain": "airbnb.com" }')
+  console.log('  POST /api/extract  { "domain": "biglittlethings.de" }')
 })

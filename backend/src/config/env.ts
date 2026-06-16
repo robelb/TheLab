@@ -13,6 +13,8 @@ export const env = {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY?.trim() ?? '',
   OPENAI_MODEL: process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini',
   OPENAI_IMAGE_MODEL: process.env.OPENAI_IMAGE_MODEL?.trim() || 'gpt-image-1',
+  OPENAI_EMBEDDING_MODEL:
+    process.env.OPENAI_EMBEDDING_MODEL?.trim() || 'text-embedding-3-small',
 
   GEMINI_API_KEY: process.env.GEMINI_API_KEY?.trim() ?? '',
   GEMINI_MODEL: process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash',

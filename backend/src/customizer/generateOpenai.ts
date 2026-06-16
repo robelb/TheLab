@@ -28,8 +28,8 @@ export async function generateCustomImageOpenAI(
     image: imageLabels,
     prompt: brand.prompt,
     response_format: 'b64_json' as const,
-    quality: 'high' as const,
-    size: 'auto' as const,
+    quality: 'low' as const,
+    size: '1024x1024' as const,
   }
 
   logCustomizeAiRequest('openai', context, {
@@ -85,8 +85,8 @@ export async function generateCustomImageOpenAI(
       image: files,
       prompt: brand.prompt,
       response_format: 'b64_json',
-      quality: 'high',
-      size: 'auto',
+      quality: 'low',
+      size: '1024x1024',
     })
 
     const first = response.data?.[0]

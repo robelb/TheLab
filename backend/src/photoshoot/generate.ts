@@ -93,7 +93,7 @@ async function generateOpenAI(
     image: files,
     prompt,
     n: 1,
-    quality: 'high',
+    quality: 'low',
     size: options.size ?? '1024x1024',
   })
 

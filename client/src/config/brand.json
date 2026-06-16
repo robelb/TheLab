@@ -2,25 +2,29 @@
   "defaultBrandId": "biglittlethings",
   "brands": [
     {
-      "id": "biglittlethings",
-      "label": "Biglittlethings",
-      "sourceUrl": "https://www.biglittlethings.de/",
-      "companyName": "Big Little Things",
-      "description": "Big Little Things",
-      "logo": null,
-      "logoType": null,
-      "favicon": "https://a0.muscache.com/airbnb/static/icons/favicon.ico",
-      "primaryColor": "#ff385c",
-      "secondaryColor": "#ffffff",
-      "otherColors": ["#222222", "#ffffff", "#717171"],
-      "fonts": ["Cereal", "Circular", "system-ui", "sans-serif"],
+      "sourceUrl": "https://biglittlethings.de/",
+      "companyName": "big little things",
+      "description": "Mitarbeitergeschenke individuell zusammengestellt für Ihre Kolleg:innen. Geschenkboxen mit lokalen Produkten. Persönliche Beratung.",
+      "logo": "https://biglittlethings.de/wp-content/uploads/2021/03/big-things-logo.png",
+      "logoType": "url",
+      "favicon": "https://biglittlethings.de/wp-content/uploads/2021/05/cropped-FavIcon-1-32x32.jpg",
+      "primaryColor": "#FE522A",
+      "secondaryColor": "#FFFFFF",
+      "otherColors": [
+        "#000000",
+        "#FFFFFF",
+        "#abb8c3"
+      ],
+      "fonts": [
+        "Metropolis"
+      ],
       "customization": {
-        "borderRadius": "12px",
-        "spacing": "8px",
-        "buttonStyle": "pill",
+        "borderRadius": "8px",
+        "spacing": "1rem",
+        "buttonStyle": "rounded",
         "theme": "light",
-        "shadows": "0 6px 16px rgba(0,0,0,0.12)",
-        "notes": "Warm hospitality marketplace"
+        "shadows": "1px 1px 40px rgba(0, 0, 0, 0.12)",
+        "notes": "The site uses a custom font 'Metropolis' and a primary brand color of #FE522A. The design is built with Elementor."
       }
     }
   ]

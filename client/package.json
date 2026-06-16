@@ -8,6 +8,7 @@
     "dev:web": "vite",
     "dev:api": "pnpm --dir ../backend dev",
     "build": "tsc -b && vite build",
+    "deploy": "pnpm build && firebase deploy --only hosting",
     "preview": "vite preview"
   },
   "dependencies": {

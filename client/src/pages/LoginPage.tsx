@@ -79,7 +79,7 @@ export function LoginPage() {
             Welcome to the shop
           </CardTitle>
           <CardDescription>
-            Browse with the Airbnb demo theme, or enter a company domain to
+            Browse with the BTL demo theme, or enter a company domain to
             extract and apply their brand.
           </CardDescription>
         </CardHeader>
@@ -91,7 +91,7 @@ export function LoginPage() {
             disabled={loading}
             onClick={handleDefaultLogin}
           >
-            Continue with Airbnb demo
+            Continue with BLT demo
           </Button>
 
           <div className="relative">
