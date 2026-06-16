@@ -1,0 +1,15 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+*.md
+.DS_Store
+public
+scripts
+drizzle
+tsconfig.tsbuildinfo
+backend.zip
+*.log

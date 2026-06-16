@@ -1,0 +1,17 @@
+services:
+  api:
+    build: .
+    ports:
+      - "${PORT:-3001}:3001"
+    env_file:
+      - .env
+    environment:
+      PORT: 3001
+    volumes:
+      - uploads_data:/app/public/uploads
+      - customized_data:/app/public/customized
+    restart: unless-stopped
+
+volumes:
+  uploads_data:
+  customized_data:
