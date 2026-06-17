@@ -1,5 +1,8 @@
 # Build stage
-FROM node:20-alpine AS builder
+# Node 22+ is required: @supabase/supabase-js initializes a Realtime client that
+# needs a native global WebSocket, which Node 20 lacks (createClient throws and
+# image storage silently falls back to local disk).
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -12,7 +15,7 @@ COPY . .
 RUN pnpm run build
 
 # Production stage
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
