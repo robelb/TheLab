@@ -13,6 +13,14 @@ app.listen(env.PORT, '0.0.0.0', () => {
     console.log(`  Image storage: Supabase (bucket=${env.SUPABASE_STORAGE_BUCKET})`)
   } else {
     console.log(`  Image storage: local disk (PUBLIC_API_URL=${env.PUBLIC_API_URL})`)
+    // Show which Supabase vars are present so a misconfigured deploy is obvious.
+    // Values are never printed — only whether each one is set.
+    const seen = (v: string) => (v ? 'set' : 'MISSING')
+    console.log(
+      `  Supabase vars: SUPABASE_URL=${seen(env.SUPABASE_URL)} ` +
+        `SUPABASE_SERVICE_ROLE_KEY=${seen(env.SUPABASE_SERVICE_ROLE_KEY)} ` +
+        `SUPABASE_STORAGE_BUCKET=${seen(env.SUPABASE_STORAGE_BUCKET)}`,
+    )
   }
   console.log('  GET  /api/health')
   console.log('  GET  /api/products?page=1&limit=20')
