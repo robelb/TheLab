@@ -1,4 +1,9 @@
 /** Product shape returned by the API (camelCase, joined with category). */
+import {
+  normalizePublicImageUrl,
+  normalizePublicImageUrls,
+} from '../lib/publicImageUrl.js'
+
 export interface ProductWithCategory {
   id: string
   sourceId: string
@@ -124,9 +129,11 @@ export function toProductWithCategory(row: ProductRow): ProductWithCategory {
     stock: row.stock,
     category: row.categoryName,
     categorySlug: row.categorySlug,
-    image: row.image,
-    images: row.images?.length ? row.images : [row.image],
-    customizedImage: row.customizedImage,
+    image: normalizePublicImageUrl(row.image) ?? row.image,
+    images: normalizePublicImageUrls(
+      row.images?.length ? row.images : [row.image],
+    ),
+    customizedImage: normalizePublicImageUrl(row.customizedImage),
     description: row.description,
     details: row.details ?? [],
     isFeatured: row.isFeatured,

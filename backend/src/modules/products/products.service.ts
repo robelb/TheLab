@@ -13,6 +13,7 @@ import {
 } from 'drizzle-orm'
 import { db, rawSql } from '../../db/index.js'
 import { brandCustomizations, categories, products } from '../../db/schema/index.js'
+import { normalizePublicImageUrl } from '../../lib/publicImageUrl.js'
 import { embedText } from '../../services/embedding.js'
 import { captionImageForSearch } from '../../services/imageCaption.js'
 import type {
@@ -133,7 +134,13 @@ function applyCustomizations(
   if (customizations.size === 0) return items
   return items.map((p) => {
     const url = customizations.get(p.id)
-    return url ? { ...p, customizedImage: url } : p
+    return url
+      ? {
+          ...p,
+          customizedImage:
+            normalizePublicImageUrl(url) ?? url,
+        }
+      : p
   })
 }
 

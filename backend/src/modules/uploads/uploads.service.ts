@@ -3,7 +3,9 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
-import { env } from '../../config/env.js'
+import {
+  apiPublicImageUrl,
+} from '../../lib/publicImageUrl.js'
 import {
   isSupabaseStorageConfigured,
   uploadToSupabase,
@@ -59,7 +61,7 @@ export async function saveImage(
   await mkdir(UPLOADS_DIR, { recursive: true })
   const filename = `${randomUUID()}.webp`
   await writeFile(path.join(UPLOADS_DIR, filename), webp)
-  return `${env.PUBLIC_API_URL}${PUBLIC_PATH}/${filename}`
+  return apiPublicImageUrl(`${PUBLIC_PATH}/${filename}`)
 }
 
 export async function saveImages(inputs: string[]): Promise<string[]> {

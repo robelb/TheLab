@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, gt, lt, max, min, sql, sum } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { categories, products } from '../../db/schema/index.js'
+import { normalizePublicImageUrl } from '../../lib/publicImageUrl.js'
 
 const LOW_STOCK_THRESHOLD = 10
 
@@ -114,6 +115,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     recentProducts: recent.map((r) => ({
       ...r,
       price: Number(r.price),
+      image: normalizePublicImageUrl(r.image) ?? r.image,
     })),
   }
 }

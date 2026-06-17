@@ -1,14 +1,16 @@
-import { eq, and } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { brandCustomizations } from '../db/schema/index.js'
+import { apiPublicImageUrl } from '../lib/publicImageUrl.js'
 
 export function customizedImagePublicUrl(
   productId: string,
-  baseUrl = process.env.PUBLIC_API_URL?.trim() || 'http://localhost:3001',
+  baseUrl?: string,
   version?: number | string,
 ): string {
-  const normalizedBase = baseUrl.replace(/\/$/, '')
-  const imagePath = `${normalizedBase}/api/customized/${productId}.png`
+  const imagePath = baseUrl
+    ? `${baseUrl.replace(/\/$/, '')}/api/customized/${productId}.png`
+    : apiPublicImageUrl(`/api/customized/${productId}.png`)
   if (version === undefined) return imagePath
   return `${imagePath}?v=${version}`
 }

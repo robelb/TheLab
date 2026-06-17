@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { env } from '../config/env.js'
+import { supabasePublicObjectUrl } from '../lib/publicImageUrl.js'
 
 let resolved = false
 let client: SupabaseClient | null = null
@@ -115,6 +116,5 @@ export async function uploadToSupabase(
     throw new Error(`Supabase upload failed: ${error.message}`)
   }
 
-  const { data } = supabase.storage.from(bucket).getPublicUrl(objectPath)
-  return data.publicUrl
+  return supabasePublicObjectUrl(objectPath)
 }
