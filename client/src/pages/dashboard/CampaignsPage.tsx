@@ -1,6 +1,7 @@
 import { ImageIcon, Megaphone, Plus, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { usePostHog } from '@posthog/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -44,6 +45,7 @@ function NewCampaignDialog({
   domain: string | null
 }) {
   const navigate = useNavigate()
+  const posthog = usePostHog()
   const create = useCreateCampaign()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -53,6 +55,11 @@ function NewCampaignDialog({
     const created = await create.mutateAsync({
       title: title.trim(),
       description: description.trim() || undefined,
+      domain,
+    })
+    posthog?.capture('campaign created', {
+      campaign_id: created.id,
+      title: created.title,
       domain,
     })
     onOpenChange(false)
@@ -131,6 +138,7 @@ export function CampaignsPage() {
   const brandSignals = useCampaignBrandSignals()
 
   const navigate = useNavigate()
+  const posthog = usePostHog()
   const { data: campaigns = [], isLoading, isSuccess } = useCampaigns(domain)
   const generate = useGenerateCampaign()
   const [createOpen, setCreateOpen] = useState(false)
@@ -141,6 +149,13 @@ export function CampaignsPage() {
       brand: brandSignals,
       bundleSize: BUNDLE_SIZE,
       brief: brief || undefined,
+    })
+    posthog?.capture('campaign generated', {
+      campaign_id: created.id,
+      title: created.title,
+      bundle_size: BUNDLE_SIZE,
+      has_brief: Boolean(brief),
+      domain,
     })
     setGenerateOpen(false)
     navigate(`/dashboard/campaign/${created.id}`)

@@ -200,11 +200,11 @@ export function ProductDetailPage() {
         </div>
 
         {/* Right: AI photoshoot */}
-        <Card className="lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)]">
+        <Card className="lg:sticky lg:top-24 h-fit">
           <CardHeader>
             <CardTitle className="text-base">AI photoshoot</CardTitle>
           </CardHeader>
-          <CardContent className="flex h-[calc(100%-4.5rem)] flex-col">
+          <CardContent className="flex flex-col">
             <PhotoshootPanel product={product} />
           </CardContent>
         </Card>

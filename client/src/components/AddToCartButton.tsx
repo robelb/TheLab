@@ -1,5 +1,6 @@
 import { useState, type MouseEvent } from 'react'
 import { Check, ShoppingBag } from 'lucide-react'
+import { usePostHog } from '@posthog/react'
 import type { Product } from '@/types/product'
 import { useCart } from '@/context/CartContext'
 import { Button, type ButtonProps } from '@/components/ui/button'
@@ -24,6 +25,7 @@ export function AddToCartButton({
   compact = false,
 }: AddToCartButtonProps) {
   const { addItem } = useCart()
+  const posthog = usePostHog()
   const [added, setAdded] = useState(false)
 
   function handleClick(e: MouseEvent<HTMLButtonElement>) {
@@ -32,6 +34,14 @@ export function AddToCartButton({
     addItem(product)
     setAdded(true)
     window.setTimeout(() => setAdded(false), 2000)
+    posthog?.capture('product added to cart', {
+      product_id: product.id,
+      product_name: product.name,
+      product_sku: product.sku,
+      price: product.price,
+      currency: product.currency,
+      category_id: product.category,
+    })
   }
 
   const outOfStock = disabled || product.stock === 0

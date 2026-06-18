@@ -1,5 +1,6 @@
 import { Check, ImageUp, Plus, Sparkles, X } from 'lucide-react'
 import { useRef, useState } from 'react'
+import { usePostHog } from '@posthog/react'
 import { ASPECT_RATIOS, SCENE_TYPES, type PhotoshootRequest } from '@/api/photoshoot'
 import { fileToDataUrl } from '@/api/uploads'
 import { Badge } from '@/components/ui/badge'
@@ -194,6 +195,7 @@ function BrandingSlot({
 
 export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
   const { brand } = useBrand()
+  const posthog = usePostHog()
   const logo = brand.logo ?? null
   const logoKind = resolveLogoKind(brand.logo, brand.logoType)
 
@@ -262,6 +264,16 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
         { key: `gen-${keyRef.current}`, url: res.url, sceneLabel, prompt: res.prompt },
         ...prev,
       ])
+      posthog?.capture('product photoshoot generated', {
+        product_id: product.id,
+        product_name: product.name,
+        scene_type: sceneType,
+        aspect_ratio: aspectRatio,
+        is_refinement: refine,
+        has_style_image: Boolean(styleImage),
+        has_custom_branding: Boolean(brandingOverride),
+        has_prompt: Boolean(promptText.trim()),
+      })
     } catch (err) {
       setError(
         (err as { response?: { data?: { error?: string } } })?.response?.data
@@ -285,6 +297,10 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
       input: { images: next },
     })
     setAdded((prev) => new Set(prev).add(url))
+    posthog?.capture('photoshoot image added to product', {
+      product_id: product.id,
+      product_name: product.name,
+    })
   }
 
   return (
@@ -292,7 +308,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
       {/* Conversation / results */}
       <div
         ref={resultsRef}
-        className="min-h-[16rem] flex-1 space-y-4 overflow-y-auto p-1"
+        className="min-h-48 flex-1 space-y-4 overflow-y-auto p-1"
       >
         {results.length === 0 && !generating && (
           <div className="flex h-full flex-col items-center justify-center gap-2 rounded-brand border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground">
@@ -380,7 +396,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
       </div>
 
       {/* Composer */}
-      <div className="space-y-3 border-t border-border/40 pt-3">
+      <div className="space-y-3 border-t border-border/40 pt-3 overflow-y-auto h-full">
         {error && (
           <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {error}

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { usePostHog } from '@posthog/react'
 import { useCart } from '@/context/CartContext'
 import { useBrand } from '@/context/BrandContext'
 import { formatPrice } from '@/utils/format'
@@ -13,6 +14,7 @@ export function CheckoutPage() {
   const navigate = useNavigate()
   const { brand } = useBrand()
   const { items, subtotal, clearCart } = useCart()
+  const posthog = usePostHog()
   const [submitted, setSubmitted] = useState(false)
 
   const shipping = subtotal >= 200 ? 0 : 12
@@ -20,6 +22,14 @@ export function CheckoutPage() {
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    posthog?.capture('checkout completed', {
+      total,
+      subtotal,
+      shipping,
+      item_count: items.reduce((sum, i) => sum + i.quantity, 0),
+      currency: items[0]?.product.currency ?? 'EUR',
+      brand: brand.companyName,
+    })
     setSubmitted(true)
     clearCart()
   }

@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { usePostHog } from '@posthog/react'
 import { extractBrand } from '@/api/extract'
 import { getDefaultPreset, presetToConfig } from '@/config/brands'
 import { domainInputSchema } from '@/lib/domainSchema'
@@ -77,6 +78,7 @@ function isStaleExtractedSession(
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
+  const posthog = usePostHog()
   const {
     applyExtractedBrand,
     clearExtractedBrand,
@@ -116,7 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     saveSession(nextSession)
     setSession(nextSession)
     queryClient.invalidateQueries({ queryKey: ['products'] })
-  }, [clearExtractedBrand, selectBrand, queryClient])
+    posthog?.capture('default shop opened')
+  }, [clearExtractedBrand, selectBrand, queryClient, posthog])
 
   const login = useCallback(
     async (domainInput: string) => {
@@ -155,24 +158,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         saveSession(nextSession)
         setSession(nextSession)
         queryClient.invalidateQueries({ queryKey: ['products'] })
+
+        posthog?.identify(parsed.data.domain)
+        posthog?.capture('brand extracted', {
+          domain: parsed.data.domain,
+          company_name: brand.companyName,
+          customized_products: payload.customizedProducts?.length ?? 0,
+          customization_skipped: Boolean(payload.customizationSkipped),
+        })
       } catch (err) {
         if (err instanceof AxiosError) {
           const message =
             err.response?.data?.error ?? 'Could not extract brand for this domain'
+          posthog?.capture('brand extraction failed', {
+            domain: parsed.data.domain,
+            error: message,
+          })
           throw new Error(message)
         }
+        posthog?.capture('brand extraction failed', {
+          domain: parsed.data.domain,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        })
         throw err
       }
     },
-    [applyExtractedBrand, queryClient],
+    [applyExtractedBrand, queryClient, posthog],
   )
 
   const logout = useCallback(() => {
+    posthog?.capture('logged out', { domain: session?.domain ?? null })
+    posthog?.reset()
     saveSession(null)
     setSession(null)
     clearExtractedBrand()
     queryClient.removeQueries({ queryKey: ['products'] })
-  }, [clearExtractedBrand, queryClient])
+  }, [clearExtractedBrand, queryClient, posthog, session?.domain])
 
   const value = useMemo(
     () => ({
