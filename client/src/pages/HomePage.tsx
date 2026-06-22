@@ -143,6 +143,21 @@ export function HomePage() {
     ? `${debouncedPrice![0]}-${debouncedPrice![1]}`
     : 'full'
 
+  // The price bound the server extracted from a typed phrase. Reflected as a
+  // chip so the shopper can see and clear what was applied.
+  const interpreted = imageActive ? undefined : data?.interpretedQuery
+  const interpretedChips: string[] = []
+  if (interpreted) {
+    const { minPrice, maxPrice } = interpreted
+    if (minPrice !== undefined && maxPrice !== undefined) {
+      interpretedChips.push(`€${minPrice} – €${maxPrice}`)
+    } else if (maxPrice !== undefined) {
+      interpretedChips.push(`≤ €${maxPrice}`)
+    } else if (minPrice !== undefined) {
+      interpretedChips.push(`≥ €${minPrice}`)
+    }
+  }
+
   return (
     <div className="space-y-10">
       <section className="max-w-2xl space-y-4">
@@ -185,6 +200,34 @@ export function HomePage() {
             size="sm"
             className="ml-auto h-7"
             onClick={clearImageSearch}
+          >
+            Clear
+          </Button>
+        </div>
+      )}
+
+      {!imageActive && interpretedChips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border/50 bg-card/40 px-4 py-2 text-sm">
+          <span className="text-muted-foreground">Understood as:</span>
+          {interpretedChips.map((chip) => (
+            <span
+              key={chip}
+              className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
+            >
+              {chip}
+            </span>
+          ))}
+          {interpreted?.cleaned && (
+            <span className="text-xs text-muted-foreground">
+              searching “{interpreted.cleaned}”
+            </span>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-7"
+            onClick={() => changeSearch('')}
           >
             Clear
           </Button>

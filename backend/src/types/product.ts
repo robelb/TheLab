@@ -102,10 +102,20 @@ export interface ListProductsParams {
   domain?: string
 }
 
+/** How the server understood a free-text query (price bound extracted by the LLM). */
+export interface InterpretedQuery {
+  original: string
+  cleaned: string
+  minPrice?: number
+  maxPrice?: number
+}
+
 export interface ListProductsResult {
   data: ProductWithCategory[]
   categories: string[]
   priceRange: { min: number; max: number }
+  /** Present when a typed query `q` was parsed into structured filters. */
+  interpretedQuery?: InterpretedQuery
   pagination: {
     page: number
     limit: number

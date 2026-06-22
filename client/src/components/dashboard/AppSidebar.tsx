@@ -1,7 +1,7 @@
 import {
   LayoutDashboard,
   LogOut,
-  // Megaphone,
+  Megaphone,
   Package,
   Palette,
   Store,
@@ -26,7 +26,7 @@ import { useAuth } from '@/context/AuthContext'
 const navItems = [
   { to: '/dashboard', end: true, label: 'Overview', icon: LayoutDashboard },
   { to: '/dashboard/products', end: false, label: 'Products', icon: Package },
-  // { to: '/dashboard/campaign', end: false, label: 'Campaign', icon: Megaphone },
+  { to: '/dashboard/campaign', end: false, label: 'Campaign', icon: Megaphone },
   { to: '/dashboard/branding', end: false, label: 'Branding', icon: Palette },
 ]
 

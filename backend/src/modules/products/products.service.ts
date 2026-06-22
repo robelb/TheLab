@@ -16,7 +16,9 @@ import { brandCustomizations, categories, products } from '../../db/schema/index
 import { normalizePublicImageUrl } from '../../lib/publicImageUrl.js'
 import { embedText } from '../../services/embedding.js'
 import { captionImageForSearch } from '../../services/imageCaption.js'
+import { parseSearchQuery } from '../../services/queryParser.js'
 import type {
+  InterpretedQuery,
   ListProductsParams,
   ListProductsResult,
   ProductWithCategory,
@@ -248,16 +250,41 @@ export async function listProducts(
   params: ListProductsParams,
 ): Promise<ListProductsResult> {
   const offset = (params.page - 1) * params.limit
-  const hasQuery = Boolean(params.q?.trim())
-
   const meta = await getCatalogMeta()
+
+  // Parse the typed phrase into structured filters (price/category) and a
+  // cleaned semantic query. Parsed constraints WIN over the incoming UI params
+  // for the fields they specify; everything else passes through unchanged.
+  let effective = params
+  let interpretedQuery: InterpretedQuery | undefined
+
+  if (params.q?.trim()) {
+    const parsed = await parseSearchQuery(params.q.trim())
+    if (parsed) {
+      effective = {
+        ...params,
+        q: parsed.cleanedQuery || undefined,
+        ...(parsed.minPrice !== undefined ? { minPrice: parsed.minPrice } : {}),
+        ...(parsed.maxPrice !== undefined ? { maxPrice: parsed.maxPrice } : {}),
+      }
+      interpretedQuery = {
+        original: params.q.trim(),
+        cleaned: parsed.cleanedQuery,
+        minPrice: parsed.minPrice,
+        maxPrice: parsed.maxPrice,
+      }
+      console.log('[search] parsed query:', JSON.stringify(interpretedQuery))
+    }
+  }
+
+  const hasQuery = Boolean(effective.q?.trim())
 
   let data: ProductWithCategory[]
   let total: number
 
   if (hasQuery) {
     const [semanticResults, keywordResults, [countRow]] = await Promise.all([
-      semanticSearch(params.q!, params).catch((err) => {
+      semanticSearch(effective.q!, effective).catch((err) => {
         console.warn('[search] semantic search failed, falling back to keyword:', err.message)
         return [] as ProductWithCategory[]
       }),
@@ -265,15 +292,15 @@ export async function listProducts(
         .select(productSelect)
         .from(products)
         .innerJoin(categories, eq(products.categoryId, categories.id))
-        .where(buildAllFilters(params))
+        .where(buildAllFilters(effective))
         .orderBy(desc(products.isFeatured), asc(products.name))
-        .limit(params.limit)
+        .limit(effective.limit)
         .offset(offset),
       db
         .select({ total: count() })
         .from(products)
         .innerJoin(categories, eq(products.categoryId, categories.id))
-        .where(buildAllFilters(params)),
+        .where(buildAllFilters(effective)),
     ])
 
     const seenIds = new Set(semanticResults.map((p) => p.id))
@@ -282,12 +309,14 @@ export async function listProducts(
       .filter((p) => !seenIds.has(p.id))
 
     const merged = [...semanticResults, ...keywordOnly]
-    data = merged.slice(0, params.limit)
+    data = merged.slice(0, effective.limit)
 
     const keywordTotal = countRow?.total ?? 0
     total = Math.max(keywordTotal, merged.length)
   } else {
-    const where = buildAllFilters(params)
+    // No text to match (e.g. query was only "under 5€"): plain filtered list,
+    // still honoring any price/category constraints parsed from the phrase.
+    const where = buildAllFilters(effective)
 
     const [rows, [countRow]] = await Promise.all([
       db
@@ -296,7 +325,7 @@ export async function listProducts(
         .innerJoin(categories, eq(products.categoryId, categories.id))
         .where(where)
         .orderBy(desc(products.isFeatured), asc(products.name))
-        .limit(params.limit)
+        .limit(effective.limit)
         .offset(offset),
       db
         .select({ total: count() })
@@ -309,13 +338,14 @@ export async function listProducts(
     total = countRow?.total ?? 0
   }
 
-  const totalPages = total === 0 ? 0 : Math.ceil(total / params.limit)
+  const totalPages = total === 0 ? 0 : Math.ceil(total / effective.limit)
   data = await withCustomizations(data, params.domain)
 
   return {
     data,
     categories: meta.categories,
     priceRange: meta.priceRange,
+    interpretedQuery,
     pagination: {
       page: params.page,
       limit: params.limit,

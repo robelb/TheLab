@@ -32,10 +32,19 @@ export interface PriceRange {
   max: number
 }
 
+/** How the server understood a typed query (price bound extracted by the LLM). */
+export interface InterpretedQuery {
+  original: string
+  cleaned: string
+  minPrice?: number
+  maxPrice?: number
+}
+
 export interface ProductsResponse {
   data: Product[]
   categories: string[]
   priceRange?: PriceRange
+  interpretedQuery?: InterpretedQuery
   pagination: ProductsPagination
 }
 
