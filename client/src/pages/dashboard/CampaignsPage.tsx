@@ -1,7 +1,17 @@
-import { ImageIcon, Megaphone, Plus, Sparkles } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { ImageIcon, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { usePostHog } from '@posthog/react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -22,17 +32,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Textarea } from '@/components/ui/textarea'
 import { useBrand } from '@/context/BrandContext'
 import {
   useCampaignBrandSignals,
   useCampaigns,
   useCreateCampaign,
+  useDeleteCampaign,
   useGenerateCampaign,
 } from '@/hooks/use-campaigns'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
-import type { CampaignStatus } from '@/types/campaign'
+import type { Campaign, CampaignStatus } from '@/types/campaign'
 
 // ── Manual "New campaign" dialog ─────────────────────────────────────────────
 function NewCampaignDialog({
@@ -48,13 +58,11 @@ function NewCampaignDialog({
   const posthog = usePostHog()
   const create = useCreateCampaign()
   const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
 
   const submit = async () => {
     if (!title.trim()) return
     const created = await create.mutateAsync({
       title: title.trim(),
-      description: description.trim() || undefined,
       domain,
     })
     posthog?.capture('campaign created', {
@@ -64,7 +72,6 @@ function NewCampaignDialog({
     })
     onOpenChange(false)
     setTitle('')
-    setDescription('')
     navigate(`/dashboard/campaign/${created.id}`)
   }
 
@@ -74,28 +81,22 @@ function NewCampaignDialog({
         <DialogHeader>
           <DialogTitle>New campaign</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <span className="text-xs font-medium text-muted-foreground">
-              Title
-            </span>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Summer essentials"
-              autoFocus
-            />
-          </div>
-          <div className="space-y-1.5">
-            <span className="text-xs font-medium text-muted-foreground">
-              Marketing copy (optional)
-            </span>
-            <Textarea
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
+        <div className="space-y-1.5">
+          <span className="text-xs font-medium text-muted-foreground">
+            Name
+          </span>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Summer essentials"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submit()
+            }}
+          />
+          <p className="text-xs text-muted-foreground">
+            You'll add products to the bundle on the next screen.
+          </p>
         </div>
         <DialogFooter>
           <Button
@@ -139,10 +140,20 @@ export function CampaignsPage() {
 
   const navigate = useNavigate()
   const posthog = usePostHog()
-  const { data: campaigns = [], isLoading, isSuccess } = useCampaigns(domain)
+  const { data: campaigns = [], isLoading } = useCampaigns(domain)
   const generate = useGenerateCampaign()
+  const remove = useDeleteCampaign()
   const [createOpen, setCreateOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<Campaign | null>(null)
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return
+    const { id, title } = pendingDelete
+    await remove.mutateAsync(id)
+    posthog?.capture('campaign deleted', { campaign_id: id, title, domain })
+    setPendingDelete(null)
+  }
 
   const handleGenerate = async (brief: string) => {
     const created = await generate.mutateAsync({
@@ -161,45 +172,31 @@ export function CampaignsPage() {
     navigate(`/dashboard/campaign/${created.id}`)
   }
 
-  // Auto-assemble the first campaign ONLY when the fetch has succeeded and
-  // returned zero campaigns. Gating on isSuccess (not just isLoading) means we
-  // never auto-generate while loading, on a fetch error, or when any campaign
-  // already exists.
-  const brandRef = useRef(brandSignals)
-  brandRef.current = brandSignals
-  const autoTriggered = useRef(false)
-  useEffect(() => {
-    if (!isSuccess || autoTriggered.current || generate.isPending) return
-    if (campaigns.length === 0) {
-      autoTriggered.current = true
-      generate.mutate({ brand: brandRef.current, bundleSize: BUNDLE_SIZE })
-    }
-  }, [isSuccess, campaigns.length, generate])
-
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <h1 className="font-display text-2xl font-bold">Campaigns</h1>
           <p className="text-sm text-muted-foreground">
-            Starter campaigns auto-assembled for{' '}
+            Create a campaign for{' '}
             <span className="font-medium text-foreground">
               {brand.companyName}
             </span>{' '}
-            from your catalog.
+            and add a bundle of products.
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" />
             New campaign
           </Button>
           <Button
+            variant="outline"
             onClick={() => setGenerateOpen(true)}
             disabled={generate.isPending}
           >
             <Sparkles className="size-4" />
-            {generate.isPending ? 'Generating…' : 'Generate campaign'}
+            {generate.isPending ? 'Generating…' : 'Generate with AI'}
           </Button>
         </div>
       </header>
@@ -259,7 +256,7 @@ export function CampaignsPage() {
                   colSpan={5}
                   className="py-10 text-center text-muted-foreground"
                 >
-                  No campaigns yet — generate your first one.
+                  No campaigns yet — create your first one.
                 </TableCell>
               </TableRow>
             )}
@@ -305,9 +302,20 @@ export function CampaignsPage() {
                   {formatDate(c.updatedAt)}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button asChild variant="outline" size="sm">
-                    <Link to={`/dashboard/campaign/${c.id}`}>Open</Link>
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button asChild variant="outline" size="sm">
+                      <Link to={`/dashboard/campaign/${c.id}`}>Open</Link>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => setPendingDelete(c)}
+                      aria-label={`Delete ${c.title}`}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -315,13 +323,35 @@ export function CampaignsPage() {
         </Table>
       </div>
 
-      {campaigns.length === 0 && !isLoading && !generate.isPending && (
-        <p className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-          <Megaphone className="size-3.5" />
-          Your Company Kit assembles a ready-to-launch first campaign from your
-          brand.
-        </p>
-      )}
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete campaign?</AlertDialogTitle>
+            <AlertDialogDescription>
+              “{pendingDelete?.title}” will be permanently removed. This can't be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={remove.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={remove.isPending}
+              onClick={(e) => {
+                e.preventDefault()
+                void confirmDelete()
+              }}
+            >
+              {remove.isPending ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

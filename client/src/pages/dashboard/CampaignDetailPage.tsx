@@ -1,15 +1,17 @@
-import {
-  ArrowLeft,
-  Check,
-  Plus,
-  RefreshCw,
-  Search,
-  XCircle,
-} from 'lucide-react'
+import { ArrowLeft, Check, Plus, Search, Trash2, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CampaignProductTile } from '@/components/dashboard/CampaignProductTile'
-import { GenerateCampaignDialog } from '@/components/dashboard/GenerateCampaignDialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,18 +23,14 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Textarea } from '@/components/ui/textarea'
 import {
   useCampaign,
-  useCampaignBrandSignals,
-  useGenerateCampaign,
+  useDeleteCampaign,
   useUpdateCampaign,
 } from '@/hooks/use-campaigns'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useProducts } from '@/hooks/use-products'
 import type { Campaign } from '@/types/campaign'
-
-const BUNDLE_SIZE = 6
 
 function AddProductDialog({
   open,
@@ -100,19 +98,21 @@ function AddProductDialog({
 function CampaignEditor({ campaign }: { campaign: Campaign }) {
   const navigate = useNavigate()
   const update = useUpdateCampaign()
-  const generate = useGenerateCampaign()
-  const brandSignals = useCampaignBrandSignals()
+  const remove = useDeleteCampaign()
 
   const [title, setTitle] = useState(campaign.title)
-  const [description, setDescription] = useState(campaign.description)
   const [addOpen, setAddOpen] = useState(false)
   const [preview, setPreview] = useState(false)
-  const [regenOpen, setRegenOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
-  const dirty = title !== campaign.title || description !== campaign.description
+  const dirty = title !== campaign.title
 
   const saveEdits = () =>
-    update.mutate({ id: campaign.id, input: { title, description } })
+    update.mutate({ id: campaign.id, input: { title } })
+  const confirmDelete = async () => {
+    await remove.mutateAsync(campaign.id)
+    navigate('/dashboard/campaign')
+  }
   const setStatus = (status: 'approved' | 'dismissed') =>
     update.mutate({ id: campaign.id, input: { status } })
   const removeProduct = (id: string) =>
@@ -127,21 +127,6 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
     })
     setAddOpen(false)
   }
-  const regenerate = async (brief: string) => {
-    if (campaign.status === 'draft') {
-      await update.mutateAsync({
-        id: campaign.id,
-        input: { status: 'dismissed' },
-      })
-    }
-    const created = await generate.mutateAsync({
-      brand: brandSignals,
-      bundleSize: BUNDLE_SIZE,
-      brief: brief || undefined,
-    })
-    setRegenOpen(false)
-    navigate(`/dashboard/campaign/${created.id}`)
-  }
 
   return (
     <Card>
@@ -152,17 +137,6 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
             {campaign.status}
           </Badge>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setRegenOpen(true)}
-          disabled={generate.isPending || update.isPending}
-        >
-          <RefreshCw
-            className={generate.isPending ? 'size-4 animate-spin' : 'size-4'}
-          />
-          Regenerate
-        </Button>
       </CardHeader>
 
       <CardContent className="space-y-5">
@@ -194,19 +168,8 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
         )}
 
         <div className="space-y-1.5">
-          <span className="text-xs font-medium text-muted-foreground">Title</span>
+          <span className="text-xs font-medium text-muted-foreground">Name</span>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-        </div>
-
-        <div className="space-y-1.5">
-          <span className="text-xs font-medium text-muted-foreground">
-            Marketing copy
-          </span>
-          <Textarea
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
         </div>
 
         {dirty && (
@@ -227,7 +190,7 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
           </div>
           {campaign.products.length === 0 ? (
             <p className="rounded-brand border border-border/40 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-              No products in this bundle — add some, or regenerate.
+              No products in this bundle yet — add some.
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -242,26 +205,37 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
           )}
         </div>
 
-        <div className="flex flex-wrap justify-end gap-2 border-t border-border/40 pt-4">
-          {campaign.status !== 'dismissed' && (
-            <Button
-              variant="ghost"
-              onClick={() => setStatus('dismissed')}
-              disabled={update.isPending}
-            >
-              <XCircle className="size-4" />
-              Dismiss
-            </Button>
-          )}
-          {campaign.status !== 'approved' && (
-            <Button
-              onClick={() => setStatus('approved')}
-              disabled={update.isPending}
-            >
-              <Check className="size-4" />
-              Approve &amp; launch
-            </Button>
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-4">
+          <Button
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            onClick={() => setDeleteOpen(true)}
+            disabled={remove.isPending}
+          >
+            <Trash2 className="size-4" />
+            Delete
+          </Button>
+          <div className="flex flex-wrap gap-2">
+            {campaign.status !== 'dismissed' && (
+              <Button
+                variant="ghost"
+                onClick={() => setStatus('dismissed')}
+                disabled={update.isPending}
+              >
+                <XCircle className="size-4" />
+                Dismiss
+              </Button>
+            )}
+            {campaign.status !== 'approved' && (
+              <Button
+                onClick={() => setStatus('approved')}
+                disabled={update.isPending}
+              >
+                <Check className="size-4" />
+                Approve &amp; launch
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
 
@@ -271,13 +245,33 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
         existingIds={campaign.productIds}
         onAdd={addProduct}
       />
-      <GenerateCampaignDialog
-        open={regenOpen}
-        onOpenChange={setRegenOpen}
-        pending={generate.isPending || update.isPending}
-        onSubmit={regenerate}
-        title="Regenerate campaign"
-      />
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete campaign?</AlertDialogTitle>
+            <AlertDialogDescription>
+              “{campaign.title}” will be permanently removed. This can't be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={remove.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={remove.isPending}
+              onClick={(e) => {
+                e.preventDefault()
+                void confirmDelete()
+              }}
+            >
+              {remove.isPending ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }
