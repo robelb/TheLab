@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useBrand } from '@/context/BrandContext'
 import { useDebounce } from '@/hooks/use-debounce'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { useImageSearch, useProducts } from '@/hooks/use-products'
 import { isPriceRangeFiltered } from '@/components/PriceRangeFilter'
+import { CampaignVideoAd } from '@/components/CampaignVideoAd'
 import { ImageSearch } from '@/components/ImageSearch'
 import { ProductCard } from '@/components/ProductCard'
 import { ProductGridSkeleton } from '@/components/ProductCardSkeleton'
@@ -29,6 +31,7 @@ function extractErrorMessage(err: unknown): string {
 export function HomePage() {
   const { session } = useAuth()
   const { brand } = useBrand()
+  const isMobile = useIsMobile()
 
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<PageSize>(20)
@@ -158,6 +161,10 @@ export function HomePage() {
     }
   }
 
+  // Browse context feeds relevance ranking of the video ads.
+  const adCategory = category !== 'all' ? category : undefined
+  const adQuery = debouncedSearch || undefined
+
   return (
     <div className="space-y-10">
       <section className="max-w-2xl space-y-4">
@@ -169,6 +176,11 @@ export function HomePage() {
         </h1>
         <p className="text-lg text-muted-foreground">{brand.description}</p>
       </section>
+
+      {/* Mobile hero ad — landscape videos only (see CampaignVideoAd). */}
+      {isMobile && (
+        <CampaignVideoAd slot="hero" category={adCategory} q={adQuery} />
+      )}
 
       <div className="flex flex-col gap-3 min-[280px]:flex-row sm:items-center">
         <ProductSearchBar
@@ -235,20 +247,26 @@ export function HomePage() {
       )}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,15.5rem)_1fr] lg:items-start">
-        <ProductFilters
-          categories={categories}
-          category={category}
-          onCategoryChange={changeCategory}
-          priceBounds={priceBounds}
-          priceSelection={priceSelection}
-          onPriceChange={changePrice}
-          total={total}
-          showing={products.length}
-          loading={loading}
-          hasSearch={hasSearch}
-          onClearAll={clearAllFilters}
-          className="lg:sticky lg:top-20"
-        />
+        <div className="space-y-6">
+          {/* Desktop side-rail ad — portrait videos only (see CampaignVideoAd). */}
+          {!isMobile && (
+            <CampaignVideoAd slot="side" category={adCategory} q={adQuery} />
+          )}
+          <ProductFilters
+            categories={categories}
+            category={category}
+            onCategoryChange={changeCategory}
+            priceBounds={priceBounds}
+            priceSelection={priceSelection}
+            onPriceChange={changePrice}
+            total={total}
+            showing={products.length}
+            loading={loading}
+            hasSearch={hasSearch}
+            onClearAll={clearAllFilters}
+            className="lg:sticky lg:top-20"
+          />
+        </div>
 
         <div className="min-w-0 space-y-6">
           <ProductsListToolbar

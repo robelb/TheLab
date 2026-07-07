@@ -1,6 +1,12 @@
 import { desc, eq, isNull } from 'drizzle-orm'
-import { db } from '../../db/index.js'
-import { campaigns, type Campaign } from '../../db/schema/index.js'
+import { db, rawSql } from '../../db/index.js'
+import {
+  campaignVideos,
+  campaigns,
+  type Campaign,
+  type CampaignVideo,
+} from '../../db/schema/index.js'
+import { embedText } from '../../services/embedding.js'
 import {
   fetchImage,
   fetchImageOptional,
@@ -25,13 +31,24 @@ import type { ProductWithCategory } from '../../types/product.js'
 import type {
   CampaignBrandInput,
   CreateCampaignBody,
+  CreateCampaignVideoBody,
   UpdateCampaignBody,
+  UpdateCampaignVideoBody,
 } from './campaigns.schema.js'
 
 const DEFAULT_BUNDLE_SIZE = 6
 
+/** Video without the bulky embedding vector (never sent to the client). */
+export type CampaignVideoPublic = Omit<CampaignVideo, 'embedding'>
+
+function toPublicVideo(v: CampaignVideo): CampaignVideoPublic {
+  const { embedding: _embedding, ...rest } = v
+  return rest
+}
+
 export interface HydratedCampaign extends Campaign {
   products: ProductWithCategory[]
+  videos: CampaignVideoPublic[]
 }
 
 /** Semantic query: the user's brief leads, then brand signals. */
@@ -123,12 +140,17 @@ async function generateKitImage(
 }
 
 async function hydrate(c: Campaign): Promise<HydratedCampaign> {
-  const products = (
-    await Promise.all(
+  const [products, videos] = await Promise.all([
+    Promise.all(
       c.productIds.map((id) => getProductById(id, c.domain ?? undefined)),
-    )
-  ).filter((p): p is ProductWithCategory => p !== null)
-  return { ...c, products }
+    ).then((ps) => ps.filter((p): p is ProductWithCategory => p !== null)),
+    db
+      .select()
+      .from(campaignVideos)
+      .where(eq(campaignVideos.campaignId, c.id))
+      .orderBy(desc(campaignVideos.createdAt)),
+  ])
+  return { ...c, products, videos: videos.map(toPublicVideo) }
 }
 
 export async function generateCampaign(
@@ -214,6 +236,19 @@ export async function getCampaign(id: string): Promise<HydratedCampaign | null> 
   return row ? hydrate(row) : null
 }
 
+/** Best-effort embedding — never block a campaign save if the service is down. */
+async function tryEmbed(text: string): Promise<number[] | null> {
+  try {
+    return await embedText(text)
+  } catch (err) {
+    console.warn(
+      '[campaigns] video embedding failed, saving without it:',
+      err instanceof Error ? err.message : err,
+    )
+    return null
+  }
+}
+
 export async function updateCampaign(
   id: string,
   input: UpdateCampaignBody,
@@ -230,6 +265,151 @@ export async function updateCampaign(
     .where(eq(campaigns.id, id))
     .returning()
   return row ? hydrate(row) : null
+}
+
+// ---------------------------------------------------------------------------
+// Campaign videos (one campaign → many videos)
+// ---------------------------------------------------------------------------
+
+/** Add a video (already uploaded) to a campaign; embeds the description. */
+export async function addCampaignVideo(
+  campaignId: string,
+  input: CreateCampaignVideoBody,
+): Promise<CampaignVideoPublic | null> {
+  const [campaign] = await db
+    .select({ id: campaigns.id })
+    .from(campaigns)
+    .where(eq(campaigns.id, campaignId))
+    .limit(1)
+  if (!campaign) return null
+
+  const desc = input.description?.trim()
+  const embedding = desc ? await tryEmbed(desc) : null
+
+  const [row] = await db
+    .insert(campaignVideos)
+    .values({
+      campaignId,
+      url: input.url,
+      description: input.description ?? null,
+      orientation: input.orientation ?? null,
+      startsAt: input.startsAt ?? null,
+      endsAt: input.endsAt ?? null,
+      priority: input.priority ?? 0,
+      embedding: embedding ?? null,
+    })
+    .returning()
+  return row ? toPublicVideo(row) : null
+}
+
+/** Update a video's metadata; re-embeds when the description changes. */
+export async function updateCampaignVideo(
+  videoId: string,
+  input: UpdateCampaignVideoBody,
+): Promise<CampaignVideoPublic | null> {
+  const values: Record<string, unknown> = {}
+  if (input.orientation !== undefined) values.orientation = input.orientation
+  if (input.startsAt !== undefined) values.startsAt = input.startsAt
+  if (input.endsAt !== undefined) values.endsAt = input.endsAt
+  if (input.priority !== undefined) values.priority = input.priority
+  if (input.description !== undefined) {
+    values.description = input.description
+    const desc = input.description?.trim()
+    values.embedding = desc ? await tryEmbed(desc) : null
+  }
+
+  const [row] = await db
+    .update(campaignVideos)
+    .set(values)
+    .where(eq(campaignVideos.id, videoId))
+    .returning()
+  return row ? toPublicVideo(row) : null
+}
+
+export async function deleteCampaignVideo(videoId: string): Promise<boolean> {
+  const deleted = await db
+    .delete(campaignVideos)
+    .where(eq(campaignVideos.id, videoId))
+    .returning({ id: campaignVideos.id })
+  return deleted.length > 0
+}
+
+export interface ActiveCampaignVideo {
+  id: string
+  campaignId: string
+  title: string
+  videoUrl: string
+  videoOrientation: 'portrait' | 'landscape' | null
+  videoDescription: string | null
+}
+
+/**
+ * Storefront feed: videos from approved campaigns whose display window is
+ * currently open, scoped to the domain. When browse context (category/search)
+ * is supplied, results are ordered by semantic relevance of the video
+ * description embedding (embedded videos first), else by priority.
+ */
+export async function listActiveCampaignVideos(opts: {
+  domain?: string
+  category?: string
+  q?: string
+}): Promise<ActiveCampaignVideo[]> {
+  const clauses: string[] = [
+    "c.status = 'approved'",
+    'v.url IS NOT NULL',
+    '(v.starts_at IS NULL OR v.starts_at <= now())',
+    '(v.ends_at IS NULL OR v.ends_at >= now())',
+  ]
+  clauses.push(
+    opts.domain
+      ? `c.domain = '${opts.domain.replace(/'/g, "''")}'`
+      : 'c.domain IS NULL',
+  )
+  const whereClause = clauses.join(' AND ')
+
+  const context = [opts.category, opts.q]
+    .map((s) => s?.trim())
+    .filter(Boolean)
+    .join(' ')
+
+  let vectorStr: string | null = null
+  if (context) {
+    const embedding = await tryEmbed(context)
+    if (embedding) vectorStr = `[${embedding.join(',')}]`
+  }
+
+  // `<=>` is pgvector cosine distance; NULL embeddings sort last via the CASE.
+  const orderClause = vectorStr
+    ? `ORDER BY (v.embedding IS NULL) ASC, v.embedding <=> '${vectorStr}'::vector ASC, v.priority DESC`
+    : 'ORDER BY v.priority DESC, v.created_at DESC'
+
+  const rows = (await rawSql`
+    SELECT v.id, v.campaign_id, c.title, v.url, v.orientation, v.description
+    FROM campaign_videos v
+    INNER JOIN campaigns c ON c.id = v.campaign_id
+    WHERE ${rawSql.unsafe(whereClause)}
+    ${rawSql.unsafe(orderClause)}
+    LIMIT 12
+  `) as Array<{
+    id: string
+    campaign_id: string
+    title: string
+    url: string
+    orientation: string | null
+    description: string | null
+  }>
+
+  return rows.map((r) => ({
+    id: r.id,
+    campaignId: r.campaign_id,
+    title: r.title,
+    videoUrl: r.url,
+    videoOrientation:
+      r.orientation === 'portrait' || r.orientation === 'landscape'
+        ? r.orientation
+        : null,
+    videoDescription: r.description,
+  }))
 }
 
 export async function deleteCampaign(id: string): Promise<boolean> {

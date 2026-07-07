@@ -6,6 +6,7 @@ import { CartProvider } from '@/context/CartContext'
 import { Layout } from '@/components/Layout'
 import { RequireAuth } from '@/components/RequireAuth'
 import { HomePage } from '@/pages/HomePage'
+import { CampaignPage } from '@/pages/CampaignPage'
 import { ProductPage } from '@/pages/ProductPage'
 import { CartPage } from '@/pages/CartPage'
 import { CheckoutPage } from '@/pages/CheckoutPage'
@@ -37,6 +38,7 @@ export default function App() {
                   }
                 >
                   <Route index element={<HomePage />} />
+                  <Route path="campaign/:id" element={<CampaignPage />} />
                   <Route path="product/:id" element={<ProductPage />} />
                   <Route path="cart" element={<CartPage />} />
                   <Route path="checkout" element={<CheckoutPage />} />

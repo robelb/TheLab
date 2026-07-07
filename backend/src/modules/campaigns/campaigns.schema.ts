@@ -44,6 +44,38 @@ export const listCampaignsQuerySchema = z.object({
   domain: z.string().optional(),
 })
 
+/** Storefront query: active videos for a domain, optionally ranked by browse context. */
+export const listActiveVideosQuerySchema = z.object({
+  domain: z.string().optional(),
+  category: z.string().optional(),
+  q: z.string().optional(),
+})
+
+/** Add a video to a campaign (metadata + already-uploaded video URL). */
+export const createCampaignVideoSchema = z.object({
+  url: z.string().trim().min(1, 'url is required'),
+  description: z.string().trim().max(1000).optional().nullable(),
+  orientation: z.enum(['portrait', 'landscape']).optional().nullable(),
+  startsAt: z.coerce.date().optional().nullable(),
+  endsAt: z.coerce.date().optional().nullable(),
+  priority: z.coerce.number().int().min(0).max(100).optional(),
+})
+
+export const updateCampaignVideoSchema = z
+  .object({
+    description: z.string().trim().max(1000).optional().nullable(),
+    orientation: z.enum(['portrait', 'landscape']).optional().nullable(),
+    startsAt: z.coerce.date().optional().nullable(),
+    endsAt: z.coerce.date().optional().nullable(),
+    priority: z.coerce.number().int().min(0).max(100).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, {
+    message: 'At least one field must be provided',
+  })
+
+export type CreateCampaignVideoBody = z.infer<typeof createCampaignVideoSchema>
+export type UpdateCampaignVideoBody = z.infer<typeof updateCampaignVideoSchema>
+
 export type CampaignBrandInput = z.infer<typeof campaignBrandSchema>
 export type GenerateCampaignBody = z.infer<typeof generateCampaignSchema>
 export type CreateCampaignBody = z.infer<typeof createCampaignSchema>

@@ -1,14 +1,17 @@
 import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  addCampaignVideo,
   createCampaign,
   deleteCampaign,
+  deleteCampaignVideo,
   fetchCampaign,
   fetchCampaigns,
   generateCampaign,
   updateCampaign,
   type CampaignCreate,
   type CampaignUpdate,
+  type CampaignVideoInput,
 } from '@/api/campaigns'
 import { useAuth } from '@/context/AuthContext'
 import { useBrand } from '@/context/BrandContext'
@@ -97,6 +100,36 @@ export function useDeleteCampaign() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => deleteCampaign(id),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: campaignsKeys.all }),
+  })
+}
+
+export function useAddCampaignVideo() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      campaignId,
+      input,
+    }: {
+      campaignId: string
+      input: CampaignVideoInput
+    }) => addCampaignVideo(campaignId, input),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: campaignsKeys.all }),
+  })
+}
+
+export function useDeleteCampaignVideo() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      campaignId,
+      videoId,
+    }: {
+      campaignId: string
+      videoId: string
+    }) => deleteCampaignVideo(campaignId, videoId),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: campaignsKeys.all }),
   })

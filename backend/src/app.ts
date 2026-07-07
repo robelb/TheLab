@@ -8,7 +8,7 @@ import { dashboardRouter } from './modules/dashboard/dashboard.router.js'
 import { extractRouter } from './modules/extract/extract.router.js'
 import { productsRouter } from './modules/products/products.router.js'
 import { uploadsRouter } from './modules/uploads/uploads.router.js'
-import { UPLOADS_DIR } from './modules/uploads/uploads.service.js'
+import { UPLOADS_DIR, VIDEOS_DIR } from './modules/uploads/uploads.service.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -24,6 +24,7 @@ export function createApp() {
     express.static(path.join(__dirname, '../public/customized')),
   )
   app.use('/api/uploads', express.static(UPLOADS_DIR))
+  app.use('/api/videos', express.static(VIDEOS_DIR))
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true })

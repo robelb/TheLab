@@ -11,6 +11,9 @@ import {
  * Auto-assembled "Your Company Kit" starter campaigns.
  * `domain` is nullable so demo/preset-mode campaigns share a null partition.
  * `status` is plain text (codebase convention) — values constrained in Zod.
+ *
+ * A campaign may have many marketing videos shown as ads on the storefront —
+ * see the `campaign_videos` table.
  */
 export const campaigns = pgTable(
   'campaigns',
