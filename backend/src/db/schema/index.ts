@@ -11,3 +11,9 @@ export {
 } from './campaign-videos.js'
 export { categories, type Category, type NewCategory } from './categories.js'
 export { products, type Product, type NewProduct } from './products.js'
+export {
+  sharedDesigns,
+  type ShareBrand,
+  type SharedDesign,
+  type NewSharedDesign,
+} from './shared-designs.js'

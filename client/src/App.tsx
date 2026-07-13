@@ -19,6 +19,7 @@ import { BrandingPage } from '@/pages/dashboard/BrandingPage'
 import { CampaignsPage } from '@/pages/dashboard/CampaignsPage'
 import { CampaignDetailPage } from '@/pages/dashboard/CampaignDetailPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { SharePage } from '@/pages/SharePage'
 import { queryClient } from '@/lib/query-client'
 
 export default function App() {
@@ -30,6 +31,8 @@ export default function App() {
             <CartProvider>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                {/* Public branded viewer for shared configurations (no auth). */}
+                <Route path="/share/:slug" element={<SharePage />} />
                 <Route
                   element={
                     <RequireAuth>

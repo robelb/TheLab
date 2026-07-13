@@ -7,6 +7,7 @@ import { categoriesRouter } from './modules/categories/categories.router.js'
 import { dashboardRouter } from './modules/dashboard/dashboard.router.js'
 import { extractRouter } from './modules/extract/extract.router.js'
 import { productsRouter } from './modules/products/products.router.js'
+import { shareRouter } from './modules/share/share.router.js'
 import { uploadsRouter } from './modules/uploads/uploads.router.js'
 import { UPLOADS_DIR, VIDEOS_DIR } from './modules/uploads/uploads.service.js'
 
@@ -36,6 +37,7 @@ export function createApp() {
   app.use('/api/campaigns', campaignsRouter)
   app.use('/api/uploads', uploadsRouter)
   app.use('/api/extract', extractRouter)
+  app.use('/api/share', shareRouter)
 
   return app
 }

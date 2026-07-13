@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { createShare } from '../share/share.service.js'
 import {
   createProductSchema,
   imageSearchSchema,
@@ -128,7 +129,25 @@ productsRouter.post('/:id/photoshoot', async (req, res) => {
 
   try {
     const result = await runProductPhotoshoot(req.params.id, parsed.data)
-    res.json(result)
+
+    // Persist the generated image as a pending, shareable design so it survives
+    // refresh and shows in the dashboard (never in the shop product response).
+    // Best-effort: a persistence failure must not lose the generated image.
+    let slug: string | undefined
+    try {
+      ;({ slug } = await createShare({
+        imageUrl: result.url,
+        productId: req.params.id,
+        prompt: result.prompt,
+      }))
+    } catch (shareErr) {
+      console.warn(
+        '[products] photoshoot share persist failed:',
+        shareErr instanceof Error ? shareErr.message : shareErr,
+      )
+    }
+
+    res.json({ ...result, slug })
   } catch (err) {
     const message =
       err instanceof Error ? err.message : 'Failed to generate image'
