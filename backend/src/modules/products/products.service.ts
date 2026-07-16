@@ -10,9 +10,12 @@ import {
   max,
   min,
   or,
+  sql,
 } from 'drizzle-orm'
+import type { SQL } from 'drizzle-orm'
 import { db, rawSql } from '../../db/index.js'
 import { brandCustomizations, categories, products } from '../../db/schema/index.js'
+import { hexToLab } from '../../lib/color.js'
 import { normalizePublicImageUrl } from '../../lib/publicImageUrl.js'
 import { embedText } from '../../services/embedding.js'
 import { captionImageForSearch } from '../../services/imageCaption.js'
@@ -52,6 +55,7 @@ const productSelect = {
   description: products.description,
   details: products.details,
   isFeatured: products.isFeatured,
+  dominantColor: products.dominantColor,
   createdAt: products.createdAt,
   updatedAt: products.updatedAt,
   categoryName: categories.name,
@@ -109,6 +113,24 @@ function buildAllFilters(params: ListProductsParams) {
   }
 
   return conditions.length > 0 ? and(...conditions) : undefined
+}
+
+/**
+ * Ordering for the catalog list. Featured products stay pinned first; when a
+ * brand color is supplied, the rest are ordered by perceptual (ΔE) closeness to
+ * it — squared LAB distance is monotonic with ΔE, so it sorts identically
+ * without the sqrt. Products with no extracted color sort last.
+ */
+function buildListOrder(brandColor?: string): SQL[] {
+  const lab = brandColor ? hexToLab(brandColor) : null
+  if (!lab) return [desc(products.isFeatured), asc(products.name)]
+
+  const distance = sql`(
+    power(${products.colorL} - ${lab.l}, 2) +
+    power(${products.colorA} - ${lab.a}, 2) +
+    power(${products.colorB} - ${lab.b}, 2)
+  ) asc nulls last`
+  return [desc(products.isFeatured), distance, asc(products.name)]
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +225,8 @@ async function semanticSearch(
     SELECT
       p.id, p.source_id, p.variant_id, p.sku, p.name, p.tagline,
       p.price, p.currency, p.stock, p.image, p.images, p.customized_image,
-      p.description, p.details, p.is_featured, p.created_at, p.updated_at,
+      p.description, p.details, p.is_featured, p.dominant_color,
+      p.created_at, p.updated_at,
       c.name AS category_name, c.slug AS category_slug
     FROM products p
     INNER JOIN categories c ON c.id = p.category_id
@@ -324,7 +347,7 @@ export async function listProducts(
         .from(products)
         .innerJoin(categories, eq(products.categoryId, categories.id))
         .where(where)
-        .orderBy(desc(products.isFeatured), asc(products.name))
+        .orderBy(...buildListOrder(effective.brandColor))
         .limit(effective.limit)
         .offset(offset),
       db
@@ -700,7 +723,8 @@ export async function getRelatedProducts(
     SELECT
       p.id, p.source_id, p.variant_id, p.sku, p.name, p.tagline,
       p.price, p.currency, p.stock, p.image, p.images, p.customized_image,
-      p.description, p.details, p.is_featured, p.created_at, p.updated_at,
+      p.description, p.details, p.is_featured, p.dominant_color,
+      p.created_at, p.updated_at,
       c.name AS category_name, c.slug AS category_slug
     FROM products p
     INNER JOIN categories c ON c.id = p.category_id

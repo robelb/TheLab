@@ -12,6 +12,8 @@ export interface FetchProductsParams {
   minPrice?: number
   maxPrice?: number
   domain?: string
+  /** Brand color (hex). When set, results are sorted by color similarity. */
+  brandColor?: string
 }
 
 export interface ImageSearchParams {
@@ -77,6 +79,9 @@ export async function fetchProducts(
   }
   if (params.domain) {
     search.domain = params.domain
+  }
+  if (params.brandColor) {
+    search.brandColor = params.brandColor
   }
 
   const { data } = await apiClient.get<ProductsResponse>('/products', {

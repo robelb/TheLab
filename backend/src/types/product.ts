@@ -22,6 +22,7 @@ export interface ProductWithCategory {
   description: string
   details: string[]
   isFeatured: boolean
+  dominantColor: string | null
 }
 
 /** Drizzle select result row (camelCase, matches column aliases). */
@@ -42,6 +43,7 @@ export interface ProductRow {
   description: string
   details: string[] | null
   isFeatured: boolean
+  dominantColor: string | null
   createdAt: Date
   updatedAt: Date
   categoryName: string
@@ -65,6 +67,7 @@ export interface RawProductRow {
   description: string
   details: string[] | null
   is_featured: boolean
+  dominant_color: string | null
   created_at: Date
   updated_at: Date
   category_name: string
@@ -100,6 +103,8 @@ export interface ListProductsParams {
   minPrice?: number
   maxPrice?: number
   domain?: string
+  /** Normalized `#rrggbb` brand color; when set, sort by color similarity. */
+  brandColor?: string
 }
 
 /** How the server understood a free-text query (price bound extracted by the LLM). */
@@ -147,6 +152,7 @@ export function toProductWithCategory(row: ProductRow): ProductWithCategory {
     description: row.description,
     details: row.details ?? [],
     isFeatured: row.isFeatured,
+    dominantColor: row.dominantColor,
   }
 }
 
@@ -168,6 +174,7 @@ export function rawRowToProductRow(row: RawProductRow): ProductRow {
     description: row.description,
     details: row.details,
     isFeatured: row.is_featured,
+    dominantColor: row.dominant_color,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     categoryName: row.category_name,

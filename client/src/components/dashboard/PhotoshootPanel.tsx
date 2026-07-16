@@ -1,7 +1,8 @@
-import { Check, ImageUp, Plus, Sparkles, X } from 'lucide-react'
+import { Check, ImageUp, Plus, Share2, Sparkles, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { usePostHog } from '@posthog/react'
 import { ASPECT_RATIOS, SCENE_TYPES, type PhotoshootRequest } from '@/api/photoshoot'
+import { createShare, shareUrl, type ShareBrand } from '@/api/share'
 import { fileToDataUrl } from '@/api/uploads'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -212,6 +213,10 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
   const [promptText, setPromptText] = useState('')
   const [results, setResults] = useState<GenerationResult[]>([])
   const [added, setAdded] = useState<Set<string>>(new Set())
+  // Public share links minted per result, plus transient "copied" feedback.
+  const [shareSlugs, setShareSlugs] = useState<Record<string, string>>({})
+  const [sharingKey, setSharingKey] = useState<string | null>(null)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [buildOnLast, setBuildOnLast] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -303,6 +308,50 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
     })
   }
 
+  /** Brand snapshot so the public viewer renders our logo/colors, no session. */
+  const brandSnapshot = (): ShareBrand => ({
+    companyName: brand.companyName,
+    logo: logo && logo.length < 180_000 ? logo : null,
+    logoType: brand.logoType ?? null,
+    primaryColor: brand.primaryColor,
+  })
+
+  /** Mint (once) a public share link for a generated result and copy it. */
+  const shareResult = async (r: GenerationResult) => {
+    setError(null)
+    try {
+      let slug = shareSlugs[r.key]
+      if (!slug) {
+        setSharingKey(r.key)
+        const res = await createShare({
+          imageUrl: r.url,
+          productId: product.id,
+          title: product.name,
+          prompt: r.prompt,
+          brand: brandSnapshot(),
+        })
+        slug = res.slug
+        setShareSlugs((prev) => ({ ...prev, [r.key]: slug }))
+        posthog?.capture('product design shared', {
+          product_id: product.id,
+          product_name: product.name,
+        })
+      }
+      await navigator.clipboard?.writeText(shareUrl(slug))
+      setCopiedKey(r.key)
+      setTimeout(() => setCopiedKey((k) => (k === r.key ? null : k)), 2000)
+    } catch (err) {
+      setError(
+        (err as { response?: { data?: { error?: string } } })?.response?.data
+          ?.error ??
+          (err as Error)?.message ??
+          'Could not create share link',
+      )
+    } finally {
+      setSharingKey(null)
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Conversation / results */}
@@ -344,33 +393,56 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
 
         {results.map((r) => {
           const isAdded = added.has(r.url)
+          const isSharing = sharingKey === r.key
+          const isCopied = copiedKey === r.key
           return (
             <div
               key={r.key}
               className="space-y-2 rounded-brand border border-border/40 bg-card p-3"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <Badge variant="secondary" className="text-[10px]">
                   {r.sceneLabel}
                 </Badge>
-                <Button
-                  size="sm"
-                  variant={isAdded ? 'outline' : 'default'}
-                  disabled={isAdded || updateProduct.isPending}
-                  onClick={() => addToImages(r.url)}
-                >
-                  {isAdded ? (
-                    <>
-                      <Check className="size-4" />
-                      Added
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="size-4" />
-                      Add to images
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isSharing}
+                    onClick={() => shareResult(r)}
+                    title="Copy a public link to share this design for sign-off"
+                  >
+                    {isCopied ? (
+                      <>
+                        <Check className="size-4" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="size-4" />
+                        {isSharing ? 'Sharing…' : 'Share'}
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={isAdded ? 'outline' : 'default'}
+                    disabled={isAdded || updateProduct.isPending}
+                    onClick={() => addToImages(r.url)}
+                  >
+                    {isAdded ? (
+                      <>
+                        <Check className="size-4" />
+                        Added
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="size-4" />
+                        Add to images
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
               <button
                 type="button"

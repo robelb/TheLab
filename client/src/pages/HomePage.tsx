@@ -19,6 +19,14 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 const SEARCH_DEBOUNCE_MS = 2000
 const PRICE_DEBOUNCE_MS = 2000
 
+/** Coerce a brand color to `#rrggbb`, falling back to a sensible default. */
+function toHexColor(value: string | null | undefined): string {
+  const v = value?.trim() ?? ''
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) return v.toLowerCase()
+  if (/^[0-9a-fA-F]{6}$/.test(v)) return `#${v.toLowerCase()}`
+  return '#2563eb'
+}
+
 function extractErrorMessage(err: unknown): string {
   if (err && typeof err === 'object' && 'response' in err) {
     const data = (err as { response?: { data?: { error?: string } } }).response
@@ -43,6 +51,11 @@ export function HomePage() {
   >()
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageError, setImageError] = useState<string | null>(null)
+  // Brand-color similarity sort — on by default, seeded from the brand's color.
+  const [colorSort, setColorSort] = useState(true)
+  const [brandColor, setBrandColor] = useState(() =>
+    toHexColor(brand.primaryColor),
+  )
 
   const imageSearch = useImageSearch()
   const imageActive = imagePreview !== null
@@ -63,6 +76,7 @@ export function HomePage() {
     minPrice: priceFilterActive ? debouncedPrice![0] : undefined,
     maxPrice: priceFilterActive ? debouncedPrice![1] : undefined,
     domain: session?.domain ?? undefined,
+    brandColor: colorSort ? brandColor : undefined,
   })
 
   const categories = data?.categories ?? []
@@ -100,6 +114,16 @@ export function HomePage() {
 
   function changeLimit(next: PageSize) {
     setLimit(next)
+    setPage(1)
+  }
+
+  function changeBrandColor(hex: string) {
+    setBrandColor(hex)
+    setPage(1)
+  }
+
+  function toggleColorSort(active: boolean) {
+    setColorSort(active)
     setPage(1)
   }
 
@@ -259,6 +283,10 @@ export function HomePage() {
             priceBounds={priceBounds}
             priceSelection={priceSelection}
             onPriceChange={changePrice}
+            brandColor={brandColor}
+            colorSortActive={colorSort}
+            onBrandColorChange={changeBrandColor}
+            onColorSortToggle={toggleColorSort}
             total={total}
             showing={products.length}
             loading={loading}

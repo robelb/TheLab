@@ -16,6 +16,8 @@ export interface Product {
   description: string
   details: string[]
   isFeatured?: boolean
+  /** Dominant color (hex) used for brand-color similarity sorting. */
+  dominantColor?: string | null
 }
 
 export interface ProductsPagination {

@@ -5,6 +5,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  real,
   text,
   timestamp,
   uniqueIndex,
@@ -48,6 +49,13 @@ export const products = pgTable(
     description: text('description').notNull().default(''),
     details: jsonb('details').$type<string[]>().notNull().default([]),
     isFeatured: boolean('is_featured').notNull().default(false),
+    // Dominant color for brand-color similarity filtering. `dominant_color` is
+    // the display hex; `color_l/a/b` are its CIELAB coordinates, so proximity
+    // sorting is a plain Euclidean (ΔE) distance in a perceptual color space.
+    dominantColor: text('dominant_color'),
+    colorL: real('color_l'),
+    colorA: real('color_a'),
+    colorB: real('color_b'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

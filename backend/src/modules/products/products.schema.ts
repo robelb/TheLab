@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { normalizeHex } from '../../lib/color.js'
 
 export const PAGE_SIZE_OPTIONS = [20, 40, 60] as const
 
@@ -45,6 +46,12 @@ export const productsQuerySchema = z
     minPrice: optionalPrice,
     maxPrice: optionalPrice,
     domain: z.string().optional(),
+    // Brand color for similarity sorting; normalized to `#rrggbb`, invalid → undefined.
+    brandColor: z
+      .string()
+      .trim()
+      .optional()
+      .transform((v) => (v ? (normalizeHex(v) ?? undefined) : undefined)),
   })
   .refine(
     (data) =>

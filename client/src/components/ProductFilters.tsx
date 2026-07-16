@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   PriceRangeFilter,
   formatPriceRangeLabel,
@@ -16,6 +17,10 @@ interface ProductFiltersProps {
   priceBounds?: { min: number; max: number }
   priceSelection?: [number, number]
   onPriceChange?: (value: [number, number]) => void
+  brandColor?: string
+  colorSortActive?: boolean
+  onBrandColorChange?: (hex: string) => void
+  onColorSortToggle?: (active: boolean) => void
   total: number
   showing: number
   loading?: boolean
@@ -31,6 +36,10 @@ export function ProductFilters({
   priceBounds,
   priceSelection,
   onPriceChange,
+  brandColor,
+  colorSortActive = false,
+  onBrandColorChange,
+  onColorSortToggle,
   total,
   showing,
   loading,
@@ -135,6 +144,39 @@ export function ProductFilters({
             value={priceSelection}
             onChange={onPriceChange}
           />
+        </div>
+      )}
+
+      {onBrandColorChange && onColorSortToggle && (
+        <div className="space-y-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+            Brand color
+          </p>
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+            <Checkbox
+              checked={colorSortActive}
+              onCheckedChange={(c) => onColorSortToggle(c === true)}
+            />
+            <span>Sort by closest color to my CI</span>
+          </label>
+          <div
+            className={cn(
+              'flex items-center gap-2 transition-opacity',
+              colorSortActive ? 'opacity-100' : 'opacity-50',
+            )}
+          >
+            <input
+              type="color"
+              value={brandColor ?? '#2563eb'}
+              onChange={(e) => onBrandColorChange(e.target.value)}
+              disabled={!colorSortActive}
+              aria-label="Brand color"
+              className="h-8 w-10 cursor-pointer rounded-brand border border-border/40 bg-transparent p-0.5 disabled:cursor-not-allowed"
+            />
+            <span className="font-mono text-xs uppercase text-muted-foreground">
+              {brandColor ?? '#2563eb'}
+            </span>
+          </div>
         </div>
       )}
 
