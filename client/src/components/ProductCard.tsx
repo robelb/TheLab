@@ -19,14 +19,9 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, index = 0 }: ProductCardProps) {
-  const { session } = useAuth()
+  const { brandGeneration } = useAuth()
   const detailUrl = `/product/${product.id}`
-  const displayImage = getProductDisplayImage(
-    product,
-    session?.customizationGeneration != null
-      ? String(session.customizationGeneration)
-      : session?.loggedInAt,
-  )
+  const displayImage = getProductDisplayImage(product, brandGeneration)
 
   return (
     <Card

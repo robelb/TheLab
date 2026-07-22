@@ -4,206 +4,280 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePostHog } from '@posthog/react'
-import { extractBrand } from '@/api/extract'
-import { getDefaultPreset, presetToConfig } from '@/config/brands'
-import { domainInputSchema } from '@/lib/domainSchema'
+import { toast } from 'sonner'
+import { fetchMe, loginRequest, signupRequest } from '@/api/auth'
+import { clearToken, getToken, setToken } from '@/lib/auth-token'
 import { mapExtractionToBrand } from '@/lib/mapExtractionToBrand'
+import {
+  can as canRule,
+  type Capability,
+  type CapabilityContext,
+  type Role,
+} from '@/lib/roles'
 import { useBrand } from '@/context/BrandContext'
-import { AxiosError } from 'axios'
+import type { AuthAccount, AuthBundle, AuthCompany } from '@/types/auth'
 
-const SESSION_KEY = 'shop-domain-session'
 const DEFAULT_BRAND_ID = 'airbnb'
-
-export type ShopSessionMode = 'default' | 'extracted'
-
-export interface ShopSession {
-  mode: ShopSessionMode
-  domain: string | null
-  sourceUrl: string
-  loggedInAt: string
-  customizationGeneration?: number
-}
+const GUEST_KEY = 'shop-guest-session'
 
 interface AuthContextValue {
-  session: ShopSession | null
+  user: AuthAccount | null
+  company: AuthCompany | null
+  role: Role | null
   isAuthenticated: boolean
-  login: (domainInput: string) => Promise<void>
+  isGuest: boolean
+  isLoading: boolean
+  /** The company's domain (used by campaigns), or null for guests. */
+  domain: string | null
+  /** Cache-bust key for branded product images. */
+  brandGeneration: string | null
+  login: (email: string, password: string) => Promise<void>
+  signup: (name: string, email: string, password: string) => Promise<void>
   loginWithDefault: () => void
   logout: () => void
+  can: (capability: Capability, ctx?: CapabilityContext) => boolean
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-function loadSession(): ShopSession | null {
+function loadGuest(): boolean {
   try {
-    const raw = localStorage.getItem(SESSION_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as ShopSession & { domain?: string }
-    if (parsed.mode === 'default' || parsed.mode === 'extracted') {
-      return parsed
-    }
-    if (parsed.domain) {
-      return {
-        mode: 'extracted',
-        domain: parsed.domain,
-        sourceUrl: parsed.sourceUrl,
-        loggedInAt: parsed.loggedInAt,
-      }
-    }
-    return null
+    return localStorage.getItem(GUEST_KEY) === '1'
   } catch {
-    return null
+    return false
   }
 }
 
-function saveSession(session: ShopSession | null) {
-  if (session) {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-  } else {
-    localStorage.removeItem(SESSION_KEY)
+function saveGuest(on: boolean) {
+  try {
+    if (on) localStorage.setItem(GUEST_KEY, '1')
+    else localStorage.removeItem(GUEST_KEY)
+  } catch {
+    /* ignore */
   }
-}
-
-function isStaleExtractedSession(
-  session: ShopSession | null,
-  hasExtractedBrand: boolean,
-): boolean {
-  return session?.mode === 'extracted' && !hasExtractedBrand
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const posthog = usePostHog()
-  const {
-    applyExtractedBrand,
-    clearExtractedBrand,
-    hasExtractedBrand,
-    selectBrand,
-  } = useBrand()
+  const { applyExtractedBrand, clearExtractedBrand, selectBrand } = useBrand()
 
-  const [session, setSession] = useState<ShopSession | null>(() => {
-    const stored = loadSession()
-    if (isStaleExtractedSession(stored, hasExtractedBrand)) {
-      saveSession(null)
-      return null
-    }
-    return stored
-  })
+  const [user, setUser] = useState<AuthAccount | null>(null)
+  const [company, setCompany] = useState<AuthCompany | null>(null)
+  const [isGuest, setIsGuest] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const pollingRef = useRef(false)
 
-  const isAuthenticated = Boolean(session)
-
-  useEffect(() => {
-    if (session?.mode === 'default') {
-      clearExtractedBrand()
-      selectBrand(DEFAULT_BRAND_ID)
-    }
-  }, [session?.mode, clearExtractedBrand, selectBrand])
-
-  const loginWithDefault = useCallback(() => {
+  const applyGuestBrand = useCallback(() => {
     clearExtractedBrand()
     selectBrand(DEFAULT_BRAND_ID)
-    const preset = getDefaultPreset()
-    const config = presetToConfig(preset)
-    const nextSession: ShopSession = {
-      mode: 'default',
-      domain: null,
-      sourceUrl: config.sourceUrl,
-      loggedInAt: new Date().toISOString(),
-    }
-    saveSession(nextSession)
-    setSession(nextSession)
-    queryClient.invalidateQueries({ queryKey: ['products'] })
-    posthog?.capture('default shop opened')
-  }, [clearExtractedBrand, selectBrand, queryClient, posthog])
+  }, [clearExtractedBrand, selectBrand])
 
-  const login = useCallback(
-    async (domainInput: string) => {
-      const parsed = domainInputSchema.safeParse({ domain: domainInput })
-      if (!parsed.success) {
-        const message =
-          parsed.error.flatten().fieldErrors.domain?.[0] ??
-          'Invalid domain'
-        throw new Error(message)
-      }
-
-      try {
-        const payload = await extractBrand(parsed.data.domain)
-        const brand = mapExtractionToBrand(payload)
-        applyExtractedBrand(brand)
-
-        if (payload.customizationError) {
-          console.warn('[customize]', payload.customizationError)
-        } else if (payload.customizationSkipped) {
-          console.warn('[customize] skipped:', payload.customizationSkipped)
-        } else if (payload.customizedProducts?.length) {
-          console.info(
-            '[customize] updated products:',
-            payload.customizedProducts.map((p) => p.productId).join(', '),
-          )
+  /**
+   * The theme (colors/fonts/logo) is applied synchronously at signup. The slow
+   * featured-product image generation runs in the background — while the
+   * company's `imagesStatus` is 'pending', poll `/me` (with a toast) until it
+   * flips, then refresh product images so the branded mockups appear.
+   */
+  const pollImagesUntilReady = useCallback(async () => {
+    if (pollingRef.current) return
+    pollingRef.current = true
+    const TOAST_ID = 'brand-images'
+    toast.loading('Generating your product mockups…', {
+      id: TOAST_ID,
+      description: 'Applying your logo to featured products. This takes a minute.',
+      duration: Infinity,
+    })
+    try {
+      for (let attempt = 0; attempt < 45; attempt++) {
+        await new Promise((r) => setTimeout(r, 4000))
+        let bundle: AuthBundle
+        try {
+          bundle = await fetchMe()
+        } catch {
+          continue // transient — keep polling
         }
+        const status = bundle.company?.imagesStatus
+        if (!status || status === 'pending') continue
 
-        const nextSession: ShopSession = {
-          mode: 'extracted',
-          domain: parsed.data.domain,
-          sourceUrl: brand.sourceUrl,
-          loggedInAt: new Date().toISOString(),
-          customizationGeneration:
-            payload.customizationGeneration ?? Date.now(),
-        }
-        saveSession(nextSession)
-        setSession(nextSession)
+        // Finished — pick up the new generation and refresh product images.
+        setUser(bundle.user)
+        setCompany(bundle.company)
         queryClient.invalidateQueries({ queryKey: ['products'] })
 
-        posthog?.identify(parsed.data.domain)
-        posthog?.capture('brand extracted', {
-          domain: parsed.data.domain,
-          company_name: brand.companyName,
-          customized_products: payload.customizedProducts?.length ?? 0,
-          customization_skipped: Boolean(payload.customizationSkipped),
-        })
-      } catch (err) {
-        if (err instanceof AxiosError) {
-          const message =
-            err.response?.data?.error ?? 'Could not extract brand for this domain'
-          posthog?.capture('brand extraction failed', {
-            domain: parsed.data.domain,
-            error: message,
+        if (status === 'ready') {
+          toast.success('Your product mockups are ready!', {
+            id: TOAST_ID,
+            description: 'Featured products now show your logo.',
+            duration: 5000,
           })
-          throw new Error(message)
+        } else if (status === 'failed') {
+          toast.error('We couldn’t generate your product mockups.', {
+            id: TOAST_ID,
+            description:
+              bundle.company?.imagesError ??
+              'You can retry from Company settings.',
+            duration: 6000,
+          })
+        } else {
+          toast.dismiss(TOAST_ID) // skipped — nothing to show
         }
-        posthog?.capture('brand extraction failed', {
-          domain: parsed.data.domain,
-          error: err instanceof Error ? err.message : 'Unknown error',
-        })
-        throw err
+        return
+      }
+      toast.dismiss(TOAST_ID) // timed out; leave current state as-is
+    } finally {
+      pollingRef.current = false
+    }
+  }, [queryClient])
+
+  const applyBundle = useCallback(
+    (bundle: AuthBundle) => {
+      setUser(bundle.user)
+      setCompany(bundle.company)
+      setIsGuest(false)
+      saveGuest(false)
+      // Apply the persisted company brand — no re-extraction on login.
+      if (bundle.company?.brand) {
+        applyExtractedBrand(mapExtractionToBrand(bundle.company.brand))
+      } else {
+        clearExtractedBrand()
+        selectBrand(DEFAULT_BRAND_ID)
+      }
+      posthog?.identify(bundle.user.id, {
+        email: bundle.user.email,
+        company: bundle.company?.domain ?? null,
+        role: bundle.user.role,
+      })
+      // Theme is applied above; featured-product images may still be generating
+      // in the background → watch for completion and refresh when ready.
+      if (bundle.company?.imagesStatus === 'pending') {
+        void pollImagesUntilReady()
       }
     },
-    [applyExtractedBrand, queryClient, posthog],
+    [
+      applyExtractedBrand,
+      clearExtractedBrand,
+      selectBrand,
+      posthog,
+      pollImagesUntilReady,
+    ],
   )
 
+  // Bootstrap: hydrate from a stored token, else restore guest mode.
+  useEffect(() => {
+    const token = getToken()
+    if (!token) {
+      if (loadGuest()) {
+        setIsGuest(true)
+        applyGuestBrand()
+      }
+      setIsLoading(false)
+      return
+    }
+    let cancelled = false
+    fetchMe()
+      .then((bundle) => {
+        if (!cancelled) applyBundle(bundle)
+      })
+      .catch(() => {
+        clearToken()
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // Run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const result = await loginRequest({ email, password })
+      setToken(result.token)
+      applyBundle(result)
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+    [applyBundle, queryClient],
+  )
+
+  const signup = useCallback(
+    async (name: string, email: string, password: string) => {
+      const result = await signupRequest({ name, email, password })
+      setToken(result.token)
+      applyBundle(result)
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+    [applyBundle, queryClient],
+  )
+
+  const loginWithDefault = useCallback(() => {
+    clearToken()
+    setUser(null)
+    setCompany(null)
+    setIsGuest(true)
+    saveGuest(true)
+    applyGuestBrand()
+    queryClient.invalidateQueries({ queryKey: ['products'] })
+    posthog?.capture('default shop opened')
+  }, [applyGuestBrand, queryClient, posthog])
+
   const logout = useCallback(() => {
-    posthog?.capture('logged out', { domain: session?.domain ?? null })
+    posthog?.capture('logged out')
     posthog?.reset()
-    saveSession(null)
-    setSession(null)
+    clearToken()
+    saveGuest(false)
+    setUser(null)
+    setCompany(null)
+    setIsGuest(false)
     clearExtractedBrand()
     queryClient.removeQueries({ queryKey: ['products'] })
-  }, [clearExtractedBrand, queryClient, posthog, session?.domain])
+  }, [clearExtractedBrand, queryClient, posthog])
 
-  const value = useMemo(
+  const can = useCallback(
+    (capability: Capability, ctx?: CapabilityContext) => {
+      const principal = user
+        ? { role: user.role, companyId: user.companyId }
+        : null
+      return canRule(principal, capability, ctx)
+    },
+    [user],
+  )
+
+  const value = useMemo<AuthContextValue>(
     () => ({
-      session,
-      isAuthenticated,
+      user,
+      company,
+      role: user?.role ?? null,
+      isAuthenticated: Boolean(user) || isGuest,
+      isGuest,
+      isLoading,
+      domain: company?.domain ?? null,
+      brandGeneration: company?.brandGeneration ?? null,
       login,
+      signup,
       loginWithDefault,
       logout,
+      can,
     }),
-    [session, isAuthenticated, login, loginWithDefault, logout],
+    [
+      user,
+      company,
+      isGuest,
+      isLoading,
+      login,
+      signup,
+      loginWithDefault,
+      logout,
+      can,
+    ],
   )
 
   return (

@@ -3,6 +3,7 @@ import { db, rawSql } from '../../db/index.js'
 import {
   campaignVideos,
   campaigns,
+  companies,
   type Campaign,
   type CampaignVideo,
 } from '../../db/schema/index.js'
@@ -37,6 +38,30 @@ import type {
 } from './campaigns.schema.js'
 
 const DEFAULT_BUNDLE_SIZE = 6
+
+/** Bound an AI call so an unreachable/slow provider degrades instead of hanging. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms,
+    )
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
+      },
+    )
+  })
+}
+
+const SEARCH_TIMEOUT_MS = 15_000
+const COPY_TIMEOUT_MS = 25_000
+const KIT_IMAGE_TIMEOUT_MS = 120_000
 
 /** Video without the bulky embedding vector (never sent to the client). */
 export type CampaignVideoPublic = Omit<CampaignVideo, 'embedding'>
@@ -139,10 +164,29 @@ async function generateKitImage(
   }
 }
 
+/**
+ * Campaigns are still keyed by `domain` (company_id is a later phase), but the
+ * product image overlay is company-scoped — resolve the owning company from the
+ * campaign's domain so branded tiles work and we never pass a domain where a
+ * company UUID is expected.
+ */
+async function companyIdForDomain(
+  domain: string | null,
+): Promise<string | undefined> {
+  if (!domain) return undefined
+  const [row] = await db
+    .select({ id: companies.id })
+    .from(companies)
+    .where(eq(companies.domain, domain))
+    .limit(1)
+  return row?.id
+}
+
 async function hydrate(c: Campaign): Promise<HydratedCampaign> {
+  const companyId = await companyIdForDomain(c.domain)
   const [products, videos] = await Promise.all([
     Promise.all(
-      c.productIds.map((id) => getProductById(id, c.domain ?? undefined)),
+      c.productIds.map((id) => getProductById(id, companyId)),
     ).then((ps) => ps.filter((p): p is ProductWithCategory => p !== null)),
     db
       .select()
@@ -160,9 +204,13 @@ export async function generateCampaign(
 ): Promise<HydratedCampaign> {
   const query = buildSemanticQuery(brand, brief)
 
-  // Vector search may fail if embeddings/Gemini are unavailable — a copy-only
-  // draft is still valid, so swallow and continue with an empty bundle.
-  const products = await searchProductsByText(query, bundleSize).catch((err) => {
+  // Vector search may fail OR hang if embeddings are unavailable — a copy-only
+  // draft is still valid, so bound it and continue with an empty bundle.
+  const products = await withTimeout(
+    searchProductsByText(query, bundleSize),
+    SEARCH_TIMEOUT_MS,
+    'semantic search',
+  ).catch((err) => {
     console.warn(
       '[campaigns] semantic search failed, continuing with empty bundle:',
       err instanceof Error ? err.message : err,
@@ -171,15 +219,29 @@ export async function generateCampaign(
   })
 
   // generateCampaignCopy is imported lazily to keep the LLM dep out of hot paths.
-  const { generateCampaignCopy } = await import('./generateCampaignCopy.js')
-  const copy = await generateCampaignCopy(
-    brand,
-    products.map((p) => p.name),
-    brief,
+  const { generateCampaignCopy, fallbackCampaignCopy } = await import(
+    './generateCampaignCopy.js'
   )
+  // Copy generation is best-effort: if the LLM is unreachable ("fetch failed")
+  // we still create a valid draft with deterministic copy the user can edit.
+  const copy = await withTimeout(
+    generateCampaignCopy(brand, products.map((p) => p.name), brief),
+    COPY_TIMEOUT_MS,
+    'copy generation',
+  ).catch((err) => {
+    console.warn(
+      '[campaigns] copy generation failed, using fallback copy:',
+      err instanceof Error ? err.message : err,
+    )
+    return fallbackCampaignCopy(brand)
+  })
 
   const heroImageUrl = products.length
-    ? await generateKitImage(brand, products, brief)
+    ? await withTimeout(
+        generateKitImage(brand, products, brief),
+        KIT_IMAGE_TIMEOUT_MS,
+        'kit image',
+      ).catch(() => null)
     : null
 
   const [row] = await db

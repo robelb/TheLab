@@ -18,8 +18,14 @@ import { ProductDetailPage } from '@/pages/dashboard/ProductDetailPage'
 import { BrandingPage } from '@/pages/dashboard/BrandingPage'
 import { CampaignsPage } from '@/pages/dashboard/CampaignsPage'
 import { CampaignDetailPage } from '@/pages/dashboard/CampaignDetailPage'
+import { TeamPage } from '@/pages/dashboard/TeamPage'
+import { CompanySettingsPage } from '@/pages/dashboard/CompanySettingsPage'
+import { UsersPage as AdminUsersPage } from '@/pages/admin/UsersPage'
+import { CompaniesPage as AdminCompaniesPage } from '@/pages/admin/CompaniesPage'
 import { LoginPage } from '@/pages/LoginPage'
+import { SignupPage } from '@/pages/SignupPage'
 import { SharePage } from '@/pages/SharePage'
+import { Toaster } from '@/components/ui/sonner'
 import { queryClient } from '@/lib/query-client'
 
 export default function App() {
@@ -29,8 +35,10 @@ export default function App() {
         <AuthProvider>
           <BrowserRouter>
             <CartProvider>
+              <Toaster position="top-center" richColors closeButton />
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
                 {/* Public branded viewer for shared configurations (no auth). */}
                 <Route path="/share/:slug" element={<SharePage />} />
                 <Route
@@ -50,7 +58,7 @@ export default function App() {
                 <Route
                   path="/dashboard"
                   element={
-                    <RequireAuth>
+                    <RequireAuth capability="manage_company">
                       <DashboardLayout />
                     </RequireAuth>
                   }
@@ -61,6 +69,11 @@ export default function App() {
                   <Route path="campaign" element={<CampaignsPage />} />
                   <Route path="campaign/:id" element={<CampaignDetailPage />} />
                   <Route path="branding" element={<BrandingPage />} />
+                  <Route path="team" element={<TeamPage />} />
+                  <Route path="company" element={<CompanySettingsPage />} />
+                  {/* Super-admin only (pages self-guard `manage_all`). */}
+                  <Route path="admin/users" element={<AdminUsersPage />} />
+                  <Route path="admin/companies" element={<AdminCompaniesPage />} />
                 </Route>
               </Routes>
             </CartProvider>

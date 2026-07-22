@@ -45,7 +45,6 @@ export const productsQuerySchema = z
       }),
     minPrice: optionalPrice,
     maxPrice: optionalPrice,
-    domain: z.string().optional(),
     // Brand color for similarity sorting; normalized to `#rrggbb`, invalid → undefined.
     brandColor: z
       .string()
@@ -80,7 +79,6 @@ export const imageSearchSchema = z
       .transform((v) => (v && v !== 'all' ? v : undefined)),
     minPrice: optionalPrice,
     maxPrice: optionalPrice,
-    domain: z.string().optional(),
     limit: z.coerce
       .number()
       .int()

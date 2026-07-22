@@ -25,6 +25,14 @@ export const env = {
   PUBLIC_API_URL:
     process.env.PUBLIC_API_URL?.trim() || 'http://localhost:3001',
 
+  // Auth (JWT bearer tokens).
+  JWT_SECRET:
+    process.env.JWT_SECRET?.trim() || 'dev-insecure-secret-change-me',
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN?.trim() || '7d',
+  // Consumer email domains that may not create/join a company (comma-separated,
+  // extends the built-in list). Signups from these are rejected.
+  CONSUMER_EMAIL_DOMAINS: process.env.CONSUMER_EMAIL_DOMAINS?.trim() ?? '',
+
   // Supabase Storage — when configured, uploaded/generated images are stored
   // there instead of on local disk. Leave blank to keep local storage.
   SUPABASE_URL: process.env.SUPABASE_URL?.trim() ?? '',

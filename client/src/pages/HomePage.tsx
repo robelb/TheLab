@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useAuth } from '@/context/AuthContext'
 import { useBrand } from '@/context/BrandContext'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -37,7 +36,6 @@ function extractErrorMessage(err: unknown): string {
 }
 
 export function HomePage() {
-  const { session } = useAuth()
   const { brand } = useBrand()
   const isMobile = useIsMobile()
 
@@ -75,7 +73,6 @@ export function HomePage() {
     q: debouncedSearch || undefined,
     minPrice: priceFilterActive ? debouncedPrice![0] : undefined,
     maxPrice: priceFilterActive ? debouncedPrice![1] : undefined,
-    domain: session?.domain ?? undefined,
     brandColor: colorSort ? brandColor : undefined,
   })
 
@@ -136,7 +133,6 @@ export function HomePage() {
       category: category !== 'all' ? category : undefined,
       minPrice: priceFilterActive ? debouncedPrice![0] : undefined,
       maxPrice: priceFilterActive ? debouncedPrice![1] : undefined,
-      domain: session?.domain ?? undefined,
     })
   }
 

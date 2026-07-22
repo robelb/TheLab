@@ -44,7 +44,7 @@ export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { data: product, isLoading, error } = useProduct(id)
   const { brand } = useBrand()
-  const { session } = useAuth()
+  const { domain } = useAuth()
   const designsQuery = useProductShares(id ?? '')
   const saveShareMut = useSaveShare(id ?? '')
   const deleteShareMut = useDeleteShare(id ?? '')
@@ -124,7 +124,7 @@ export function ProductDetailPage() {
       const { slug } = await createShare({
         imageUrl: src,
         productId: product.id,
-        domain: session?.domain ?? undefined,
+        domain: domain ?? undefined,
         title: product.name,
         brand: brandSnapshot(),
       })

@@ -11,7 +11,6 @@ export interface FetchProductsParams {
   q?: string
   minPrice?: number
   maxPrice?: number
-  domain?: string
   /** Brand color (hex). When set, results are sorted by color similarity. */
   brandColor?: string
 }
@@ -22,7 +21,6 @@ export interface ImageSearchParams {
   category?: string
   minPrice?: number
   maxPrice?: number
-  domain?: string
   limit?: number
 }
 
@@ -44,7 +42,6 @@ export async function searchProductsByImage(
   if (params.maxPrice !== undefined && !Number.isNaN(params.maxPrice)) {
     body.maxPrice = params.maxPrice
   }
-  if (params.domain) body.domain = params.domain
   if (params.limit) body.limit = params.limit
 
   const { data } = await apiClient.post<ImageSearchResponse>(
@@ -77,9 +74,6 @@ export async function fetchProducts(
   if (params.maxPrice !== undefined && !Number.isNaN(params.maxPrice)) {
     search.maxPrice = String(params.maxPrice)
   }
-  if (params.domain) {
-    search.domain = params.domain
-  }
   if (params.brandColor) {
     search.brandColor = params.brandColor
   }
@@ -90,14 +84,9 @@ export async function fetchProducts(
   return data
 }
 
-export async function fetchProduct(
-  id: string,
-  domain?: string,
-): Promise<Product> {
-  const params = domain ? { domain } : undefined
+export async function fetchProduct(id: string): Promise<Product> {
   const { data } = await apiClient.get<Product>(
     `/products/${encodeURIComponent(id)}`,
-    { params },
   )
   return data
 }
@@ -125,13 +114,10 @@ export async function deleteProduct(id: string): Promise<void> {
 export async function fetchRelatedProducts(
   id: string,
   limit = 4,
-  domain?: string,
 ): Promise<Product[]> {
-  const params: Record<string, string | number> = { limit }
-  if (domain) params.domain = domain
   const { data } = await apiClient.get<{ data: Product[] }>(
     `/products/${encodeURIComponent(id)}/related`,
-    { params },
+    { params: { limit } },
   )
   return data.data
 }

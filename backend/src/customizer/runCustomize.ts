@@ -22,6 +22,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const customizedDir = path.resolve(__dirname, '../../public/customized')
 
 export interface RunCustomizeOptions {
+  /** Owning company — branded images are stored and keyed per company. */
+  companyId: string
   domain: string
   companyName?: string | null
   logoImageUrl?: string | null
@@ -120,8 +122,9 @@ export async function runCustomize(
     brandImages.favicon ? 'favicon: ok' : '',
   )
 
-  // Use domain+sku for filenames so different domains don't overwrite each other
-  const domainSlug = options.domain.replace(/[^a-z0-9.-]/gi, '_')
+  // Key filenames on the company id + sku so each company's images are isolated
+  // and different companies never overwrite each other.
+  const companySlug = options.companyId.replace(/[^a-z0-9.-]/gi, '_')
 
   const settled = await Promise.allSettled(
     featuredProducts.map(async (product) => {
@@ -136,7 +139,7 @@ export async function runCustomize(
         options.imageLlm,
       )
 
-      const baseName = `${domainSlug}_${product.sku}`
+      const baseName = `${companySlug}_${product.sku}`
 
       // Login-time customized images live under `custome/` in Supabase; the
       // deterministic path + upsert avoids orphans (the frontend cache-busts
@@ -190,6 +193,7 @@ export async function runCustomize(
 
   if (results.length > 0) {
     await upsertBrandCustomizations(
+      options.companyId,
       options.domain,
       String(generation),
       results.map((r) => ({ productId: r.productId, imageUrl: r.publicUrl })),

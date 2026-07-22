@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { domainInputSchema } from '@/lib/domainSchema'
+import { Link, useNavigate } from 'react-router-dom'
+import { AxiosError } from 'axios'
 import { useAuth } from '@/context/AuthContext'
-import { useBrand } from '@/context/BrandContext'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -13,19 +18,14 @@ import { Loader2, Sparkles } from 'lucide-react'
 export function LoginPage() {
   const navigate = useNavigate()
   const { login, loginWithDefault, isAuthenticated } = useAuth()
-  const { selectBrand } = useBrand()
-  const [domain, setDomain] = useState('')
-  const [fieldError, setFieldError] = useState<string | null>(null)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/', { replace: true })
-      return
-    }
-    selectBrand('airbnb')
-  }, [isAuthenticated, navigate, selectBrand])
+    if (isAuthenticated) navigate('/', { replace: true })
+  }, [isAuthenticated, navigate])
 
   function handleDefaultLogin() {
     setSubmitError(null)
@@ -35,25 +35,19 @@ export function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setFieldError(null)
     setSubmitError(null)
-
-    const parsed = domainInputSchema.safeParse({ domain })
-    if (!parsed.success) {
-      setFieldError(
-        parsed.error.flatten().fieldErrors.domain?.[0] ?? 'Invalid domain',
-      )
-      return
-    }
-
     setLoading(true)
     try {
-      await login(domain)
+      await login(email, password)
       navigate('/', { replace: true })
     } catch (err) {
-      setSubmitError(
-        err instanceof Error ? err.message : 'Something went wrong',
-      )
+      const message =
+        err instanceof AxiosError
+          ? (err.response?.data?.error ?? 'Could not sign in')
+          : err instanceof Error
+            ? err.message
+            : 'Something went wrong'
+      setSubmitError(message)
     } finally {
       setLoading(false)
     }
@@ -76,62 +70,47 @@ export function LoginPage() {
             <Sparkles className="size-6" />
           </div>
           <CardTitle className="font-display text-2xl tracking-tight">
-            Welcome to the shop
+            Welcome back
           </CardTitle>
           <CardDescription>
-            Browse with the BTL demo theme, or enter a company domain to
-            extract and apply their brand.
+            Sign in to your account, or browse the demo shop.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <Button
-            type="button"
-            className="w-full"
-            size="lg"
-            disabled={loading}
-            onClick={handleDefaultLogin}
-          >
-            Continue with BLT demo
-          </Button>
-
-          <div className="relative">
-            <Separator />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
-              or use a custom domain
-            </span>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="domain">Company domain</Label>
-              <div className="flex rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
-                <span className="flex items-center border-r border-input px-3 text-sm text-muted-foreground">
-                  https://
-                </span>
-                <Input
-                  id="domain"
-                  name="domain"
-                  type="text"
-                  inputMode="url"
-                  autoComplete="url"
-                  placeholder="biglittlethings.de"
-                  value={domain}
-                  onChange={(e) => {
-                    setDomain(e.target.value)
-                    setFieldError(null)
-                    setSubmitError(null)
-                  }}
-                  disabled={loading}
-                  className="border-0 shadow-none focus-visible:ring-0 focus-visible:rounded-l-none m-1"
-                  aria-invalid={Boolean(fieldError)}
-                  aria-describedby={fieldError ? 'domain-error' : undefined}
-                />
-              </div>
-              {fieldError && (
-                <p id="domain-error" className="text-sm text-destructive">
-                  {fieldError}
-                </p>
-              )}
+              <Label htmlFor="email">Work email</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@yourcompany.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  setSubmitError(null)
+                }}
+                disabled={loading}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setSubmitError(null)
+                }}
+                disabled={loading}
+                required
+              />
             </div>
 
             {submitError && (
@@ -140,27 +119,41 @@ export function LoginPage() {
               </p>
             )}
 
-            <Button
-              type="submit"
-              variant="outline"
-              className="w-full"
-              disabled={loading}
-            >
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Extracting brand…
+                  Signing in…
                 </>
               ) : (
-                'Open shop with custom brand'
+                'Sign in'
               )}
             </Button>
-
-            <p className="text-center text-xs text-muted-foreground">
-              Custom brands may take 30–90 seconds while we analyze the site and
-              apply your logo to featured products.
-            </p>
           </form>
+
+          <p className="text-center text-sm text-muted-foreground">
+            New here?{' '}
+            <Link to="/signup" className="font-medium text-primary hover:underline">
+              Create your company account
+            </Link>
+          </p>
+
+          <div className="relative">
+            <Separator />
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+              or
+            </span>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={loading}
+            onClick={handleDefaultLogin}
+          >
+            Continue with the BLT demo
+          </Button>
         </CardContent>
       </Card>
     </div>

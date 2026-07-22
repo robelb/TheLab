@@ -17,16 +17,11 @@ import { Separator } from '@/components/ui/separator'
 import { ArrowLeft } from 'lucide-react'
 
 export function ProductPage() {
-  const { session } = useAuth()
+  const { brandGeneration } = useAuth()
   const { id } = useParams<{ id: string }>()
-  const domain = session?.domain ?? undefined
 
-  const { data: product, isLoading, error } = useProduct(id, domain)
-  const { data: related, isLoading: relatedLoading } = useRelatedProducts(
-    id,
-    4,
-    domain,
-  )
+  const { data: product, isLoading, error } = useProduct(id)
+  const { data: related, isLoading: relatedLoading } = useRelatedProducts(id, 4)
   const [activeIndex, setActiveIndex] = useState(0)
 
   if (isLoading) {
@@ -46,12 +41,7 @@ export function ProductPage() {
     )
   }
 
-  const coverImage = getProductDisplayImage(
-    product,
-    session?.customizationGeneration != null
-      ? String(session.customizationGeneration)
-      : session?.loggedInAt,
-  )
+  const coverImage = getProductDisplayImage(product, brandGeneration)
 
   // Gallery: the customized/cover image first, then any additional images.
   const gallery =

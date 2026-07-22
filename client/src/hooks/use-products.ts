@@ -9,8 +9,7 @@ import {
 export const productsKeys = {
   all: ['products'] as const,
   list: (params: FetchProductsParams) => ['products', 'list', params] as const,
-  detail: (id: string, domain?: string) =>
-    ['products', 'detail', id, domain] as const,
+  detail: (id: string) => ['products', 'detail', id] as const,
 }
 
 export function useProducts(params: FetchProductsParams) {

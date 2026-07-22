@@ -102,7 +102,8 @@ export interface ListProductsParams {
   q?: string
   minPrice?: number
   maxPrice?: number
-  domain?: string
+  /** Owning company — overlays that company's branded product images. */
+  companyId?: string
   /** Normalized `#rrggbb` brand color; when set, sort by color similarity. */
   brandColor?: string
 }

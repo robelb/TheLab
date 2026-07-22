@@ -23,6 +23,18 @@ function stripFences(text: string): string {
     .trim()
 }
 
+/** Deterministic copy used when the model is unavailable or returns junk. */
+export function fallbackCampaignCopy(
+  brand: CampaignBrandSignals,
+): CampaignCopy {
+  return {
+    title: `${brand.companyName} — Featured Collection`,
+    description:
+      brand.description?.trim() ||
+      'A curated selection of products picked to match your brand.',
+  }
+}
+
 /** Parse the model's JSON, falling back to deterministic copy on any failure. */
 function parseCopy(raw: string, brand: CampaignBrandSignals): CampaignCopy {
   try {
@@ -36,12 +48,7 @@ function parseCopy(raw: string, brand: CampaignBrandSignals): CampaignCopy {
   } catch {
     // fall through to fallback
   }
-  return {
-    title: `${brand.companyName} — Featured Collection`,
-    description:
-      brand.description?.trim() ||
-      'A curated selection of products picked to match your brand.',
-  }
+  return fallbackCampaignCopy(brand)
 }
 
 async function genOpenAI(

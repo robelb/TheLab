@@ -42,8 +42,7 @@ export function useCampaign(id: string | undefined) {
 /** Assemble campaign-generation brand signals from BrandContext + session. */
 export function useCampaignBrandSignals(): CampaignBrandSignals {
   const { brand } = useBrand()
-  const { session } = useAuth()
-  const domain = session?.domain ?? null
+  const { domain } = useAuth()
   return useMemo(
     () => ({
       companyName: brand.companyName,

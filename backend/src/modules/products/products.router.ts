@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { optionalAuth } from '../../middleware/auth.js'
 import { createShare } from '../share/share.service.js'
 import {
   createProductSchema,
@@ -26,6 +27,10 @@ function firstZodError(error: import('zod').ZodError): string {
 
 export const productsRouter = Router()
 
+// Attach the caller's company (if signed in) so read paths overlay only that
+// company's branded product images. Guests get the default catalog images.
+productsRouter.use(optionalAuth)
+
 productsRouter.post('/search/image', async (req, res) => {
   const parsed = imageSearchSchema.safeParse(req.body)
 
@@ -42,7 +47,11 @@ productsRouter.post('/search/image', async (req, res) => {
 
   try {
     const { image, ...rest } = parsed.data
-    const result = await searchByImage({ ...rest, imageBase64: image })
+    const result = await searchByImage({
+      ...rest,
+      imageBase64: image,
+      companyId: req.authUser?.companyId ?? undefined,
+    })
     res.json(result)
   } catch (err) {
     const message =
@@ -65,7 +74,10 @@ productsRouter.get('/', async (req, res) => {
     return res.status(400).json({ error: message })
   }
 
-  const result = await listProducts(parsed.data)
+  const result = await listProducts({
+    ...parsed.data,
+    companyId: req.authUser?.companyId ?? undefined,
+  })
   res.json(result)
 })
 
@@ -158,9 +170,8 @@ productsRouter.post('/:id/photoshoot', async (req, res) => {
 })
 
 productsRouter.get('/:id', async (req, res) => {
-  const domain =
-    typeof req.query.domain === 'string' ? req.query.domain : undefined
-  const product = await getProductById(req.params.id, domain)
+  const companyId = req.authUser?.companyId ?? undefined
+  const product = await getProductById(req.params.id, companyId)
   if (!product) {
     return res.status(404).json({ error: 'Product not found' })
   }
@@ -168,13 +179,12 @@ productsRouter.get('/:id', async (req, res) => {
 })
 
 productsRouter.get('/:id/related', async (req, res) => {
-  const domain =
-    typeof req.query.domain === 'string' ? req.query.domain : undefined
+  const companyId = req.authUser?.companyId ?? undefined
   const limit = Math.min(
     Math.max(1, Number(req.query.limit) || 4),
     12,
   )
 
-  const related = await getRelatedProducts(req.params.id, limit, domain)
+  const related = await getRelatedProducts(req.params.id, limit, companyId)
   res.json({ data: related })
 })

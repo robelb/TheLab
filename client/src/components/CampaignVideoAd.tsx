@@ -29,9 +29,9 @@ export function CampaignVideoAd({
   className?: string
 }) {
   const navigate = useNavigate()
-  const { session } = useAuth()
+  const { domain } = useAuth()
   const { data } = useActiveCampaigns({
-    domain: session?.domain ?? undefined,
+    domain: domain ?? undefined,
     category,
     q,
   })

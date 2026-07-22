@@ -16,7 +16,8 @@ export function customizedImagePublicUrl(
 }
 
 export async function upsertBrandCustomizations(
-  domain: string,
+  companyId: string,
+  domain: string | null,
   generation: string,
   updates: Array<{ productId: string; imageUrl: string }>,
 ): Promise<void> {
@@ -27,7 +28,7 @@ export async function upsertBrandCustomizations(
         .from(brandCustomizations)
         .where(
           and(
-            eq(brandCustomizations.domain, domain),
+            eq(brandCustomizations.companyId, companyId),
             eq(brandCustomizations.productId, productId),
           ),
         )
@@ -36,10 +37,11 @@ export async function upsertBrandCustomizations(
       if (existing.length > 0) {
         await db
           .update(brandCustomizations)
-          .set({ imageUrl, generation })
+          .set({ imageUrl, generation, domain })
           .where(eq(brandCustomizations.id, existing[0].id))
       } else {
         await db.insert(brandCustomizations).values({
+          companyId,
           domain,
           productId,
           imageUrl,
@@ -50,8 +52,8 @@ export async function upsertBrandCustomizations(
   )
 }
 
-export async function getCustomizationsForDomain(
-  domain: string,
+export async function getCustomizationsForCompany(
+  companyId: string,
 ): Promise<Record<string, string>> {
   const rows = await db
     .select({
@@ -59,7 +61,7 @@ export async function getCustomizationsForDomain(
       imageUrl: brandCustomizations.imageUrl,
     })
     .from(brandCustomizations)
-    .where(eq(brandCustomizations.domain, domain))
+    .where(eq(brandCustomizations.companyId, companyId))
 
   return Object.fromEntries(rows.map((r) => [r.productId, r.imageUrl]))
 }

@@ -6,6 +6,9 @@
 import { config } from 'dotenv'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { eq } from 'drizzle-orm'
+import { db } from '../src/db/index.js'
+import { companies } from '../src/db/schema/index.js'
 import { runCustomize } from '../src/customizer/runCustomize.js'
 import { resolveBrandAssets } from '../src/customizer/resolveLogoUrl.js'
 import {
@@ -54,6 +57,22 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
+  if (!domain) {
+    console.error('Error: --domain is required to resolve the owning company.')
+    process.exit(1)
+  }
+
+  const [company] = await db
+    .select({ id: companies.id })
+    .from(companies)
+    .where(eq(companies.domain, domain))
+    .limit(1)
+
+  if (!company) {
+    console.error(`Error: no company found for domain "${domain}".`)
+    process.exit(1)
+  }
+
   try {
     const brand = await resolveBrandAssets({
       explicitLogoUrl: logo,
@@ -63,6 +82,8 @@ async function main(): Promise<void> {
     console.error('Brand assets:', brand)
 
     const outcome = await runCustomize({
+      companyId: company.id,
+      domain,
       companyName: brand.companyName,
       logoImageUrl: brand.logoImageUrl,
       faviconImageUrl: brand.faviconImageUrl,

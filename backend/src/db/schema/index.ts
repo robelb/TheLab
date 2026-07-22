@@ -5,6 +5,14 @@ export {
 } from './brand-customizations.js'
 export { campaigns, type Campaign, type NewCampaign } from './campaigns.js'
 export {
+  companies,
+  type Company,
+  type NewCompany,
+  type CompanyBrand,
+  type CompanyBrandStatus,
+} from './companies.js'
+export { users, type User, type NewUser } from './users.js'
+export {
   campaignVideos,
   type CampaignVideo,
   type NewCampaignVideo,

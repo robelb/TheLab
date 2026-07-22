@@ -134,8 +134,7 @@ function formatDate(iso: string) {
 
 export function CampaignsPage() {
   const { brand } = useBrand()
-  const { session } = useAuth()
-  const domain = session?.domain ?? null
+  const { domain } = useAuth()
   const brandSignals = useCampaignBrandSignals()
 
   const navigate = useNavigate()

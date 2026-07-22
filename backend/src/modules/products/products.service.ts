@@ -134,11 +134,11 @@ function buildListOrder(brandColor?: string): SQL[] {
 }
 
 // ---------------------------------------------------------------------------
-// Customization overlay (per-domain branded images)
+// Customization overlay (per-company branded images)
 // ---------------------------------------------------------------------------
 
 async function getCustomizationMap(
-  domain: string,
+  companyId: string,
 ): Promise<Map<string, string>> {
   const rows = await db
     .select({
@@ -146,7 +146,7 @@ async function getCustomizationMap(
       imageUrl: brandCustomizations.imageUrl,
     })
     .from(brandCustomizations)
-    .where(eq(brandCustomizations.domain, domain))
+    .where(eq(brandCustomizations.companyId, companyId))
 
   return new Map(rows.map((r) => [r.productId, r.imageUrl]))
 }
@@ -170,10 +170,10 @@ function applyCustomizations(
 
 async function withCustomizations(
   data: ProductWithCategory[],
-  domain?: string,
+  companyId?: string,
 ): Promise<ProductWithCategory[]> {
-  if (!domain) return data
-  return applyCustomizations(data, await getCustomizationMap(domain))
+  if (!companyId) return data
+  return applyCustomizations(data, await getCustomizationMap(companyId))
 }
 
 // ---------------------------------------------------------------------------
@@ -191,7 +191,7 @@ export async function searchProductsByText(
   query: string,
   limit = 6,
 ): Promise<ProductWithCategory[]> {
-  return semanticSearch(query, { page: 1, limit, domain: undefined }, limit)
+  return semanticSearch(query, { page: 1, limit, companyId: undefined }, limit)
 }
 
 async function semanticSearch(
@@ -362,7 +362,7 @@ export async function listProducts(
   }
 
   const totalPages = total === 0 ? 0 : Math.ceil(total / effective.limit)
-  data = await withCustomizations(data, params.domain)
+  data = await withCustomizations(data, params.companyId)
 
   return {
     data,
@@ -391,7 +391,7 @@ export interface ImageSearchParams {
   category?: string
   minPrice?: number
   maxPrice?: number
-  domain?: string
+  companyId?: string
   limit?: number
 }
 
@@ -411,7 +411,7 @@ export async function searchByImage(
     category: params.category,
     minPrice: params.minPrice,
     maxPrice: params.maxPrice,
-    domain: params.domain,
+    companyId: params.companyId,
   }
 
   const [matches, meta] = await Promise.all([
@@ -419,7 +419,7 @@ export async function searchByImage(
     getCatalogMeta(),
   ])
 
-  const data = await withCustomizations(matches, params.domain)
+  const data = await withCustomizations(matches, params.companyId)
   const total = data.length
 
   return {
@@ -444,7 +444,7 @@ export async function searchByImage(
 
 export async function getProductById(
   id: string,
-  domain?: string,
+  companyId?: string,
 ): Promise<ProductWithCategory | null> {
   const rows = await db
     .select(productSelect)
@@ -457,7 +457,7 @@ export async function getProductById(
 
   const [product] = await withCustomizations(
     [toProductWithCategory(rows[0])],
-    domain,
+    companyId,
   )
   return product
 }
@@ -717,7 +717,7 @@ export async function deleteProduct(id: string): Promise<boolean> {
 export async function getRelatedProducts(
   productId: string,
   limit = 4,
-  domain?: string,
+  companyId?: string,
 ): Promise<ProductWithCategory[]> {
   const rows = (await rawSql`
     SELECT
@@ -739,5 +739,5 @@ export async function getRelatedProducts(
   `) as RawProductRow[]
 
   const data = rows.map((r) => toProductWithCategory(rawRowToProductRow(r)))
-  return withCustomizations(data, domain)
+  return withCustomizations(data, companyId)
 }
