@@ -13,6 +13,12 @@ export interface FetchProductsParams {
   maxPrice?: number
   /** Brand color (hex). When set, results are sorted by color similarity. */
   brandColor?: string
+  /**
+   * Keep featured products pinned first under color sort. True (default) for the
+   * initial brand color; false once the user picks a color to filter by, so
+   * results sort purely by color.
+   */
+  pinFeatured?: boolean
 }
 
 export interface ImageSearchParams {
@@ -76,6 +82,11 @@ export async function fetchProducts(
   }
   if (params.brandColor) {
     search.brandColor = params.brandColor
+  }
+  // Only send when disabling the featured pin (a user-picked color); the backend
+  // defaults to pinning featured first for the initial brand color.
+  if (params.pinFeatured === false) {
+    search.pinFeatured = 'false'
   }
 
   const { data } = await apiClient.get<ProductsResponse>('/products', {

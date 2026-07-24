@@ -54,6 +54,10 @@ export function HomePage() {
   const [brandColor, setBrandColor] = useState(() =>
     toHexColor(brand.primaryColor),
   )
+  // Has the user picked a color to filter by? For the initial brand color we
+  // pin featured products first; once the user chooses a color we sort ALL
+  // products purely by color (featured no longer prioritized).
+  const [colorIsCustom, setColorIsCustom] = useState(false)
 
   const imageSearch = useImageSearch()
   const imageActive = imagePreview !== null
@@ -74,6 +78,9 @@ export function HomePage() {
     minPrice: priceFilterActive ? debouncedPrice![0] : undefined,
     maxPrice: priceFilterActive ? debouncedPrice![1] : undefined,
     brandColor: colorSort ? brandColor : undefined,
+    // Initial brand color → featured first, then by color. User-picked color →
+    // sort all products purely by color (don't pin featured).
+    pinFeatured: colorSort ? !colorIsCustom : undefined,
   })
 
   const categories = data?.categories ?? []
@@ -116,6 +123,7 @@ export function HomePage() {
 
   function changeBrandColor(hex: string) {
     setBrandColor(hex)
+    setColorIsCustom(true)
     setPage(1)
   }
 

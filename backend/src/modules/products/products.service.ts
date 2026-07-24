@@ -125,8 +125,12 @@ function buildAllFilters(params: ListProductsParams) {
  * brand color is supplied, the rest are ordered by perceptual (ΔE) closeness to
  * it — squared LAB distance is monotonic with ΔE, so it sorts identically
  * without the sqrt. Products with no extracted color sort last.
+ *
+ * `pinFeatured` controls the featured tiebreaker under color sort: true for the
+ * initial brand color (featured first, then by color); false when the user picks
+ * a color to filter by (sort ALL products purely by color, ignoring featured).
  */
-function buildListOrder(brandColor?: string): SQL[] {
+function buildListOrder(brandColor?: string, pinFeatured = true): SQL[] {
   const lab = brandColor ? hexToLab(brandColor) : null
   if (!lab) return [desc(products.isFeatured), asc(products.name)]
 
@@ -135,7 +139,9 @@ function buildListOrder(brandColor?: string): SQL[] {
     power(${products.colorA} - ${lab.a}, 2) +
     power(${products.colorB} - ${lab.b}, 2)
   ) asc nulls last`
-  return [desc(products.isFeatured), distance, asc(products.name)]
+  return pinFeatured
+    ? [desc(products.isFeatured), distance, asc(products.name)]
+    : [distance, asc(products.name)]
 }
 
 // ---------------------------------------------------------------------------
@@ -402,7 +408,7 @@ export async function listProducts(
         .from(products)
         .innerJoin(categories, eq(products.categoryId, categories.id))
         .where(where)
-        .orderBy(...buildListOrder(effective.brandColor))
+        .orderBy(...buildListOrder(effective.brandColor, effective.pinFeatured))
         .limit(effective.limit)
         .offset(offset),
       db

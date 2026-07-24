@@ -51,6 +51,13 @@ export const productsQuerySchema = z
       .trim()
       .optional()
       .transform((v) => (v ? (normalizeHex(v) ?? undefined) : undefined)),
+    // Whether featured products stay pinned first under color sort. Defaults to
+    // true (initial brand color); the client sends 'false' when the user picks a
+    // color to filter by, so results sort purely by color.
+    pinFeatured: z
+      .enum(['true', 'false'])
+      .optional()
+      .transform((v) => v !== 'false'),
   })
   .refine(
     (data) =>

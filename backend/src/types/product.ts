@@ -106,6 +106,12 @@ export interface ListProductsParams {
   companyId?: string
   /** Normalized `#rrggbb` brand color; when set, sort by color similarity. */
   brandColor?: string
+  /**
+   * Whether featured products stay pinned first under color sort. True for the
+   * initial brand color (featured, then by color); false when the user picks a
+   * color to filter by (sort ALL products purely by color). Defaults to true.
+   */
+  pinFeatured?: boolean
 }
 
 /** How the server understood a free-text query (price bound extracted by the LLM). */
