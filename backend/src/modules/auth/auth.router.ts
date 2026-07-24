@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { requireAuth } from '../../middleware/auth.js'
 import { loginSchema, signupSchema } from './auth.schema.js'
-import { AuthError, getMe, login, signup } from './auth.service.js'
+import { AuthError, getMe, login, loginAsDemo, signup } from './auth.service.js'
 
 function firstZodError(error: import('zod').ZodError): string {
   const { fieldErrors, formErrors } = error.flatten()
@@ -42,6 +42,19 @@ authRouter.post('/login', async (req, res) => {
     }
     console.warn('[auth] login failed:', err)
     res.status(500).json({ error: 'Login failed' })
+  }
+})
+
+authRouter.post('/demo', async (_req, res) => {
+  try {
+    const result = await loginAsDemo()
+    res.json(result)
+  } catch (err) {
+    if (err instanceof AuthError) {
+      return res.status(err.status).json({ error: err.message })
+    }
+    console.warn('[auth] demo login failed:', err)
+    res.status(500).json({ error: 'Demo login failed' })
   }
 })
 

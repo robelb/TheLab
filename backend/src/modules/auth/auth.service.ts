@@ -320,3 +320,31 @@ export async function getMe(userId: string): Promise<AuthBundle> {
   if (!user) throw new AuthError('User not found.', 404)
   return buildAuthBundle(user)
 }
+
+/** Email of the public demo account (seed with `pnpm demo:user`). */
+export const DEMO_USER_EMAIL =
+  process.env.DEMO_USER_EMAIL?.trim().toLowerCase() || 'demo@biglittlethings.de'
+
+/**
+ * Passwordless login for the public "BLT demo" account. Signs a token for the
+ * pre-seeded demo user so the shop loads that company's brand + branded product
+ * images through the normal authenticated path.
+ */
+export async function loginAsDemo(): Promise<AuthResult> {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, DEMO_USER_EMAIL))
+    .limit(1)
+
+  if (!user) {
+    throw new AuthError(
+      'Demo account is not set up. Seed it with `pnpm demo:user`.',
+      404,
+    )
+  }
+  if (!user.isActive) throw new AuthError('Demo account is deactivated.', 403)
+
+  const token = signAuthToken(principalOf(user))
+  return { token, ...(await buildAuthBundle(user)) }
+}

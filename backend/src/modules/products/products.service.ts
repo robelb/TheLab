@@ -14,7 +14,12 @@ import {
 } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import { db, rawSql } from '../../db/index.js'
-import { brandCustomizations, categories, products } from '../../db/schema/index.js'
+import {
+  brandCustomizations,
+  categories,
+  companyProductImages,
+  products,
+} from '../../db/schema/index.js'
 import { hexToLab } from '../../lib/color.js'
 import { normalizePublicImageUrl } from '../../lib/publicImageUrl.js'
 import { embedText } from '../../services/embedding.js'
@@ -137,6 +142,7 @@ function buildListOrder(brandColor?: string): SQL[] {
 // Customization overlay (per-company branded images)
 // ---------------------------------------------------------------------------
 
+/** Login-generated auto-branded hero image per product (one per company). */
 async function getCustomizationMap(
   companyId: string,
 ): Promise<Map<string, string>> {
@@ -151,20 +157,65 @@ async function getCustomizationMap(
   return new Map(rows.map((r) => [r.productId, r.imageUrl]))
 }
 
+/** Dashboard-generated gallery images per product (many per company), oldest→newest. */
+async function getCompanyGalleryMap(
+  companyId: string,
+): Promise<Map<string, string[]>> {
+  const rows = await db
+    .select({
+      productId: companyProductImages.productId,
+      imageUrl: companyProductImages.imageUrl,
+    })
+    .from(companyProductImages)
+    .where(eq(companyProductImages.companyId, companyId))
+    .orderBy(asc(companyProductImages.createdAt))
+
+  const map = new Map<string, string[]>()
+  for (const r of rows) {
+    const list = map.get(r.productId)
+    if (list) list.push(r.imageUrl)
+    else map.set(r.productId, [r.imageUrl])
+  }
+  return map
+}
+
+const norm = (u: string): string => normalizePublicImageUrl(u) ?? u
+
+/**
+ * Overlay a company's OWN generated images onto products so they surface only
+ * for that company's logged-in users:
+ *   - `images`: base catalog gallery + this company's dashboard gallery (dedup).
+ *   - `customizedImage` (hero): the login auto-branded image, else this company's
+ *     most recent dashboard image, else unchanged.
+ * Other companies / guests never receive these rows, so they see only the base.
+ */
 function applyCustomizations(
   items: ProductWithCategory[],
-  customizations: Map<string, string>,
+  heroes: Map<string, string>,
+  galleries: Map<string, string[]>,
 ): ProductWithCategory[] {
-  if (customizations.size === 0) return items
+  if (heroes.size === 0 && galleries.size === 0) return items
   return items.map((p) => {
-    const url = customizations.get(p.id)
-    return url
-      ? {
-          ...p,
-          customizedImage:
-            normalizePublicImageUrl(url) ?? url,
-        }
-      : p
+    const hero = heroes.get(p.id)
+    const gallery = galleries.get(p.id) ?? []
+    if (!hero && gallery.length === 0) return p
+
+    const base = p.images && p.images.length > 0 ? p.images : p.image ? [p.image] : []
+    const seen = new Set<string>()
+    const images: string[] = []
+    for (const u of [...base, ...gallery]) {
+      const n = norm(u)
+      if (seen.has(n)) continue
+      seen.add(n)
+      images.push(n)
+    }
+
+    const heroUrl = hero ?? (gallery.length ? gallery[gallery.length - 1] : undefined)
+    return {
+      ...p,
+      images,
+      customizedImage: heroUrl ? norm(heroUrl) : p.customizedImage,
+    }
   })
 }
 
@@ -173,7 +224,11 @@ async function withCustomizations(
   companyId?: string,
 ): Promise<ProductWithCategory[]> {
   if (!companyId) return data
-  return applyCustomizations(data, await getCustomizationMap(companyId))
+  const [heroes, galleries] = await Promise.all([
+    getCustomizationMap(companyId),
+    getCompanyGalleryMap(companyId),
+  ])
+  return applyCustomizations(data, heroes, galleries)
 }
 
 // ---------------------------------------------------------------------------

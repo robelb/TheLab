@@ -27,10 +27,17 @@ export function LoginPage() {
     if (isAuthenticated) navigate('/', { replace: true })
   }, [isAuthenticated, navigate])
 
-  function handleDefaultLogin() {
+  async function handleDefaultLogin() {
     setSubmitError(null)
-    loginWithDefault()
-    navigate('/', { replace: true })
+    setLoading(true)
+    try {
+      await loginWithDefault()
+      navigate('/', { replace: true })
+    } catch {
+      setSubmitError('Could not open the demo. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {

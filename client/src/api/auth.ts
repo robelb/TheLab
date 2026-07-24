@@ -22,3 +22,9 @@ export async function fetchMe(): Promise<AuthBundle> {
   const { data } = await apiClient.get<AuthBundle>('/auth/me')
   return data
 }
+
+/** Passwordless login for the public "BLT demo" account. */
+export async function demoLoginRequest(): Promise<AuthResult> {
+  const { data } = await apiClient.post<AuthResult>('/auth/demo')
+  return data
+}

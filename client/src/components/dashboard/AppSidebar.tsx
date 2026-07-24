@@ -35,6 +35,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
+  { to: '/', end: true, label: 'Shop', icon: Store, capability: 'manage_company' },
   { to: '/dashboard', end: true, label: 'Overview', icon: LayoutDashboard, capability: 'manage_company' },
   { to: '/dashboard/products', end: false, label: 'Products', icon: Package, capability: 'manage_company' },
   { to: '/dashboard/campaign', end: false, label: 'Campaign', icon: Megaphone, capability: 'manage_company' },
@@ -117,14 +118,6 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Back to shop">
-              <Link to="/">
-                <Store />
-                <span>Back to shop</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={logout} tooltip="Sign out">
               <LogOut />

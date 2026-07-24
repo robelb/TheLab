@@ -1,10 +1,13 @@
 import { randomBytes } from 'node:crypto'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
-import { products, sharedDesigns } from '../../db/schema/index.js'
+import {
+  companyProductImages,
+  products,
+  sharedDesigns,
+} from '../../db/schema/index.js'
 import type { NewSharedDesign, SharedDesign } from '../../db/schema/index.js'
 import { normalizePublicImageUrl } from '../../lib/publicImageUrl.js'
-import { updateProduct } from '../products/products.service.js'
 import type { CreateShareBody } from './share.schema.js'
 
 /** Short, URL-safe public token backing a share link (~11 chars, 64 bits). */
@@ -75,6 +78,7 @@ export async function deleteShare(slug: string): Promise<boolean> {
     .select({
       id: sharedDesigns.id,
       productId: sharedDesigns.productId,
+      companyId: sharedDesigns.companyId,
       imageUrl: sharedDesigns.imageUrl,
     })
     .from(sharedDesigns)
@@ -85,22 +89,18 @@ export async function deleteShare(slug: string): Promise<boolean> {
 
   await db.delete(sharedDesigns).where(eq(sharedDesigns.id, row.id))
 
-  if (row.productId) {
-    const [p] = await db
-      .select({ image: products.image, images: products.images })
-      .from(products)
-      .where(eq(products.id, row.productId))
-      .limit(1)
-    if (p) {
-      const gallery = p.images && p.images.length > 0 ? p.images : [p.image]
-      // row.imageUrl is stored normalized; normalize gallery entries to match.
-      const filtered = gallery.filter(
-        (u) => (normalizePublicImageUrl(u) ?? u) !== row.imageUrl,
+  if (row.productId && row.companyId) {
+    // Pull this exact image from the company's per-product gallery so a
+    // rejected/removed design leaves that company's shop view too.
+    await db
+      .delete(companyProductImages)
+      .where(
+        and(
+          eq(companyProductImages.companyId, row.companyId),
+          eq(companyProductImages.productId, row.productId),
+          eq(companyProductImages.imageUrl, row.imageUrl),
+        ),
       )
-      if (filtered.length !== gallery.length && filtered.length > 0) {
-        await updateProduct(row.productId, { images: filtered })
-      }
-    }
   }
 
   return true
@@ -136,6 +136,7 @@ export async function createShare(
       if (input.prompt !== undefined) updates.prompt = input.prompt
       if (input.domain !== undefined) updates.domain = input.domain
       if (input.title !== undefined) updates.title = input.title
+      if (input.companyId !== undefined) updates.companyId = input.companyId
       await db
         .update(sharedDesigns)
         .set(updates)
@@ -149,6 +150,7 @@ export async function createShare(
     slug,
     imageUrl,
     productId: input.productId ?? null,
+    companyId: input.companyId ?? null,
     domain: input.domain ?? null,
     title: input.title ?? null,
     prompt: input.prompt ?? null,
@@ -207,9 +209,18 @@ export async function getShareBySlug(slug: string): Promise<ShareView | null> {
 }
 
 /**
- * Promote a pending share to `saved`: attach its image to the linked product's
- * gallery (dedup) so it starts appearing in product responses, then flip the
- * status. Idempotent — safe to call more than once.
+ * Promote a pending share to `saved` so it starts appearing in the shop, then
+ * flip the status. Idempotent — safe to call more than once.
+ *
+ * Company-scoped (the dashboard case): publish the image into that company's
+ * per-product gallery (`company_product_images`). The catalog overlay then
+ * surfaces it ONLY to that company's logged-in users — the same product can hold
+ * a separate set of images for every company — and it never touches the global
+ * `products.images` gallery. Multiple distinct images per (company, product) are
+ * allowed; re-saving the same image is a no-op.
+ *
+ * Company-less shares are NOT published to the shop (there is no company to scope
+ * them to); they remain reachable only via their public share slug.
  */
 export async function saveShare(slug: string): Promise<ShareView> {
   const [row] = await db
@@ -220,25 +231,22 @@ export async function saveShare(slug: string): Promise<ShareView> {
 
   if (!row) throw new Error('Share not found')
 
-  if (row.productId) {
-    // Read the RAW stored gallery (not getProductById, which normalizes image
-    // URLs) so the dedup compares like-for-like with the stored share URL.
-    const [p] = await db
-      .select({ image: products.image, images: products.images })
-      .from(products)
-      .where(eq(products.id, row.productId))
-      .limit(1)
-    if (p) {
-      const gallery = p.images && p.images.length > 0 ? p.images : [p.image]
-      // Compare in normalized form so a stored localhost/Supabase URL variant
-      // doesn't slip past the dedup and get appended twice.
-      const normalized = gallery.map((u) => normalizePublicImageUrl(u) ?? u)
-      if (!normalized.includes(row.imageUrl)) {
-        await updateProduct(row.productId, {
-          images: [...gallery, row.imageUrl],
-        })
-      }
-    }
+  if (row.productId && row.companyId) {
+    await db
+      .insert(companyProductImages)
+      .values({
+        companyId: row.companyId,
+        productId: row.productId,
+        imageUrl: row.imageUrl,
+        prompt: row.prompt ?? null,
+      })
+      .onConflictDoNothing({
+        target: [
+          companyProductImages.companyId,
+          companyProductImages.productId,
+          companyProductImages.imageUrl,
+        ],
+      })
   }
 
   await db

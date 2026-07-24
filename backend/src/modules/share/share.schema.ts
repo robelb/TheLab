@@ -13,6 +13,8 @@ export const brandSnapshotSchema = z
 export const createShareSchema = z.object({
   imageUrl: z.string().trim().min(1, 'imageUrl is required'),
   productId: z.string().uuid().optional(),
+  /** Owning company — scopes a saved design to that company's shop view. */
+  companyId: z.string().uuid().optional(),
   domain: z.string().trim().max(255).optional(),
   title: z.string().trim().max(300).optional(),
   prompt: z.string().trim().max(4000).optional(),

@@ -17,7 +17,14 @@
     "embed": "tsx scripts/generate-embeddings.ts",
     "colors": "tsx scripts/generate-colors.ts",
     "extract": "tsx scripts/extract-brand.ts",
-    "customize": "tsx scripts/generate-customized-images.ts"
+    "customize": "tsx scripts/generate-customized-images.ts",
+    "fetch:catalogues": "tsx scripts/fetch-catalogues.ts",
+    "flatten:catalogues": "tsx scripts/flatten-catalogues.ts",
+    "feature": "tsx scripts/feature-products.ts",
+    "reset:images": "tsx scripts/reset-generated-images.ts",
+    "strip:gallery": "tsx scripts/strip-global-gallery.ts",
+    "regenerate:images": "tsx scripts/regenerate-brand-images.ts",
+    "demo:user": "tsx scripts/create-demo-user.ts"
   },
   "dependencies": {
     "@google/genai": "^1.5.0",

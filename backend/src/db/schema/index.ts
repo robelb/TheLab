@@ -5,6 +5,11 @@ export {
 } from './brand-customizations.js'
 export { campaigns, type Campaign, type NewCampaign } from './campaigns.js'
 export {
+  companyProductImages,
+  type CompanyProductImage,
+  type NewCompanyProductImage,
+} from './company-product-images.js'
+export {
   companies,
   type Company,
   type NewCompany,

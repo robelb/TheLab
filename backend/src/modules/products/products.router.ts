@@ -151,6 +151,9 @@ productsRouter.post('/:id/photoshoot', async (req, res) => {
         imageUrl: result.url,
         productId: req.params.id,
         prompt: result.prompt,
+        // Scope the design to the dashboard user's company so that, once saved,
+        // its image shows in the shop ONLY for that company's logged-in users.
+        companyId: req.authUser?.companyId ?? undefined,
       }))
     } catch (shareErr) {
       console.warn(

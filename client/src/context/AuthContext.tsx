@@ -11,7 +11,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { usePostHog } from '@posthog/react'
 import { toast } from 'sonner'
-import { fetchMe, loginRequest, signupRequest } from '@/api/auth'
+import { demoLoginRequest, fetchMe, loginRequest, signupRequest } from '@/api/auth'
 import { clearToken, getToken, setToken } from '@/lib/auth-token'
 import { mapExtractionToBrand } from '@/lib/mapExtractionToBrand'
 import {
@@ -39,7 +39,7 @@ interface AuthContextValue {
   brandGeneration: string | null
   login: (email: string, password: string) => Promise<void>
   signup: (name: string, email: string, password: string) => Promise<void>
-  loginWithDefault: () => void
+  loginWithDefault: () => Promise<void>
   logout: () => void
   can: (capability: Capability, ctx?: CapabilityContext) => boolean
 }
@@ -218,16 +218,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyBundle, queryClient],
   )
 
-  const loginWithDefault = useCallback(() => {
-    clearToken()
-    setUser(null)
-    setCompany(null)
-    setIsGuest(true)
-    saveGuest(true)
-    applyGuestBrand()
-    queryClient.invalidateQueries({ queryKey: ['products'] })
-    posthog?.capture('default shop opened')
-  }, [applyGuestBrand, queryClient, posthog])
+  const loginWithDefault = useCallback(async () => {
+    // The "BLT demo" logs in as the demo company account so the shop loads that
+    // company's brand + its branded product images (via the normal authed path).
+    try {
+      const result = await demoLoginRequest()
+      setToken(result.token)
+      applyBundle(result)
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      posthog?.capture('blt demo opened')
+    } catch {
+      // Fallback: plain guest browse if the demo account isn't available.
+      clearToken()
+      setUser(null)
+      setCompany(null)
+      setIsGuest(true)
+      saveGuest(true)
+      applyGuestBrand()
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      posthog?.capture('default shop opened')
+    }
+  }, [applyBundle, applyGuestBrand, queryClient, posthog])
 
   const logout = useCallback(() => {
     posthog?.capture('logged out')

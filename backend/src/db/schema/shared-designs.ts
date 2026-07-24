@@ -6,6 +6,7 @@ import {
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core'
+import { companies } from './companies.js'
 import { products } from './products.js'
 
 /** Brand snapshot stored on a share so the public viewer is self-contained. */
@@ -30,6 +31,17 @@ export const sharedDesigns = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     slug: text('slug').notNull().unique(),
     productId: uuid('product_id').references(() => products.id, {
+      onDelete: 'cascade',
+    }),
+    /**
+     * Company that generated this design. Set from the logged-in dashboard user
+     * at creation. On save, the image is published as this company's branded
+     * image (brand_customizations) so it shows in the shop ONLY for that
+     * company's logged-in users — never in the global product gallery. Nullable
+     * for the migration and for company-less shares (which fall back to legacy
+     * global-gallery behavior).
+     */
+    companyId: uuid('company_id').references(() => companies.id, {
       onDelete: 'cascade',
     }),
     domain: text('domain'),
