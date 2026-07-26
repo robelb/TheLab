@@ -8,6 +8,7 @@ import {
   fetchCampaign,
   fetchCampaigns,
   generateCampaign,
+  regenerateCampaignHeroImage,
   updateCampaign,
   type CampaignCreate,
   type CampaignUpdate,
@@ -24,10 +25,20 @@ export const campaignsKeys = {
   detail: (id: string) => ['campaigns', 'detail', id] as const,
 }
 
+/**
+ * Bundle images render in the background (~30-60s), so poll while any campaign
+ * in the result is still waiting on one.
+ */
+const HERO_IMAGE_POLL_MS = 4000
+
 export function useCampaigns(domain?: string | null) {
   return useQuery({
     queryKey: campaignsKeys.list(domain),
     queryFn: () => fetchCampaigns(domain ?? undefined),
+    refetchInterval: (query) =>
+      query.state.data?.some((c) => c.heroImageStatus === 'pending')
+        ? HERO_IMAGE_POLL_MS
+        : false,
   })
 }
 
@@ -36,6 +47,10 @@ export function useCampaign(id: string | undefined) {
     queryKey: campaignsKeys.detail(id ?? ''),
     queryFn: () => fetchCampaign(id!),
     enabled: Boolean(id),
+    refetchInterval: (query) =>
+      query.state.data?.heroImageStatus === 'pending'
+        ? HERO_IMAGE_POLL_MS
+        : false,
   })
 }
 
@@ -90,8 +105,24 @@ export function useUpdateCampaign() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: CampaignUpdate }) =>
       updateCampaign(id, input),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: campaignsKeys.all }),
+    onSuccess: (campaign) => {
+      // Seed the detail cache so a bundle change shows its `pending` image state
+      // immediately, without waiting for the invalidation round-trip.
+      queryClient.setQueryData(campaignsKeys.detail(campaign.id), campaign)
+      void queryClient.invalidateQueries({ queryKey: campaignsKeys.all })
+    },
+  })
+}
+
+/** Manual bundle-image regeneration — always available, also after a failure. */
+export function useRegenerateCampaignHeroImage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => regenerateCampaignHeroImage(id),
+    onSuccess: (campaign) => {
+      queryClient.setQueryData(campaignsKeys.detail(campaign.id), campaign)
+      void queryClient.invalidateQueries({ queryKey: campaignsKeys.all })
+    },
   })
 }
 

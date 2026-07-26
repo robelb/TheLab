@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import { Minus, Plus, Trash2 } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
 import { useBrand } from '@/context/BrandContext'
+import { getProductDisplayImage } from '@/lib/productImage'
 import { formatPrice } from '@/utils/format'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,6 +11,7 @@ import { Separator } from '@/components/ui/separator'
 
 export function CartPage() {
   const { brand } = useBrand()
+  const { brandGeneration } = useAuth()
   const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart()
 
   if (items.length === 0) {
@@ -49,7 +52,7 @@ export function CartPage() {
                 className="overflow-hidden rounded-brand bg-muted/20"
               >
                 <img
-                  src={product.image}
+                  src={getProductDisplayImage(product, brandGeneration)}
                   alt=""
                   className="aspect-[4/5] w-full object-cover sm:aspect-square sm:h-[100px] sm:w-[100px]"
                 />

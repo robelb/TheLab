@@ -1,4 +1,4 @@
-import { ImageIcon, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { ImageIcon, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { usePostHog } from '@posthog/react'
@@ -264,15 +264,29 @@ export function CampaignsPage() {
               <TableRow key={c.id}>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-brand border border-border/40 bg-muted/20">
+                    <div
+                      className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-brand border border-border/40 bg-muted/20"
+                      aria-busy={c.heroImageStatus === 'pending'}
+                      title={
+                        c.heroImageStatus === 'pending'
+                          ? 'Regenerating the bundle image…'
+                          : undefined
+                      }
+                    >
                       {c.heroImageUrl ? (
                         <img
                           src={c.heroImageUrl}
                           alt=""
-                          className="h-full w-full object-cover"
+                          className={cn(
+                            'h-full w-full object-cover',
+                            c.heroImageStatus === 'pending' && 'opacity-30',
+                          )}
                         />
                       ) : (
                         <ImageIcon className="size-4 text-muted-foreground" />
+                      )}
+                      {c.heroImageStatus === 'pending' && (
+                        <Loader2 className="absolute size-4 animate-spin text-primary" />
                       )}
                     </div>
                     <Link

@@ -18,6 +18,7 @@ import {
   getCampaign,
   listActiveCampaignVideos,
   listCampaigns,
+  regenerateCampaignHeroImage,
   updateCampaign,
   updateCampaignVideo,
 } from './campaigns.service.js'
@@ -121,6 +122,24 @@ campaignsRouter.patch('/:id', async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to update campaign'
     console.warn('[campaigns] update failed:', message)
+    res.status(500).json({ error: message })
+  }
+})
+
+// Manual bundle-image regeneration. Returns immediately with the campaign in
+// its `pending` state — the render runs in the background and the client polls
+// the detail endpoint for the result.
+campaignsRouter.post('/:id/hero-image', async (req, res) => {
+  try {
+    const campaign = await regenerateCampaignHeroImage(req.params.id)
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaign not found' })
+    }
+    res.status(202).json(campaign)
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Failed to regenerate image'
+    console.warn('[campaigns] hero image regenerate failed:', message)
     res.status(500).json({ error: message })
   }
 })

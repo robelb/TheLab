@@ -4,6 +4,9 @@ export type CampaignStatus = 'draft' | 'approved' | 'dismissed'
 
 export type VideoOrientation = 'portrait' | 'landscape'
 
+/** Lifecycle of the composite bundle image generation. */
+export type CampaignHeroImageStatus = 'idle' | 'pending' | 'ready' | 'failed'
+
 /** A marketing video attached to a campaign (embedding omitted server-side). */
 export interface CampaignVideoItem {
   id: string
@@ -25,6 +28,12 @@ export interface Campaign {
   status: CampaignStatus
   productIds: string[]
   heroImageUrl: string | null
+  /** The bundle the current image was rendered from (empty = unknown). */
+  heroImageProductIds: string[]
+  heroImageStatus: CampaignHeroImageStatus
+  heroImageError: string | null
+  /** Server-computed: the image no longer matches the bundle. */
+  heroImageStale: boolean
   products: Product[]
   videos: CampaignVideoItem[]
   createdAt: string

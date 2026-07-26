@@ -6,6 +6,7 @@ import {
   eq,
   gte,
   ilike,
+  inArray,
   lte,
   max,
   min,
@@ -521,6 +522,27 @@ export async function getProductById(
     companyId,
   )
   return product
+}
+
+/**
+ * Fetch several products at once, with the caller's company image overlay
+ * applied. Used to refresh client-side snapshots (the cart) against live data,
+ * so a branded image generated after the item was added still shows up.
+ * Ids that no longer exist are simply absent from the result.
+ */
+export async function getProductsByIds(
+  ids: string[],
+  companyId?: string,
+): Promise<ProductWithCategory[]> {
+  if (ids.length === 0) return []
+
+  const rows = await db
+    .select(productSelect)
+    .from(products)
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .where(inArray(products.id, ids))
+
+  return withCustomizations(rows.map(toProductWithCategory), companyId)
 }
 
 // ---------------------------------------------------------------------------

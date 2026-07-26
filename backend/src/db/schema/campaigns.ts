@@ -7,6 +7,9 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 
+/** Lifecycle of the composite bundle ("hero") image generation. */
+export type CampaignHeroImageStatus = 'idle' | 'pending' | 'ready' | 'failed'
+
 /**
  * Auto-assembled "Your Company Kit" starter campaigns.
  * `domain` is nullable so demo/preset-mode campaigns share a null partition.
@@ -25,6 +28,20 @@ export const campaigns = pgTable(
     status: text('status').notNull().default('draft'),
     productIds: jsonb('product_ids').$type<string[]>().notNull().default([]),
     heroImageUrl: text('hero_image_url'),
+    /**
+     * The exact bundle the current `heroImageUrl` was rendered from. Compared
+     * against `productIds` to tell whether the image still matches the bundle.
+     * Empty for pre-existing campaigns (unknown provenance → treated as fresh).
+     */
+    heroImageProductIds: jsonb('hero_image_product_ids')
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    heroImageStatus: text('hero_image_status')
+      .$type<CampaignHeroImageStatus>()
+      .notNull()
+      .default('idle'),
+    heroImageError: text('hero_image_error'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -5,6 +5,7 @@ import {
   createProductSchema,
   imageSearchSchema,
   photoshootSchema,
+  productIdsQuerySchema,
   productsQuerySchema,
   updateProductSchema,
 } from './products.schema.js'
@@ -12,6 +13,7 @@ import {
   createProduct,
   deleteProduct,
   getProductById,
+  getProductsByIds,
   getRelatedProducts,
   listProducts,
   runProductPhotoshoot,
@@ -170,6 +172,19 @@ productsRouter.post('/:id/photoshoot', async (req, res) => {
     console.warn('[products] photoshoot failed:', message)
     res.status(status).json({ error: message })
   }
+})
+
+// Batch lookup for refreshing client-side product snapshots (the cart) against
+// live, company-scoped data. Registered before `/:id` so the literal path isn't
+// captured as an id.
+productsRouter.get('/by-ids', async (req, res) => {
+  const parsed = productIdsQuerySchema.safeParse(req.query)
+  if (!parsed.success) {
+    return res.status(400).json({ error: firstZodError(parsed.error) })
+  }
+  const companyId = req.authUser?.companyId ?? undefined
+  const data = await getProductsByIds(parsed.data.ids, companyId)
+  res.json({ data })
 })
 
 productsRouter.get('/:id', async (req, res) => {

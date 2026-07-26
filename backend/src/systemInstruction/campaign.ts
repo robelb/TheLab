@@ -1,7 +1,7 @@
 /**
  * Instructions for the "Your Company Kit" campaign assembly:
  *   - copy generation (title + marketing description) from brand signals
- *   - the composite "kit" image showing all bundle products together, on-brand
+ *   - the composite "kit" image showing all bundle products together
  */
 
 export interface CampaignBrandSignals {
@@ -51,57 +51,104 @@ export function buildCampaignUserPrompt(
 
 // ── Composite "kit" image ────────────────────────────────────────────────────
 
+export interface CampaignKitImageOptions {
+  /** A brand logo is supplied as the LAST reference image, after the products. */
+  hasLogo?: boolean
+  companyName?: string | null
+}
+
 /**
- * One premium photograph featuring ALL the bundle products together — never a
- * grid/collage of separate frames. Each provided image is a product reference.
+ * The bundle image has a FIXED visual style — an overhead flat-lay of the whole
+ * bundle packed into an open kraft gift box. The scene itself is brand-neutral
+ * (white background, no brief-driven styling) so every campaign image is
+ * consistent and a regeneration after a bundle change produces the same look
+ * with a different product set. The brand appears only where it would in real
+ * corporate gifting: as the company logo applied to each product.
+ *
+ * Images are provided as product references in the same order as `productNames`,
+ * optionally followed by one brand logo image (`options.hasLogo`).
  */
 export function buildCampaignKitImagePrompt(
-  brand: CampaignBrandSignals,
   productNames: string[],
-  hasLogo: boolean,
-  brief?: string | null,
+  options: CampaignKitImageOptions = {},
 ): string {
+  const count = productNames.length
+  const brand = options.companyName?.trim()
+
   const p: string[] = []
 
   p.push(
-    'Act as an expert commercial product photographer and set stylist. Create ONE single, photorealistic marketing photograph that features ALL of the provided products together in one cohesive scene — an attractively arranged group shot or flat-lay, styled as a premium brand campaign / starter kit.',
+    'Act as an expert commercial product photographer. Create ONE single, photorealistic top-down (90° overhead) flat-lay product photograph of a gift box set.',
   )
 
-  if (brief?.trim()) {
+  p.push(
+    [
+      'Packaging and framing:',
+      '- All items are presented inside a single open kraft-brown corrugated cardboard gift box.',
+      '- The box walls are visible on all four sides and the box is centred in the frame.',
+      '- The box interior is filled with brown crinkle-cut shredded paper filler as bedding, clearly visible in every gap between the products.',
+      '- Outside the box the background is pure white and seamless. No props, no hands, no surfaces, no text overlays, no watermarks.',
+    ].join('\n'),
+  )
+
+  p.push(
+    [
+      'Product arrangement:',
+      '- Lay the products flat inside the box in a clean, evenly spaced, grid-like arrangement.',
+      '- No overlapping and no stacking — each item sits directly on the filler, fully visible and readable.',
+      '- Every label, front face and printed detail faces up and is correctly oriented for the viewer.',
+      '- Size the products relative to each other realistically and fill the box neatly.',
+    ].join('\n'),
+  )
+
+  p.push(
+    [
+      'Lighting and finish:',
+      '- Soft, even studio lighting with neutral white balance.',
+      '- Only subtle, natural contact shadows under the items; no harsh highlights and no coloured light.',
+      '- Photorealistic commercial e-commerce look, sharp focus across the whole frame, high resolution.',
+      '- Square 1:1 aspect ratio.',
+    ].join('\n'),
+  )
+
+  p.push(
+    `The first ${count || 'set of'} provided image${count === 1 ? '' : 's'} ${
+      count === 1 ? 'is a PRODUCT reference' : 'are PRODUCT references'
+    }. Reproduce every product faithfully — its real shape, colour, material, proportions and its own packaging artwork — and include all of them in the single composition. Do not redesign, restyle or re-label any product.`,
+  )
+
+  if (count) {
     p.push(
-      `Campaign brief / theme to reflect in the styling and mood: ${brief.trim()}.`,
+      `The box must contain EXACTLY these ${count} product${count === 1 ? '' : 's'}, one of each, and nothing else:\n${productNames
+        .map((n, i) => `${i + 1}. ${n}`)
+        .join('\n')}`,
+    )
+  }
+
+  if (options.hasLogo) {
+    p.push(
+      [
+        `BRANDING — this is essential: the FINAL provided image is the company logo${
+          brand ? ` of ${brand}` : ''
+        }. That logo must appear on EVERY SINGLE product in the box, as if each item were real branded corporate merchandise.`,
+        '- Apply exactly one logo per product, printed, embossed or label-applied directly onto the item itself or onto its packaging. Every product must carry it — do not leave any item unbranded.',
+        '- Keep the placement, relative scale and colour treatment consistent across the whole set: centred on flat faces, sized to sit tastefully within each surface (smaller on small items, larger on wide flat ones).',
+        "- The logo must sit in the material: correct perspective for the overhead view, wrapping with any curvature, matching the surface's finish, texture and lighting. It must read as printed on the product, never as a flat sticker pasted onto the photograph.",
+        '- Reproduce the logo exactly as provided — identical shapes, proportions and colours. Do not redraw, recolour, mirror, crop, translate it, or add a tagline or extra wording.',
+        '- If a provided product reference already shows this logo, keep that one as it is and do not add a second copy.',
+        '- Put the logo on the products only — never on the cardboard box, the shredded paper filler, or the background.',
+      ].join('\n'),
     )
   }
 
   p.push(
-    'Each provided image is a PRODUCT reference. Reproduce every product faithfully — its real shape, colour, material and proportions — and include all of them in the single composition. Do not omit, duplicate, or redesign any product.',
-  )
-
-  const palette = [brand.primaryColor, brand.secondaryColor]
-    .filter(Boolean)
-    .join(' and ')
-  p.push(
-    `Arrange the products with intentional, balanced composition, consistent soft lighting and realistic shadows, on a clean, premium background${
-      palette ? ` that complements the brand colours (${palette})` : ''
-    }. It should look like one professionally styled photo, not separate cut-outs pasted together.`,
-  )
-
-  if (hasLogo) {
-    p.push(
-      'The final provided image is the brand LOGO. Place it subtly and tastefully in the scene (for example on a small card, tag, or surface) so the set reads as this brand. It is the ONLY brand allowed — do not show any other or made-up logos, brand names or text.',
-    )
-  }
-
-  if (productNames.length) {
-    p.push(`The products are: ${productNames.join(', ')}.`)
-  }
-
-  p.push(
-    'The final image must be a horizontal landscape photograph (3:2, wider than it is tall), composed as a banner-style hero suited to that wide frame.',
+    `Do not add filler products, invented extras, duplicates, greeting cards, ribbons or decorations. Do not omit any product. Apart from each product's own existing packaging branding${
+      options.hasLogo ? ' and the supplied company logo' : ''
+    }, no other logo, brand name, slogan or text may appear anywhere in the frame.`,
   )
 
   p.push(
-    'Produce exactly ONE unified photograph. Do NOT make a grid, collage, contact sheet, mosaic, or separate labelled panels. The result should feel like premium commercial photography, not a generic AI image or a flat mockup.',
+    'Produce exactly ONE unified photograph of one box. Do NOT make a grid of separate frames, a collage, a contact sheet, a mosaic, or labelled panels.',
   )
 
   return p.join('\n\n')

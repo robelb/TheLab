@@ -9,6 +9,12 @@ import {
 } from '../../db/schema/index.js'
 import { embedText } from '../../services/embedding.js'
 import {
+  getBrandImageAssetsFromExtraction,
+  hasAnyBrandImage,
+  normalizeBrandImageUrls,
+} from '../../customizer/brandAssets.js'
+import { fetchBrandImages } from '../../customizer/fetchBrandImages.js'
+import {
   fetchImage,
   fetchImageOptional,
   type FetchedImage,
@@ -63,6 +69,13 @@ const SEARCH_TIMEOUT_MS = 15_000
 const COPY_TIMEOUT_MS = 25_000
 const KIT_IMAGE_TIMEOUT_MS = 120_000
 
+/**
+ * A hero-image job left `pending` for longer than this (with no in-process job
+ * running) was interrupted — a server restart, most likely. Reported as failed
+ * so the UI offers a retry instead of spinning forever.
+ */
+const HERO_IMAGE_STALE_MS = KIT_IMAGE_TIMEOUT_MS + 60_000
+
 /** Video without the bulky embedding vector (never sent to the client). */
 export type CampaignVideoPublic = Omit<CampaignVideo, 'embedding'>
 
@@ -74,6 +87,8 @@ function toPublicVideo(v: CampaignVideo): CampaignVideoPublic {
 export interface HydratedCampaign extends Campaign {
   products: ProductWithCategory[]
   videos: CampaignVideoPublic[]
+  /** The hero image no longer matches the bundle (regeneration is available). */
+  heroImageStale: boolean
 }
 
 /** Semantic query: the user's brief leads, then brand signals. */
@@ -91,19 +106,27 @@ function buildSemanticQuery(b: CampaignBrandInput, brief?: string | null): strin
     .join('. ')
 }
 
-/** Resolve the brand logo (url / data-uri / inline svg) to a FetchedImage. */
-async function resolveLogoImage(
-  logo?: string | null,
-  logoType?: string | null,
+/** The logo to brand the bundle products with, plus the name to reference it by. */
+interface BundleBrand {
+  logo: FetchedImage
+  companyName?: string | null
+}
+
+/** Logo straight off the request payload (url / data-uri / inline svg). */
+async function logoFromBrandInput(
+  brand: CampaignBrandInput,
 ): Promise<FetchedImage | undefined> {
-  if (!logo) return undefined
-  const value = logo.trim()
+  const value = brand.logo?.trim()
   if (!value) return undefined
   try {
-    if (logoType === 'data-uri' || value.startsWith('data:')) {
+    if (brand.logoType === 'data-uri' || value.startsWith('data:')) {
       return await fetchedImageFromDataUrl(value, 'logo')
     }
-    if (logoType === 'svg' || value.startsWith('<svg') || value.startsWith('<?xml')) {
+    if (
+      brand.logoType === 'svg' ||
+      value.startsWith('<svg') ||
+      value.startsWith('<?xml')
+    ) {
       return await fetchedImageFromInlineSvg(value)
     }
     return (await fetchImageOptional(value, 'logo')) ?? undefined
@@ -113,55 +136,89 @@ async function resolveLogoImage(
 }
 
 /**
- * Best-effort composite "kit" image: all bundle products together + the logo.
- * Returns null if image generation is unconfigured or fails — the campaign is
- * still useful with copy + product bundle.
+ * Logo from the company's persisted brand extraction. This is the path a
+ * regeneration takes — a campaign row only knows its `domain`, so the logo is
+ * looked up rather than passed in. Falls back to the favicon, like the
+ * product customizer does.
  */
-async function generateKitImage(
-  brand: CampaignBrandInput,
-  products: ProductWithCategory[],
-  brief?: string | null,
-): Promise<string | null> {
-  const config = resolveImageLlmConfig()
-  if (!config) {
-    console.warn('[campaigns] kit image skipped:', missingImageLlmConfigMessage())
-    return null
-  }
+async function logoFromCompany(
+  domain: string | null,
+): Promise<BundleBrand | undefined> {
+  if (!domain) return undefined
+  const [company] = await db
+    .select({ name: companies.name, brand: companies.brand })
+    .from(companies)
+    .where(eq(companies.domain, domain))
+    .limit(1)
+  if (!company?.brand) return undefined
+
+  const assets = getBrandImageAssetsFromExtraction(company.brand)
+  if (!hasAnyBrandImage(assets)) return undefined
 
   try {
-    const fetched = await Promise.allSettled(
-      products.map((p) => fetchImage(p.image, 'product')),
-    )
-    const productImages = fetched
-      .filter(
-        (r): r is PromiseFulfilledResult<FetchedImage> =>
-          r.status === 'fulfilled',
-      )
-      .map((r) => r.value)
-
-    if (productImages.length === 0) return null
-
-    const logoImage = await resolveLogoImage(brand.logo, brand.logoType)
-    const images = logoImage ? [...productImages, logoImage] : productImages
-
-    const prompt = buildCampaignKitImagePrompt(
-      brand,
-      products.map((p) => p.name),
-      Boolean(logoImage),
-      brief,
-    )
-
-    const buffer = await generateProductPhoto(prompt, images, config, {
-      size: '1536x1024',
-    })
-    return await saveImage(buffer.toString('base64'), { prefix: 'campaign' })
-  } catch (err) {
-    console.warn(
-      '[campaigns] kit image generation failed:',
-      err instanceof Error ? err.message : err,
-    )
-    return null
+    const fetched = await fetchBrandImages(normalizeBrandImageUrls(assets))
+    const logo = fetched.logo ?? fetched.favicon
+    return logo
+      ? { logo, companyName: assets.companyName ?? company.name }
+      : undefined
+  } catch {
+    return undefined
   }
+}
+
+/**
+ * Composite "kit" image: the whole bundle laid out in one open gift box, with
+ * the company logo branded onto every product — see `buildCampaignKitImagePrompt`.
+ *
+ * Throws with a user-facing message when it can't produce an image, so the
+ * caller can either surface the reason (manual regeneration) or swallow it
+ * (campaign assembly, where copy + bundle are still useful on their own).
+ */
+async function generateKitImage(
+  products: ProductWithCategory[],
+  brand?: BundleBrand,
+): Promise<string> {
+  const config = resolveImageLlmConfig()
+  if (!config) throw new Error(missingImageLlmConfigMessage())
+  if (products.length === 0) {
+    throw new Error('Add at least one product to the bundle first.')
+  }
+
+  // Prefer the company's already-branded product shot when one exists — the
+  // logo is then carried by the reference itself, so placement matches what the
+  // shop shows. Otherwise the base catalog image, branded by the prompt.
+  const fetched = await Promise.allSettled(
+    products.map((p) => fetchImage(p.customizedImage ?? p.image, 'product')),
+  )
+  // A product whose image can't be fetched is dropped rather than failing the
+  // whole render — but the prompt must then match what we actually send.
+  const usable = products
+    .map((product, i) => ({ product, result: fetched[i] }))
+    .filter(
+      (
+        entry,
+      ): entry is {
+        product: ProductWithCategory
+        result: PromiseFulfilledResult<FetchedImage>
+      } => entry.result.status === 'fulfilled',
+    )
+
+  if (usable.length === 0) {
+    throw new Error('None of the bundle product images could be loaded.')
+  }
+
+  // Order matters: products first (the first image is the edit base), logo last.
+  const images = usable.map((e) => e.result.value)
+  if (brand) images.push(brand.logo)
+
+  const prompt = buildCampaignKitImagePrompt(
+    usable.map((e) => e.product.name),
+    { hasLogo: Boolean(brand), companyName: brand?.companyName },
+  )
+  const buffer = await generateProductPhoto(prompt, images, config, {
+    size: '1024x1024',
+  })
+  return saveImage(buffer.toString('base64'), { prefix: 'campaign' })
 }
 
 /**
@@ -183,18 +240,183 @@ async function companyIdForDomain(
 }
 
 async function hydrate(c: Campaign): Promise<HydratedCampaign> {
-  const companyId = await companyIdForDomain(c.domain)
+  const row = await reconcileHeroImageStatus(c)
+  const companyId = await companyIdForDomain(row.domain)
   const [products, videos] = await Promise.all([
     Promise.all(
-      c.productIds.map((id) => getProductById(id, companyId)),
+      row.productIds.map((id) => getProductById(id, companyId)),
     ).then((ps) => ps.filter((p): p is ProductWithCategory => p !== null)),
     db
       .select()
       .from(campaignVideos)
-      .where(eq(campaignVideos.campaignId, c.id))
+      .where(eq(campaignVideos.campaignId, row.id))
       .orderBy(desc(campaignVideos.createdAt)),
   ])
-  return { ...c, products, videos: videos.map(toPublicVideo) }
+  return {
+    ...row,
+    products,
+    videos: videos.map(toPublicVideo),
+    heroImageStale: isHeroImageStale(row),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bundle image (hero) regeneration
+// ---------------------------------------------------------------------------
+
+/** Order-sensitive comparison — a reorder changes the layout, so it counts. */
+function sameBundle(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i])
+}
+
+/**
+ * The image is stale when it was demonstrably rendered from a different bundle.
+ * Campaigns created before provenance was tracked have an empty
+ * `heroImageProductIds` — unknown, not stale, so we never nag about them.
+ */
+function isHeroImageStale(c: Campaign): boolean {
+  if (!c.heroImageUrl || c.heroImageProductIds.length === 0) return false
+  return !sameBundle(c.heroImageProductIds, c.productIds)
+}
+
+/** Campaign ids with a regeneration running in THIS process. */
+const heroImageJobs = new Set<string>()
+/** Campaign ids whose bundle changed again mid-render — one more pass is owed. */
+const heroImageReruns = new Set<string>()
+
+/**
+ * A `pending` row with no live job and no recent activity was interrupted
+ * (process restart) — flip it to failed so the UI stops waiting on it.
+ */
+async function reconcileHeroImageStatus(c: Campaign): Promise<Campaign> {
+  if (c.heroImageStatus !== 'pending') return c
+  if (heroImageJobs.has(c.id)) return c
+  if (Date.now() - c.updatedAt.getTime() < HERO_IMAGE_STALE_MS) return c
+
+  const [row] = await db
+    .update(campaigns)
+    .set({
+      heroImageStatus: 'failed',
+      heroImageError: 'Image generation was interrupted. Try again.',
+    })
+    .where(eq(campaigns.id, c.id))
+    .returning()
+  return row ?? c
+}
+
+/** Render the bundle image for a campaign and record the result. Never throws. */
+async function runHeroImageJob(campaignId: string): Promise<void> {
+  try {
+    await db
+      .update(campaigns)
+      .set({ heroImageStatus: 'pending', heroImageError: null })
+      .where(eq(campaigns.id, campaignId))
+
+    const [row] = await db
+      .select()
+      .from(campaigns)
+      .where(eq(campaigns.id, campaignId))
+      .limit(1)
+    if (!row) return
+
+    const companyId = await companyIdForDomain(row.domain)
+    const products = (
+      await Promise.all(row.productIds.map((id) => getProductById(id, companyId)))
+    ).filter((p): p is ProductWithCategory => p !== null)
+
+    // Nothing left to photograph — drop the image rather than fail.
+    if (products.length === 0) {
+      await db
+        .update(campaigns)
+        .set({
+          heroImageUrl: null,
+          heroImageProductIds: [],
+          heroImageStatus: 'idle',
+          heroImageError: null,
+        })
+        .where(eq(campaigns.id, campaignId))
+      return
+    }
+
+    const url = await withTimeout(
+      logoFromCompany(row.domain).then((brand) =>
+        generateKitImage(products, brand),
+      ),
+      KIT_IMAGE_TIMEOUT_MS,
+      'kit image',
+    )
+
+    // Snapshot the bundle we rendered so the next edit is detectable — and so a
+    // bundle changed again mid-render is immediately reported as stale.
+    await db
+      .update(campaigns)
+      .set({
+        heroImageUrl: url,
+        heroImageProductIds: row.productIds,
+        heroImageStatus: 'ready',
+        heroImageError: null,
+      })
+      .where(eq(campaigns.id, campaignId))
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Image generation failed.'
+    console.warn('[campaigns] hero image regeneration failed:', message)
+    // The previous `heroImageUrl` is deliberately left untouched.
+    await db
+      .update(campaigns)
+      .set({ heroImageStatus: 'failed', heroImageError: message })
+      .where(eq(campaigns.id, campaignId))
+      .catch(() => undefined)
+  }
+}
+
+/**
+ * Kick off a background regeneration, at most one at a time per campaign. When
+ * the bundle changes again while a render is in flight, a single extra pass is
+ * queued so the image always settles on the final bundle.
+ */
+function startHeroImageJob(campaignId: string): void {
+  if (heroImageJobs.has(campaignId)) {
+    heroImageReruns.add(campaignId)
+    return
+  }
+  heroImageJobs.add(campaignId)
+  void (async () => {
+    try {
+      do {
+        heroImageReruns.delete(campaignId)
+        await runHeroImageJob(campaignId)
+      } while (heroImageReruns.has(campaignId))
+    } finally {
+      heroImageJobs.delete(campaignId)
+      heroImageReruns.delete(campaignId)
+    }
+  })()
+}
+
+/**
+ * Manually (re)generate the bundle image. Returns the campaign in its pending
+ * state — the client polls the detail endpoint for the result.
+ */
+export async function regenerateCampaignHeroImage(
+  id: string,
+): Promise<HydratedCampaign | null> {
+  const [row] = await db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.id, id))
+    .limit(1)
+  if (!row) return null
+
+  if (heroImageJobs.has(id)) return hydrate(row)
+
+  const [pending] = await db
+    .update(campaigns)
+    .set({ heroImageStatus: 'pending', heroImageError: null })
+    .where(eq(campaigns.id, id))
+    .returning()
+  startHeroImageJob(id)
+  return hydrate(pending ?? row)
 }
 
 export async function generateCampaign(
@@ -236,14 +458,35 @@ export async function generateCampaign(
     return fallbackCampaignCopy(brand)
   })
 
+  // The client posts the brand with the logo; fall back to the company's stored
+  // extraction (the same source a later regeneration uses).
+  const bundleBrand = products.length
+    ? await logoFromBrandInput(brand)
+        .then((logo) =>
+          logo
+            ? ({ logo, companyName: brand.companyName } satisfies BundleBrand)
+            : logoFromCompany(brand.domain ?? null),
+        )
+        .catch(() => undefined)
+    : undefined
+
+  // Best-effort: a campaign without its kit image is still a useful draft, and
+  // the user can regenerate it from the dashboard.
   const heroImageUrl = products.length
     ? await withTimeout(
-        generateKitImage(brand, products, brief),
+        generateKitImage(products, bundleBrand),
         KIT_IMAGE_TIMEOUT_MS,
         'kit image',
-      ).catch(() => null)
+      ).catch((err) => {
+        console.warn(
+          '[campaigns] kit image generation failed:',
+          err instanceof Error ? err.message : err,
+        )
+        return null
+      })
     : null
 
+  const productIds = products.map((p) => p.id)
   const [row] = await db
     .insert(campaigns)
     .values({
@@ -251,8 +494,10 @@ export async function generateCampaign(
       title: copy.title,
       description: copy.description,
       status: 'draft',
-      productIds: products.map((p) => p.id),
+      productIds,
       heroImageUrl,
+      heroImageProductIds: heroImageUrl ? productIds : [],
+      heroImageStatus: heroImageUrl ? 'ready' : 'idle',
     })
     .returning()
 
@@ -311,22 +556,53 @@ async function tryEmbed(text: string): Promise<number[] | null> {
   }
 }
 
+/**
+ * Save a campaign. When the save changes the bundle (add / remove / replace /
+ * reorder), the composite bundle image is regenerated in the background so it
+ * keeps matching its contents; text-only edits never trigger a generation.
+ */
 export async function updateCampaign(
   id: string,
   input: UpdateCampaignBody,
 ): Promise<HydratedCampaign | null> {
+  const [current] = await db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.id, id))
+    .limit(1)
+  if (!current) return null
+
   const values: Record<string, unknown> = {}
   if (input.title !== undefined) values.title = input.title
   if (input.description !== undefined) values.description = input.description
   if (input.productIds !== undefined) values.productIds = input.productIds
   if (input.status !== undefined) values.status = input.status
 
+  const bundleChanged =
+    input.productIds !== undefined &&
+    !sameBundle(input.productIds, current.productIds)
+  // An empty bundle has nothing to photograph — clear the image instead.
+  const regenerate = bundleChanged && input.productIds!.length > 0
+
+  if (bundleChanged && input.productIds!.length === 0) {
+    values.heroImageUrl = null
+    values.heroImageProductIds = []
+    values.heroImageStatus = 'idle'
+    values.heroImageError = null
+  } else if (regenerate) {
+    values.heroImageStatus = 'pending'
+    values.heroImageError = null
+  }
+
   const [row] = await db
     .update(campaigns)
     .set(values)
     .where(eq(campaigns.id, id))
     .returning()
-  return row ? hydrate(row) : null
+  if (!row) return null
+
+  if (regenerate) startHeroImageJob(id)
+  return hydrate(row)
 }
 
 // ---------------------------------------------------------------------------

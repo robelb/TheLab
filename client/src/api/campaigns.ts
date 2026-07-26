@@ -66,6 +66,20 @@ export async function updateCampaign(
   return data
 }
 
+/**
+ * Kick off a bundle-image regeneration. Resolves as soon as the job is queued
+ * (campaign comes back with `heroImageStatus: 'pending'`); the caller polls the
+ * campaign for the finished image.
+ */
+export async function regenerateCampaignHeroImage(
+  id: string,
+): Promise<Campaign> {
+  const { data } = await apiClient.post<Campaign>(
+    `/campaigns/${encodeURIComponent(id)}/hero-image`,
+  )
+  return data
+}
+
 export async function deleteCampaign(id: string): Promise<void> {
   await apiClient.delete(`/campaigns/${encodeURIComponent(id)}`)
 }

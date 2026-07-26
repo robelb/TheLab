@@ -3,7 +3,12 @@ export {
   type BrandCustomization,
   type NewBrandCustomization,
 } from './brand-customizations.js'
-export { campaigns, type Campaign, type NewCampaign } from './campaigns.js'
+export {
+  campaigns,
+  type Campaign,
+  type CampaignHeroImageStatus,
+  type NewCampaign,
+} from './campaigns.js'
 export {
   companyProductImages,
   type CompanyProductImage,

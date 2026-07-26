@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useProductsByIds } from '@/hooks/use-products'
 import type { Product } from '@/types/product'
 
 export interface CartItem {
@@ -44,6 +45,39 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
   }, [items])
+
+  // A cart item is a snapshot taken when it was added, so its images freeze at
+  // that moment — an item added as a guest, or before the company's branded
+  // images finished generating, would keep showing the plain catalog picture.
+  // Re-read the live (company-scoped) products and refresh the image fields so
+  // the customized variant is what every cart surface renders.
+  const storedIds = useMemo(() => items.map((i) => i.product.id), [items])
+  const { data: liveProducts } = useProductsByIds(storedIds)
+
+  const hydratedItems = useMemo(() => {
+    if (!liveProducts?.length) return items
+    const byId = new Map(liveProducts.map((p) => [p.id, p]))
+    return items.map((item) => {
+      const live = byId.get(item.product.id)
+      if (
+        !live ||
+        (live.customizedImage === item.product.customizedImage &&
+          live.image === item.product.image)
+      ) {
+        return item
+      }
+      // Images only — price, name and the rest stay as captured at add time.
+      return {
+        ...item,
+        product: {
+          ...item.product,
+          image: live.image,
+          images: live.images,
+          customizedImage: live.customizedImage,
+        },
+      }
+    })
+  }, [items, liveProducts])
 
   const addItem = useCallback((product: Product, quantity = 1) => {
     setItems((prev) => {
@@ -89,7 +123,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      items,
+      items: hydratedItems,
       addItem,
       removeItem,
       updateQuantity,
@@ -97,7 +131,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       itemCount,
       subtotal,
     }),
-    [items, addItem, removeItem, updateQuantity, clearCart, itemCount, subtotal],
+    [
+      hydratedItems,
+      addItem,
+      removeItem,
+      updateQuantity,
+      clearCart,
+      itemCount,
+      subtotal,
+    ],
   )
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

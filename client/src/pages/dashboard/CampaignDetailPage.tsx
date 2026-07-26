@@ -1,8 +1,12 @@
 import {
+  AlertTriangle,
   ArrowLeft,
   Check,
+  Image as ImageIcon,
+  Loader2,
   Play,
   Plus,
+  RefreshCw,
   Search,
   Trash2,
   Upload,
@@ -39,16 +43,20 @@ import {
   useCampaign,
   useDeleteCampaign,
   useDeleteCampaignVideo,
+  useRegenerateCampaignHeroImage,
   useUpdateCampaign,
 } from '@/hooks/use-campaigns'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useProducts } from '@/hooks/use-products'
+import { getProductDisplayImage } from '@/lib/productImage'
+import { cn } from '@/lib/utils'
 import { readVideoMeta } from '@/lib/video'
 import type {
   Campaign,
   CampaignVideoItem,
   VideoOrientation,
 } from '@/types/campaign'
+import type { Product } from '@/types/product'
 
 /** ISO timestamp → `YYYY-MM-DD` for a native date input (empty when null). */
 const isoToDateInput = (iso: string | null) => (iso ? iso.slice(0, 10) : '')
@@ -71,7 +79,7 @@ function AddProductDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
   existingIds: string[]
-  onAdd: (id: string) => void
+  onAdd: (product: Product) => void
 }) {
   const [search, setSearch] = useState('')
   const q = useDebounce(search, 400)
@@ -102,11 +110,11 @@ function AddProductDialog({
             <button
               key={p.id}
               type="button"
-              onClick={() => onAdd(p.id)}
+              onClick={() => onAdd(p)}
               className="flex w-full items-center gap-3 rounded-brand p-2 text-left transition-colors hover:bg-muted/40"
             >
               <img
-                src={p.image}
+                src={getProductDisplayImage(p)}
                 alt=""
                 className="size-10 shrink-0 rounded-brand border border-border/40 object-cover"
               />
@@ -316,24 +324,295 @@ function AddVideoDialog({
   )
 }
 
+const sameIds = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((id, i) => id === b[i])
+
+/**
+ * The composite bundle photo. It is regenerated in the background whenever the
+ * bundle changes, so this keeps the previous image on screen behind a pending
+ * overlay, reports failures without blocking anything, and always offers a
+ * manual retry.
+ */
+function BundleImage({
+  campaign,
+  bundleCount,
+  bundleChanged,
+}: {
+  campaign: Campaign
+  bundleCount: number
+  bundleChanged: boolean
+}) {
+  const regenerate = useRegenerateCampaignHeroImage()
+  const [preview, setPreview] = useState(false)
+
+  const regenerating =
+    campaign.heroImageStatus === 'pending' || regenerate.isPending
+  const failed =
+    !regenerating &&
+    (campaign.heroImageStatus === 'failed' || regenerate.isError)
+  // A failed request beats the stored error, which may be from an older attempt.
+  const failureMessage =
+    (regenerate.error instanceof Error ? regenerate.error.message : null) ??
+    campaign.heroImageError ??
+    'Could not regenerate the bundle image.'
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-medium text-muted-foreground">
+          Bundle image
+        </span>
+        <div className="flex items-center gap-2">
+          {campaign.heroImageStale && !regenerating && (
+            <Badge variant="secondary" className="text-[10px] uppercase">
+              Out of date
+            </Badge>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => regenerate.mutate(campaign.id)}
+            disabled={regenerating || bundleCount === 0}
+          >
+            <RefreshCw className={cn('size-4', regenerating && 'animate-spin')} />
+            {regenerating ? 'Generating…' : 'Regenerate image'}
+          </Button>
+        </div>
+      </div>
+
+      <div
+        className="relative overflow-hidden rounded-brand border border-border/40 bg-muted/20"
+        aria-busy={regenerating}
+      >
+        {campaign.heroImageUrl ? (
+          <button
+            type="button"
+            onClick={() => setPreview(true)}
+            className="block w-full"
+            aria-label="Preview campaign image"
+          >
+            {/* The previous image stays up until the new one is stored. */}
+            <img
+              src={campaign.heroImageUrl}
+              alt={campaign.title}
+              className={cn(
+                'max-h-96 w-full cursor-zoom-in object-contain transition-opacity',
+                regenerating ? 'opacity-40' : 'hover:opacity-95',
+              )}
+            />
+          </button>
+        ) : (
+          <div className="flex h-44 flex-col items-center justify-center gap-2 px-4 text-center text-sm text-muted-foreground">
+            <ImageIcon className="size-6" />
+            {bundleCount === 0
+              ? 'Add products to generate a bundle image.'
+              : 'No bundle image yet.'}
+          </div>
+        )}
+
+        {regenerating && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/60 px-4 text-center">
+            <Loader2 className="size-6 animate-spin text-primary" />
+            <p className="text-xs font-medium">
+              Generating the new bundle image…
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              This can take up to a minute. You can keep working.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {failed && (
+        <p className="flex items-start gap-2 rounded-brand border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <AlertTriangle className="mt-px size-3.5 shrink-0" />
+          <span>
+            {failureMessage} The previous image was kept — try “Regenerate
+            image”.
+          </span>
+        </p>
+      )}
+
+      {bundleChanged && !regenerating && (
+        <p className="text-xs text-muted-foreground">
+          Bundle changed — save to update the image.
+        </p>
+      )}
+
+      {campaign.heroImageUrl && (
+        <Dialog open={preview} onOpenChange={setPreview}>
+          <DialogContent className="max-w-4xl border-none bg-transparent p-0 shadow-none">
+            <DialogTitle className="sr-only">Campaign image</DialogTitle>
+            <img
+              src={campaign.heroImageUrl}
+              alt={campaign.title}
+              className="max-h-[85vh] w-full rounded-brand object-contain"
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  )
+}
+
+/** The campaign's storefront video ads, with upload and inline playback. */
+function CampaignVideos({ campaign }: { campaign: Campaign }) {
+  const deleteVideo = useDeleteCampaignVideo()
+  const [videoOpen, setVideoOpen] = useState(false)
+  const [playingVideo, setPlayingVideo] = useState<CampaignVideoItem | null>(
+    null,
+  )
+
+  return (
+    <div className="space-y-2 border-t border-border/40 pt-4">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">
+          Videos ({campaign.videos.length})
+        </span>
+        <Button variant="outline" size="sm" onClick={() => setVideoOpen(true)}>
+          <Plus className="size-4" />
+          Add video
+        </Button>
+      </div>
+      {campaign.videos.length === 0 ? (
+        <p className="rounded-brand border border-border/40 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+          No videos yet — add one to run as a storefront ad.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {campaign.videos.map((v) => (
+            <li
+              key={v.id}
+              className="flex items-center gap-3 rounded-brand border border-border/40 p-2"
+            >
+              <button
+                type="button"
+                onClick={() => setPlayingVideo(v)}
+                className="group flex min-w-0 flex-1 items-center gap-3 text-left"
+                aria-label={`Play video: ${v.description || 'campaign video'}`}
+              >
+                <div className="relative size-14 shrink-0 overflow-hidden rounded-brand border border-border/40 bg-black">
+                  <video
+                    src={v.url}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="h-full w-full object-cover"
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/40">
+                    <Play className="size-5 fill-white text-white drop-shadow" />
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    {v.orientation && (
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] uppercase"
+                      >
+                        {v.orientation}
+                      </Badge>
+                    )}
+                    <span className="truncate text-sm">
+                      {v.description || 'No description'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {formatWindow(v.startsAt, v.endsAt)}
+                  </p>
+                </div>
+              </button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-destructive hover:text-destructive"
+                onClick={() =>
+                  deleteVideo.mutate({
+                    campaignId: campaign.id,
+                    videoId: v.id,
+                  })
+                }
+                disabled={deleteVideo.isPending}
+                aria-label="Delete video"
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <AddVideoDialog
+        open={videoOpen}
+        onOpenChange={setVideoOpen}
+        campaignId={campaign.id}
+      />
+
+      <Dialog
+        open={Boolean(playingVideo)}
+        onOpenChange={(o) => !o && setPlayingVideo(null)}
+      >
+        <DialogContent className="max-w-3xl border-none bg-transparent p-0 shadow-none">
+          <DialogTitle className="sr-only">
+            {playingVideo?.description || 'Campaign video'}
+          </DialogTitle>
+          {playingVideo && (
+            <video
+              key={playingVideo.id}
+              src={playingVideo.url}
+              controls
+              autoPlay
+              playsInline
+              className={
+                playingVideo.orientation === 'portrait'
+                  ? 'mx-auto max-h-[85vh] w-auto rounded-brand'
+                  : 'w-full rounded-brand'
+              }
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
 function CampaignEditor({ campaign }: { campaign: Campaign }) {
   const navigate = useNavigate()
   const update = useUpdateCampaign()
   const remove = useDeleteCampaign()
-  const deleteVideo = useDeleteCampaignVideo()
 
   const [title, setTitle] = useState(campaign.title)
+  // Bundle edits are staged locally and applied on save, so the (costly) image
+  // regeneration happens once for the final set instead of per click.
+  const [bundle, setBundle] = useState<Product[]>(campaign.products)
   const [addOpen, setAddOpen] = useState(false)
-  const [videoOpen, setVideoOpen] = useState(false)
-  const [preview, setPreview] = useState(false)
-  const [playingVideo, setPlayingVideo] = useState<CampaignVideoItem | null>(
-    null,
-  )
   const [deleteOpen, setDeleteOpen] = useState(false)
 
-  const dirty = title !== campaign.title
+  const bundleIds = bundle.map((p) => p.id)
+  const bundleChanged = !sameIds(bundleIds, campaign.productIds)
+  const dirty = title !== campaign.title || bundleChanged
 
-  const saveEdits = () => update.mutate({ id: campaign.id, input: { title } })
+  const saveEdits = () =>
+    update.mutate(
+      {
+        id: campaign.id,
+        input: {
+          ...(title !== campaign.title ? { title } : {}),
+          ...(bundleChanged ? { productIds: bundleIds } : {}),
+        },
+      },
+      // Re-sync the staged copy with what was actually persisted.
+      {
+        onSuccess: (saved) => {
+          setTitle(saved.title)
+          setBundle(saved.products)
+        },
+      },
+    )
+  const discardEdits = () => {
+    setTitle(campaign.title)
+    setBundle(campaign.products)
+  }
   const confirmDelete = async () => {
     await remove.mutateAsync(campaign.id)
     navigate('/dashboard/campaign')
@@ -341,19 +620,13 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
   const setStatus = (status: 'approved' | 'dismissed') =>
     update.mutate({ id: campaign.id, input: { status } })
   const removeProduct = (id: string) =>
-    update.mutate({
-      id: campaign.id,
-      input: { productIds: campaign.productIds.filter((p) => p !== id) },
-    })
-  const addProduct = (id: string) => {
-    update.mutate({
-      id: campaign.id,
-      input: { productIds: [...campaign.productIds, id] },
-    })
+    setBundle((prev) => prev.filter((p) => p.id !== id))
+  const addProduct = (product: Product) => {
+    setBundle((prev) =>
+      prev.some((p) => p.id === product.id) ? prev : [...prev, product],
+    )
     setAddOpen(false)
   }
-  const removeVideo = (videoId: string) =>
-    deleteVideo.mutate({ campaignId: campaign.id, videoId })
 
   return (
     <Card>
@@ -367,32 +640,11 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
       </CardHeader>
 
       <CardContent className="space-y-5">
-        {campaign.heroImageUrl && (
-          <>
-            <button
-              type="button"
-              onClick={() => setPreview(true)}
-              className="block w-full overflow-hidden rounded-brand border border-border/40"
-              aria-label="Preview campaign image"
-            >
-              <img
-                src={campaign.heroImageUrl}
-                alt={campaign.title}
-                className="max-h-96 w-full cursor-zoom-in object-contain transition-opacity hover:opacity-95"
-              />
-            </button>
-            <Dialog open={preview} onOpenChange={setPreview}>
-              <DialogContent className="max-w-4xl border-none bg-transparent p-0 shadow-none">
-                <DialogTitle className="sr-only">Campaign image</DialogTitle>
-                <img
-                  src={campaign.heroImageUrl}
-                  alt={campaign.title}
-                  className="max-h-[85vh] w-full rounded-brand object-contain"
-                />
-              </DialogContent>
-            </Dialog>
-          </>
-        )}
+        <BundleImage
+          campaign={campaign}
+          bundleCount={bundle.length}
+          bundleChanged={bundleChanged}
+        />
 
         <div className="space-y-1.5">
           <span className="text-xs font-medium text-muted-foreground">Name</span>
@@ -400,28 +652,43 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
         </div>
 
         {dirty && (
-          <Button size="sm" onClick={saveEdits} disabled={update.isPending}>
-            Save changes
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={saveEdits} disabled={update.isPending}>
+              {update.isPending ? 'Saving…' : 'Save changes'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={discardEdits}
+              disabled={update.isPending}
+            >
+              Discard
+            </Button>
+            {bundleChanged && (
+              <span className="text-xs text-muted-foreground">
+                Saving regenerates the bundle image.
+              </span>
+            )}
+          </div>
         )}
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">
-              Bundle ({campaign.products.length})
+              Bundle ({bundle.length})
             </span>
             <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
               <Plus className="size-4" />
               Add product
             </Button>
           </div>
-          {campaign.products.length === 0 ? (
+          {bundle.length === 0 ? (
             <p className="rounded-brand border border-border/40 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
               No products in this bundle yet — add some.
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {campaign.products.map((p) => (
+              {bundle.map((p) => (
                 <CampaignProductTile
                   key={p.id}
                   product={p}
@@ -432,83 +699,7 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
           )}
         </div>
 
-        <div className="space-y-2 border-t border-border/40 pt-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">
-              Videos ({campaign.videos.length})
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setVideoOpen(true)}
-            >
-              <Plus className="size-4" />
-              Add video
-            </Button>
-          </div>
-          {campaign.videos.length === 0 ? (
-            <p className="rounded-brand border border-border/40 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-              No videos yet — add one to run as a storefront ad.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {campaign.videos.map((v) => (
-                <li
-                  key={v.id}
-                  className="flex items-center gap-3 rounded-brand border border-border/40 p-2"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setPlayingVideo(v)}
-                    className="group flex min-w-0 flex-1 items-center gap-3 text-left"
-                    aria-label={`Play video: ${v.description || 'campaign video'}`}
-                  >
-                    <div className="relative size-14 shrink-0 overflow-hidden rounded-brand border border-border/40 bg-black">
-                      <video
-                        src={v.url}
-                        muted
-                        playsInline
-                        preload="metadata"
-                        className="h-full w-full object-cover"
-                      />
-                      <span className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/40">
-                        <Play className="size-5 fill-white text-white drop-shadow" />
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        {v.orientation && (
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px] uppercase"
-                          >
-                            {v.orientation}
-                          </Badge>
-                        )}
-                        <span className="truncate text-sm">
-                          {v.description || 'No description'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {formatWindow(v.startsAt, v.endsAt)}
-                      </p>
-                    </div>
-                  </button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => removeVideo(v.id)}
-                    disabled={deleteVideo.isPending}
-                    aria-label="Delete video"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <CampaignVideos campaign={campaign} />
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-4">
           <Button
@@ -547,40 +738,9 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
       <AddProductDialog
         open={addOpen}
         onOpenChange={setAddOpen}
-        existingIds={campaign.productIds}
+        existingIds={bundleIds}
         onAdd={addProduct}
       />
-
-      <AddVideoDialog
-        open={videoOpen}
-        onOpenChange={setVideoOpen}
-        campaignId={campaign.id}
-      />
-
-      <Dialog
-        open={Boolean(playingVideo)}
-        onOpenChange={(o) => !o && setPlayingVideo(null)}
-      >
-        <DialogContent className="max-w-3xl border-none bg-transparent p-0 shadow-none">
-          <DialogTitle className="sr-only">
-            {playingVideo?.description || 'Campaign video'}
-          </DialogTitle>
-          {playingVideo && (
-            <video
-              key={playingVideo.id}
-              src={playingVideo.url}
-              controls
-              autoPlay
-              playsInline
-              className={
-                playingVideo.orientation === 'portrait'
-                  ? 'mx-auto max-h-[85vh] w-auto rounded-brand'
-                  : 'w-full rounded-brand'
-              }
-            />
-          )}
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

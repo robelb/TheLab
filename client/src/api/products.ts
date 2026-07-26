@@ -102,6 +102,19 @@ export async function fetchProduct(id: string): Promise<Product> {
   return data
 }
 
+/**
+ * Batch lookup used to refresh stored product snapshots (the cart) against live
+ * data, so branded images generated after an item was added still show up.
+ * Missing/deleted ids are simply absent from the result.
+ */
+export async function fetchProductsByIds(ids: string[]): Promise<Product[]> {
+  if (ids.length === 0) return []
+  const { data } = await apiClient.get<{ data: Product[] }>('/products/by-ids', {
+    params: { ids: ids.join(',') },
+  })
+  return data.data
+}
+
 export async function createProduct(input: ProductInput): Promise<Product> {
   const { data } = await apiClient.post<Product>('/products', input)
   return data

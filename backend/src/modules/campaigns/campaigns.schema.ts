@@ -10,7 +10,8 @@ export const campaignBrandSchema = z.object({
   primaryColor: z.string().optional().nullable(),
   secondaryColor: z.string().optional().nullable(),
   domain: z.string().optional().nullable(),
-  // Logo for the composite kit image — one of url / data-uri / inline svg.
+  // Logo branded onto every product in the composite kit image. One of
+  // url / data-uri / inline svg. Falls back to the company's stored extraction.
   logo: z.string().optional().nullable(),
   logoType: z.string().optional().nullable(),
 })

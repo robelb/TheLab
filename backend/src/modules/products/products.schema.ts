@@ -69,6 +69,30 @@ export const productsQuerySchema = z
 
 export type ProductsQuery = z.infer<typeof productsQuerySchema>
 
+/** Max ids per batch lookup — well above any realistic cart size. */
+const MAX_ID_BATCH = 100
+
+/** Query schema for GET /api/products/by-ids?ids=uuid,uuid — dedupes as it parses. */
+export const productIdsQuerySchema = z.object({
+  ids: z
+    .string()
+    .transform((v) => [
+      ...new Set(
+        v
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
+    ])
+    .refine((list) => list.length > 0, { message: 'ids is required' })
+    .refine((list) => list.length <= MAX_ID_BATCH, {
+      message: `ids must contain at most ${MAX_ID_BATCH} entries`,
+    })
+    .refine((list) => list.every((id) => z.string().uuid().safeParse(id).success), {
+      message: 'ids must be a comma-separated list of UUIDs',
+    }),
+})
+
 const IMAGE_SEARCH_LIMITS = [10, 20, 40] as const
 
 /**
