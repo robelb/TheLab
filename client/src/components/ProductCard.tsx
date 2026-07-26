@@ -39,13 +39,13 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
 
       <div className="pointer-events-none relative z-[1]">
         <div className="overflow-hidden">
-          <div className="relative aspect-4/3 overflow-hidden">
-            <img
+          <div className="relative aspect-4/3 overflow-hidden bg-white">
+            {/* <img
               src={displayImage}
               alt=""
               aria-hidden
               className="absolute inset-0 h-full w-full object-cover blur-sm"
-            />
+            /> */}
             <img
               src={displayImage}
               alt={product.name}
