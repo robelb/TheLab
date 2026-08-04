@@ -53,6 +53,12 @@ export interface CampaignUpdate {
   description?: string
   productIds?: string[]
   status?: CampaignStatus
+  /**
+   * Not persisted — the brand to render the bundle image with when this save
+   * triggers a regeneration. Without it the server can only look a logo up by
+   * the campaign's domain, so a domainless campaign renders unbranded.
+   */
+  brand?: CampaignBrandSignals
 }
 
 export async function updateCampaign(
@@ -73,9 +79,11 @@ export async function updateCampaign(
  */
 export async function regenerateCampaignHeroImage(
   id: string,
+  brand?: CampaignBrandSignals,
 ): Promise<Campaign> {
   const { data } = await apiClient.post<Campaign>(
     `/campaigns/${encodeURIComponent(id)}/hero-image`,
+    brand ? { brand } : {},
   )
   return data
 }

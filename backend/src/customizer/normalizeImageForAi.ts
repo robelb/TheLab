@@ -122,9 +122,36 @@ async function downscaleForAi(buffer: Buffer, mimeType: string): Promise<Buffer>
     .toBuffer()
 }
 
+/**
+ * Repair common defects in extracted SVG markup before rasterizing. librsvg
+ * (sharp's SVG engine) rejects the whole document over details a browser
+ * shrugs off — most commonly an `https://` namespace URI (the spec value is
+ * `http://`; LLM extraction likes to "upgrade" it) or a missing xmlns
+ * declaration altogether.
+ */
+function repairSvgMarkup(svgMarkup: string): string {
+  let svg = svgMarkup.replace(/^\uFEFF/, '').trim()
+
+  // Namespace URIs are identifiers, not links — https:// variants break librsvg.
+  svg = svg.replace(
+    /(xmlns(?::[a-zA-Z0-9_-]+)?\s*=\s*["'])https:\/\/(www\.w3\.org\/)/g,
+    '$1http://$2',
+  )
+
+  const rootTag = svg.match(/<svg[^>]*>/)?.[0]
+  if (rootTag && !/\sxmlns\s*=/.test(rootTag)) {
+    svg = svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"')
+  }
+  if (svg.includes('xlink:') && !svg.includes('xmlns:xlink')) {
+    svg = svg.replace('<svg', '<svg xmlns:xlink="http://www.w3.org/1999/xlink"')
+  }
+  return svg
+}
+
 async function convertSvgToPng(buffer: Buffer): Promise<Buffer> {
   const { default: sharp } = await import('sharp')
-  return sharp(buffer, { density: 300 })
+  const repaired = Buffer.from(repairSvgMarkup(buffer.toString('utf8')), 'utf8')
+  return sharp(repaired, { density: 300 })
     .resize(512, 512, {
       fit: 'inside',
       withoutEnlargement: false,

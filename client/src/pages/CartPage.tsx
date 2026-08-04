@@ -42,13 +42,19 @@ export function CartPage() {
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-start">
         <ul className="divide-y divide-border/40">
-          {items.map(({ product, quantity }) => (
+          {items.map(({ product, quantity }) => {
+            // A built box is a client-side line item, not a catalog product —
+            // its detail page is the box builder.
+            const productUrl = product.sku?.startsWith('BOX-')
+              ? '/build-box'
+              : `/product/${product.id}`
+            return (
             <li
               key={product.id}
               className="grid grid-cols-[88px_1fr] gap-4 py-6 sm:grid-cols-[100px_1fr_auto]"
             >
               <Link
-                to={`/product/${product.id}`}
+                to={productUrl}
                 className="overflow-hidden rounded-brand bg-muted/20"
               >
                 <img
@@ -60,7 +66,7 @@ export function CartPage() {
 
               <div className="min-w-0 space-y-1">
                 <Link
-                  to={`/product/${product.id}`}
+                  to={productUrl}
                   className="font-display text-lg font-semibold hover:text-primary"
                 >
                   {product.name}
@@ -107,7 +113,8 @@ export function CartPage() {
                 </Button>
               </div>
             </li>
-          ))}
+            )
+          })}
         </ul>
 
         <Card className="sticky top-24 border-border/30">

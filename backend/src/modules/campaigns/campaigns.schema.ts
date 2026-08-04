@@ -36,10 +36,21 @@ export const updateCampaignSchema = z
     description: z.string().optional(),
     productIds: z.array(z.string().uuid()).optional(),
     status: z.enum(['draft', 'approved', 'dismissed']).optional(),
+    /**
+     * Render-time only, never persisted: the caller's live brand, so a bundle
+     * change re-renders WITH the logo even when the campaign has no domain to
+     * look a company up by.
+     */
+    brand: campaignBrandSchema.optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
     message: 'At least one field must be provided',
   })
+
+/** Manual re-render. Body is optional; `brand` supplies the logo when given. */
+export const regenerateHeroImageSchema = z.object({
+  brand: campaignBrandSchema.optional(),
+})
 
 export const listCampaignsQuerySchema = z.object({
   domain: z.string().optional(),

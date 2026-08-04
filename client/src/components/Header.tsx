@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, LogOut, ShoppingBag } from 'lucide-react'
+import { Gift, LayoutDashboard, LogOut, ShoppingBag } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useBrand } from '@/context/BrandContext'
 import { useCart } from '@/context/CartContext'
@@ -38,6 +38,12 @@ export function Header() {
         <nav className="flex items-center gap-4 sm:gap-6" aria-label="Main">
           <NavLink to="/" end className={navLinkClass}>
             Shop
+          </NavLink>
+          <NavLink to="/build-box" className={navLinkClass}>
+            <span className="flex items-center gap-1.5">
+              <Gift className="size-4" />
+              Build box
+            </span>
           </NavLink>
           {canManage && (
             <NavLink to="/dashboard" className={navLinkClass}>

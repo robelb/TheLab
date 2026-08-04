@@ -6,6 +6,7 @@ import { CartProvider } from '@/context/CartContext'
 import { Layout } from '@/components/Layout'
 import { RequireAuth } from '@/components/RequireAuth'
 import { HomePage } from '@/pages/HomePage'
+import { BuildBoxPage } from '@/pages/BuildBoxPage'
 import { CampaignPage } from '@/pages/CampaignPage'
 import { ProductPage } from '@/pages/ProductPage'
 import { CartPage } from '@/pages/CartPage'
@@ -49,6 +50,7 @@ export default function App() {
                   }
                 >
                   <Route index element={<HomePage />} />
+                  <Route path="build-box" element={<BuildBoxPage />} />
                   <Route path="campaign/:id" element={<CampaignPage />} />
                   <Route path="product/:id" element={<ProductPage />} />
                   <Route path="cart" element={<CartPage />} />

@@ -13,6 +13,7 @@ import {
   hasAnyBrandImage,
   normalizeBrandImageUrls,
 } from '../../customizer/brandAssets.js'
+import { describeBrandMark } from '../../customizer/brandMarkFacts.js'
 import { fetchBrandImages } from '../../customizer/fetchBrandImages.js'
 import {
   fetchImage,
@@ -167,6 +168,22 @@ async function logoFromCompany(
 }
 
 /**
+ * The logo to brand a bundle with. The caller's live brand wins — it's the logo
+ * the shop is themed with right now, and it's the only source available for a
+ * campaign with no domain. The company's stored extraction is the fallback.
+ */
+async function resolveBundleBrand(
+  brand: CampaignBrandInput | undefined,
+  domain: string | null,
+): Promise<BundleBrand | undefined> {
+  if (brand) {
+    const logo = await logoFromBrandInput(brand).catch(() => undefined)
+    if (logo) return { logo, companyName: brand.companyName }
+  }
+  return logoFromCompany(domain ?? brand?.domain ?? null)
+}
+
+/**
  * Composite "kit" image: the whole bundle laid out in one open gift box, with
  * the company logo branded onto every product — see `buildCampaignKitImagePrompt`.
  *
@@ -211,9 +228,12 @@ async function generateKitImage(
   const images = usable.map((e) => e.result.value)
   if (brand) images.push(brand.logo)
 
+  // Measured logo facts let the prompt pin layout + colours as ground truth.
+  const logoFacts = brand ? await describeBrandMark(brand.logo) : null
+
   const prompt = buildCampaignKitImagePrompt(
     usable.map((e) => e.product.name),
-    { hasLogo: Boolean(brand), companyName: brand?.companyName },
+    { hasLogo: Boolean(brand), companyName: brand?.companyName, logoFacts },
   )
   const buffer = await generateProductPhoto(prompt, images, config, {
     size: '1024x1024',
@@ -283,6 +303,8 @@ function isHeroImageStale(c: Campaign): boolean {
 const heroImageJobs = new Set<string>()
 /** Campaign ids whose bundle changed again mid-render — one more pass is owed. */
 const heroImageReruns = new Set<string>()
+/** Caller-supplied brand for an in-flight job, so a rerun keeps the logo. */
+const heroImageBrands = new Map<string, CampaignBrandInput>()
 
 /**
  * A `pending` row with no live job and no recent activity was interrupted
@@ -305,7 +327,10 @@ async function reconcileHeroImageStatus(c: Campaign): Promise<Campaign> {
 }
 
 /** Render the bundle image for a campaign and record the result. Never throws. */
-async function runHeroImageJob(campaignId: string): Promise<void> {
+async function runHeroImageJob(
+  campaignId: string,
+  brand?: CampaignBrandInput,
+): Promise<void> {
   try {
     await db
       .update(campaigns)
@@ -319,7 +344,10 @@ async function runHeroImageJob(campaignId: string): Promise<void> {
       .limit(1)
     if (!row) return
 
-    const companyId = await companyIdForDomain(row.domain)
+    // A campaign with no domain of its own still belongs to whoever is asking —
+    // fall back to their brand's domain so the products come back with that
+    // company's branded shots rather than the plain catalog images.
+    const companyId = await companyIdForDomain(row.domain ?? brand?.domain ?? null)
     const products = (
       await Promise.all(row.productIds.map((id) => getProductById(id, companyId)))
     ).filter((p): p is ProductWithCategory => p !== null)
@@ -339,8 +367,8 @@ async function runHeroImageJob(campaignId: string): Promise<void> {
     }
 
     const url = await withTimeout(
-      logoFromCompany(row.domain).then((brand) =>
-        generateKitImage(products, brand),
+      resolveBundleBrand(brand, row.domain).then((bundleBrand) =>
+        generateKitImage(products, bundleBrand),
       ),
       KIT_IMAGE_TIMEOUT_MS,
       'kit image',
@@ -375,7 +403,11 @@ async function runHeroImageJob(campaignId: string): Promise<void> {
  * the bundle changes again while a render is in flight, a single extra pass is
  * queued so the image always settles on the final bundle.
  */
-function startHeroImageJob(campaignId: string): void {
+function startHeroImageJob(
+  campaignId: string,
+  brand?: CampaignBrandInput,
+): void {
+  if (brand) heroImageBrands.set(campaignId, brand)
   if (heroImageJobs.has(campaignId)) {
     heroImageReruns.add(campaignId)
     return
@@ -385,11 +417,12 @@ function startHeroImageJob(campaignId: string): void {
     try {
       do {
         heroImageReruns.delete(campaignId)
-        await runHeroImageJob(campaignId)
+        await runHeroImageJob(campaignId, heroImageBrands.get(campaignId))
       } while (heroImageReruns.has(campaignId))
     } finally {
       heroImageJobs.delete(campaignId)
       heroImageReruns.delete(campaignId)
+      heroImageBrands.delete(campaignId)
     }
   })()
 }
@@ -400,6 +433,7 @@ function startHeroImageJob(campaignId: string): void {
  */
 export async function regenerateCampaignHeroImage(
   id: string,
+  brand?: CampaignBrandInput,
 ): Promise<HydratedCampaign | null> {
   const [row] = await db
     .select()
@@ -415,7 +449,7 @@ export async function regenerateCampaignHeroImage(
     .set({ heroImageStatus: 'pending', heroImageError: null })
     .where(eq(campaigns.id, id))
     .returning()
-  startHeroImageJob(id)
+  startHeroImageJob(id, brand)
   return hydrate(pending ?? row)
 }
 
@@ -461,13 +495,7 @@ export async function generateCampaign(
   // The client posts the brand with the logo; fall back to the company's stored
   // extraction (the same source a later regeneration uses).
   const bundleBrand = products.length
-    ? await logoFromBrandInput(brand)
-        .then((logo) =>
-          logo
-            ? ({ logo, companyName: brand.companyName } satisfies BundleBrand)
-            : logoFromCompany(brand.domain ?? null),
-        )
-        .catch(() => undefined)
+    ? await resolveBundleBrand(brand, brand.domain ?? null)
     : undefined
 
   // Best-effort: a campaign without its kit image is still a useful draft, and
@@ -601,7 +629,8 @@ export async function updateCampaign(
     .returning()
   if (!row) return null
 
-  if (regenerate) startHeroImageJob(id)
+  // `input.brand` is a render hint only — it is deliberately not in `values`.
+  if (regenerate) startHeroImageJob(id, input.brand)
   return hydrate(row)
 }
 

@@ -1,3 +1,5 @@
+import type { BrandMarkFacts } from '../customizer/brandMarkFacts.js'
+
 /**
  * Instructions for the "Your Company Kit" campaign assembly:
  *   - copy generation (title + marketing description) from brand signals
@@ -55,6 +57,8 @@ export interface CampaignKitImageOptions {
   /** A brand logo is supplied as the LAST reference image, after the products. */
   hasLogo?: boolean
   companyName?: string | null
+  /** Measured from the supplied logo image — rendered as ground-truth facts. */
+  logoFacts?: BrandMarkFacts | null
 }
 
 /**
@@ -67,6 +71,16 @@ export interface CampaignKitImageOptions {
  *
  * Images are provided as product references in the same order as `productNames`,
  * optionally followed by one brand logo image (`options.hasLogo`).
+ *
+ * Prompt design notes — deliberate, keep these properties when editing:
+ *   - Reference images are mapped to the numbered product list BY POSITION
+ *     (image k = product k, logo last): composite models routinely mix up
+ *     which reference belongs to which item.
+ *   - Each rule appears exactly once, grouped in labelled sections; duplicated
+ *     or conflicting instructions dilute compliance.
+ *   - An explicit PRIORITY order pre-resolves conflicts, and the branding
+ *     block pins the known failure mode of re-stacking a wide wordmark onto
+ *     multiple lines so it fits a small product.
  */
 export function buildCampaignKitImagePrompt(
   productNames: string[],
@@ -77,78 +91,128 @@ export function buildCampaignKitImagePrompt(
 
   const p: string[] = []
 
+  // ── Role + task ──────────────────────────────────────────────────────────
   p.push(
-    'Act as an expert commercial product photographer. Create ONE single, photorealistic top-down (90° overhead) flat-lay product photograph of a gift box set.',
+    'You are an expert commercial product photographer and photo compositor. Create ONE photorealistic top-down (90° overhead) flat-lay photograph of a corporate gift box that contains exactly the products listed below.',
   )
 
-  p.push(
-    [
-      'Packaging and framing:',
-      '- All items are presented inside a single open kraft-brown corrugated cardboard gift box.',
-      '- The box walls are visible on all four sides and the box is centred in the frame.',
-      '- The box interior is filled with brown crinkle-cut shredded paper filler as bedding, clearly visible in every gap between the products.',
-      '- Outside the box the background is pure white and seamless. No props, no hands, no surfaces, no text overlays, no watermarks.',
-    ].join('\n'),
-  )
+  // ── Reference images, by position ────────────────────────────────────────
+  const refs = ['Reference images, in the order provided:']
+  if (count === 1) {
+    refs.push('- Image 1 is the PRODUCT reference for product 1 below.')
+  } else if (count > 1) {
+    refs.push(
+      `- Images 1-${count} are PRODUCT references, in the same order as the numbered product list below (image 1 shows product 1, image 2 shows product 2, and so on).`,
+    )
+  } else {
+    refs.push('- The provided images are PRODUCT references.')
+  }
+  if (options.hasLogo) {
+    refs.push(
+      `- The FINAL image is the company logo${brand ? ` of ${brand}` : ''}. It is a branding reference only — never place it in the box as an item.`,
+    )
+  }
+  p.push(refs.join('\n'))
 
-  p.push(
-    [
-      'Product arrangement:',
-      '- Lay the products flat inside the box in a clean, evenly spaced, grid-like arrangement.',
-      '- No overlapping and no stacking — each item sits directly on the filler, fully visible and readable.',
-      '- Every label, front face and printed detail faces up and is correctly oriented for the viewer.',
-      '- Size the products relative to each other realistically and fill the box neatly.',
-    ].join('\n'),
-  )
-
-  p.push(
-    [
-      'Lighting and finish:',
-      '- Soft, even studio lighting with neutral white balance.',
-      '- Only subtle, natural contact shadows under the items; no harsh highlights and no coloured light.',
-      '- Photorealistic commercial e-commerce look, sharp focus across the whole frame, high resolution.',
-      '- Square 1:1 aspect ratio.',
-    ].join('\n'),
-  )
-
-  p.push(
-    `The first ${count || 'set of'} provided image${count === 1 ? '' : 's'} ${
-      count === 1 ? 'is a PRODUCT reference' : 'are PRODUCT references'
-    }. Reproduce every product faithfully — its real shape, colour, material, proportions and its own packaging artwork — and include all of them in the single composition. Do not redesign, restyle or re-label any product.`,
-  )
-
+  // ── The exact product set ────────────────────────────────────────────────
   if (count) {
     p.push(
-      `The box must contain EXACTLY these ${count} product${count === 1 ? '' : 's'}, one of each, and nothing else:\n${productNames
+      `PRODUCT SET — the box contains EXACTLY these ${count} product${count === 1 ? '' : 's'}, one of each, and nothing else:\n${productNames
         .map((n, i) => `${i + 1}. ${n}`)
         .join('\n')}`,
     )
   }
 
-  if (options.hasLogo) {
-    p.push(
-      [
-        `BRANDING — this is essential: the FINAL provided image is the company logo${
-          brand ? ` of ${brand}` : ''
-        }. That logo must appear on EVERY SINGLE product in the box, as if each item were real branded corporate merchandise.`,
-        '- Apply exactly one logo per product, printed, embossed or label-applied directly onto the item itself or onto its packaging. Every product must carry it — do not leave any item unbranded.',
-        '- Keep the placement, relative scale and colour treatment consistent across the whole set: centred on flat faces, sized to sit tastefully within each surface (smaller on small items, larger on wide flat ones).',
-        "- The logo must sit in the material: correct perspective for the overhead view, wrapping with any curvature, matching the surface's finish, texture and lighting. It must read as printed on the product, never as a flat sticker pasted onto the photograph.",
-        '- Reproduce the logo exactly as provided — identical shapes, proportions and colours. Do not redraw, recolour, mirror, crop, translate it, or add a tagline or extra wording.',
-        '- If a provided product reference already shows this logo, keep that one as it is and do not add a second copy.',
-        '- Put the logo on the products only — never on the cardboard box, the shredded paper filler, or the background.',
-      ].join('\n'),
-    )
-  }
+  p.push(
+    [
+      'PRODUCT FIDELITY:',
+      '- Reproduce each product faithfully from its reference image: real shape, colour, material, proportions and its own packaging artwork. Never redesign, restyle, recolour or re-label a product.',
+      '- Include every listed product exactly once. No duplicates, no substitutes, no invented extras, no omissions.',
+    ].join('\n'),
+  )
+
+  // ── Fixed scene ──────────────────────────────────────────────────────────
+  p.push(
+    [
+      'SCENE — fixed house style, identical for every render:',
+      '- One open kraft-brown corrugated cardboard gift box, centred in the frame, all four walls visible.',
+      '- The box interior is bedded with brown crinkle-cut shredded-paper filler, clearly visible in every gap between products.',
+      '- Outside the box the background is pure white and seamless. No props, hands, surfaces, ribbons, greeting cards, decorations, text overlays or watermarks.',
+    ].join('\n'),
+  )
 
   p.push(
-    `Do not add filler products, invented extras, duplicates, greeting cards, ribbons or decorations. Do not omit any product. Apart from each product's own existing packaging branding${
+    [
+      'ARRANGEMENT:',
+      '- Lay the products flat in a clean, evenly spaced, grid-like arrangement — no overlapping, no stacking; each item sits directly on the filler, fully visible.',
+      '- Every label, front face and printed detail faces up and reads correctly for the viewer.',
+      '- Keep relative product sizes realistic and fill the box neatly.',
+    ].join('\n'),
+  )
+
+  p.push(
+    [
+      'LIGHTING AND FINISH:',
+      '- Soft, even studio lighting with neutral white balance; only subtle, natural contact shadows under the items — no harsh highlights, no coloured light.',
+      '- Photorealistic commercial e-commerce quality: sharp focus across the whole frame, high resolution, square 1:1 aspect ratio.',
+    ].join('\n'),
+  )
+
+  // ── Branding ─────────────────────────────────────────────────────────────
+  if (options.hasLogo) {
+    const branding = [
+      'BRANDING — essential: apply the company logo (the final reference image) to EVERY product in the box, as if each item were genuine branded corporate merchandise.',
+      '- Exactly one logo per product, printed, embossed or label-applied directly onto the item itself or onto its packaging. No item is left unbranded.',
+      '- Reproduce the logo exactly as supplied: identical shapes, colours and proportions. The only permitted transformations are uniform scaling, perspective mapping onto the surface, and material/lighting integration.',
+      '- Same line count on every product: the logo keeps the same number of lines as the supplied image. A one-line horizontal wordmark stays on one line — never stack, wrap, break or re-flow it to fit.',
+      '- Same lockup on every product: icon and text keep their relative positions (an icon left of the text stays left of it, never above).',
+      '- Same letterforms: exact spelling, capitalisation, letter spacing and weight. Never re-type it in another font and never add taglines or extra wording.',
+      '- Same colours on every product: the original logo colours, exactly. Never recolour, invert, darken, lighten or adapt them to an item — if the colours would blend into a surface, place the logo on a lighter or darker area of that item instead of changing them.',
+      '- Uniform scale only: never stretch, squash, crop, rotate or mirror it. If the logo does not fit a surface, print it SMALLER or use a wider face of that product — never reshape or re-stack it.',
+      '- On each product, choose the OPTIMAL spot: where that product category is branded in real life (centre chest of apparel, the upward-facing side of mugs and bottles, the front panel of bags, boxes and notebooks, the barrel of pens) — preferring the widest flat surface visible from above that fits the logo legibly without changing its layout, clear of seams, handles, edges and existing artwork. Centre the logo there with balanced margins.',
+      '- Keep the placement logic and relative scale consistent across the whole set: smaller on small items, larger on wide flat ones.',
+      "- Integrate it physically: correct perspective for the overhead view, wrapping with any curvature, matching each surface's finish, texture and lighting — printed on the product, never a flat sticker pasted onto the photograph.",
+      '- If a product reference already shows this logo, keep that print as it is and do not add a second copy.',
+      '- The logo goes on the products only — never on the cardboard box, the shredded-paper filler or the background.',
+    ]
+    const f = options.logoFacts
+    if (f) {
+      branding.splice(
+        2,
+        0,
+        `- MEASURED LOGO FACTS — measured from the supplied file; treat as ground truth: ${f.shape} — tight bounding box ${f.width}×${f.height} px, aspect ratio ${f.aspectRatio}:1.${f.aspectRatio >= 1.8 ? ' It is ONE single line of artwork.' : ''} On every product the printed logo keeps exactly this silhouette and aspect ratio.`,
+        ...(f.colors.length > 0
+          ? [
+              `- MEASURED LOGO COLOURS: ${f.colors.join(', ')}. On every product, print the logo in exactly these colours.`,
+            ]
+          : []),
+      )
+    }
+    p.push(branding.join('\n'))
+  }
+
+  // ── Text policy + output contract ────────────────────────────────────────
+  p.push(
+    `TEXT POLICY: apart from each product's own existing packaging artwork${
       options.hasLogo ? ' and the supplied company logo' : ''
     }, no other logo, brand name, slogan or text may appear anywhere in the frame.`,
   )
 
   p.push(
-    'Produce exactly ONE unified photograph of one box. Do NOT make a grid of separate frames, a collage, a contact sheet, a mosaic, or labelled panels.',
+    'OUTPUT: exactly ONE unified photograph of one box — never a grid of separate frames, a collage, a contact sheet, a mosaic or labelled panels.',
+  )
+
+  p.push(
+    'PRIORITY — if any two rules conflict, obey the earlier one: (1) the exact product set, (2) product fidelity, (3) logo fidelity, (4) scene styling.',
+  )
+
+  // Recency anchor: restate the hard constraints last.
+  p.push(
+    `FINAL CHECK before returning the image: every listed product appears exactly once${
+      options.hasLogo
+        ? '; the logo on every product has the SAME layout as the supplied logo image (same number of lines, same lockup, same aspect ratio) and the SAME colours, unaltered'
+        : ''
+    }; the output is one single photograph of one box. If any check fails, correct it and return the corrected image.`,
   )
 
   return p.join('\n\n')

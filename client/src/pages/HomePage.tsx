@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useBrand } from '@/context/BrandContext'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -13,7 +14,7 @@ import { ProductSearchBar } from '@/components/ProductSearchBar'
 import { ProductsListToolbar } from '@/components/ProductsListToolbar'
 import { Button } from '@/components/ui/button'
 import type { PageSize, PriceRange } from '@/types/product'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Gift } from 'lucide-react'
 
 const SEARCH_DEBOUNCE_MS = 2000
 const PRICE_DEBOUNCE_MS = 2000
@@ -203,6 +204,12 @@ export function HomePage() {
           Shop curated pieces
         </h1>
         <p className="text-lg text-muted-foreground">{brand.description}</p>
+        <Button asChild size="lg" className="uppercase tracking-wider">
+          <Link to="/build-box">
+            <Gift className="size-4" />
+            Build box
+          </Link>
+        </Button>
       </section>
 
       {/* Mobile hero ad — landscape videos only (see CampaignVideoAd). */}

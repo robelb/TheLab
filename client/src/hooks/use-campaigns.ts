@@ -102,9 +102,12 @@ export function useGenerateCampaign() {
 
 export function useUpdateCampaign() {
   const queryClient = useQueryClient()
+  const brand = useCampaignBrandSignals()
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: CampaignUpdate }) =>
-      updateCampaign(id, input),
+      // A bundle change re-renders the image server-side — send the brand along
+      // so it renders with the logo. Other edits don't, so don't bloat them.
+      updateCampaign(id, input.productIds ? { brand, ...input } : input),
     onSuccess: (campaign) => {
       // Seed the detail cache so a bundle change shows its `pending` image state
       // immediately, without waiting for the invalidation round-trip.
@@ -114,11 +117,16 @@ export function useUpdateCampaign() {
   })
 }
 
-/** Manual bundle-image regeneration — always available, also after a failure. */
+/**
+ * Manual bundle-image regeneration — always available, also after a failure.
+ * The caller's live brand rides along so the render gets the logo even when the
+ * campaign has no domain for the server to look a company up by.
+ */
 export function useRegenerateCampaignHeroImage() {
   const queryClient = useQueryClient()
+  const brand = useCampaignBrandSignals()
   return useMutation({
-    mutationFn: (id: string) => regenerateCampaignHeroImage(id),
+    mutationFn: (id: string) => regenerateCampaignHeroImage(id, brand),
     onSuccess: (campaign) => {
       queryClient.setQueryData(campaignsKeys.detail(campaign.id), campaign)
       void queryClient.invalidateQueries({ queryKey: campaignsKeys.all })

@@ -3,7 +3,6 @@ import type { LlmConfig } from '../extractor/llmConfig.js'
 import type { ExtractionResult } from '../extractor/types.js'
 import {
   getBrandImageAssetsFromExtraction,
-  hasAnyBrandImage,
   normalizeBrandImageUrls,
 } from './brandAssets.js'
 import {
@@ -35,6 +34,10 @@ function toSummary(result: RunCustomizeResult): CustomizedProductSummary {
  * Generate branded featured-product images for a company — the SLOW part
  * (multiple image-gen calls). Designed to run in the background: it never
  * throws, returning a status the caller persists.
+ *
+ * Onboarding brands products with the LOGO ONLY — the favicon is never sent to
+ * the image model here, so a favicon-only brand is skipped rather than printed
+ * with a favicon. (The CLI `generate-customized-images` script still allows it.)
  */
 export async function customizeFeaturedImages(
   extraction: ExtractionResult,
@@ -42,11 +45,14 @@ export async function customizeFeaturedImages(
   domain: string,
 ): Promise<FeaturedImagesResult> {
   const brandAssets = getBrandImageAssetsFromExtraction(extraction)
+  const { logoImageUrl, inlineSvgLogo } = normalizeBrandImageUrls(brandAssets)
 
-  if (!hasAnyBrandImage(brandAssets)) {
+  if (!logoImageUrl && !inlineSvgLogo) {
     return {
       status: 'skipped',
-      message: 'No fetchable logo or favicon URL in extraction result.',
+      message: brandAssets.faviconUrl
+        ? 'No usable logo in extraction result (favicon found, but favicons are not used for product branding).'
+        : 'No fetchable logo URL in extraction result.',
     }
   }
 
@@ -55,16 +61,12 @@ export async function customizeFeaturedImages(
     return { status: 'skipped', message: missingImageLlmConfigMessage() }
   }
 
-  const { logoImageUrl, faviconImageUrl, inlineSvgLogo } =
-    normalizeBrandImageUrls(brandAssets)
-
   try {
     const { generation, results, failures } = await runCustomize({
       companyId,
       domain,
       companyName: brandAssets.companyName,
       logoImageUrl,
-      faviconImageUrl,
       inlineSvgLogo,
       imageLlm,
     })

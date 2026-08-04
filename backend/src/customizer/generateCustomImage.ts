@@ -1,9 +1,7 @@
 import { generateCustomImageGemini } from './generateGemini.js'
 import { generateCustomImageOpenAI } from './generateOpenai.js'
-import {
-  buildCustomizePrompt,
-  type CustomizePromptContext,
-} from '../systemInstruction/brandCustomize.js'
+import { buildCustomizePrompt } from '../systemInstruction/brandCustomize.js'
+import { describeBrandMark } from './brandMarkFacts.js'
 import type { CustomizeAiContext } from './logCustomizeAi.js'
 import type { ImageLlmConfig } from './llmImageConfig.js'
 import { fetchImage, fetchImageOptional, type FetchedImage } from './fetchImage.js'
@@ -20,17 +18,6 @@ export interface GenerateCustomImageInput {
   faviconImageUrl?: string | null
 }
 
-function promptContext(
-  logo?: FetchedImage,
-  favicon?: FetchedImage,
-  companyName?: string | null,
-): CustomizePromptContext {
-  return {
-    companyName,
-    hasLogo: Boolean(logo),
-    hasFavicon: Boolean(favicon),
-  }
-}
 
 /** Composite brand mark onto the product print area using OpenAI or Gemini. */
 export async function generateCustomImage(
@@ -55,9 +42,20 @@ export async function generateCustomImage(
     throw new Error('At least one brand image (logo or favicon) is required.')
   }
 
-  const prompt = buildCustomizePrompt(
-    promptContext(logoImage, faviconImage, input.companyName),
-  )
+  // Measure the marks so the prompt can state layout + colours as facts, not
+  // just rules — best-effort, null facts degrade to the instruction-only prompt.
+  const [logoFacts, faviconFacts] = await Promise.all([
+    logoImage ? describeBrandMark(logoImage) : null,
+    faviconImage ? describeBrandMark(faviconImage) : null,
+  ])
+
+  const prompt = buildCustomizePrompt({
+    companyName: input.companyName,
+    hasLogo: Boolean(logoImage),
+    hasFavicon: Boolean(faviconImage),
+    logoFacts,
+    faviconFacts,
+  })
 
   const aiContext: CustomizeAiContext = {
     productId: input.productId,

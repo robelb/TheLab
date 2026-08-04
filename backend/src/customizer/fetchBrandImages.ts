@@ -23,12 +23,17 @@ export async function fetchBrandImages(
   const inlineSvg = urls.inlineSvgLogo?.trim() || undefined
 
   let logo: FetchedImage | undefined
+  // Per-source failure reasons, surfaced in the thrown error so the stored
+  // imagesError says WHY (e.g. "inline SVG: corrupt header") — not just that
+  // nothing was usable.
+  const reasons: string[] = []
 
   if (inlineSvg) {
     try {
       logo = await fetchedImageFromInlineSvg(inlineSvg)
       console.error('[customize] logo: inline SVG converted to PNG')
     } catch (err) {
+      reasons.push(`inline SVG logo: ${(err as Error).message}`)
       console.error(
         '[customize] inline SVG logo failed:',
         (err as Error).message,
@@ -38,6 +43,7 @@ export async function fetchBrandImages(
 
   if (!logo && logoUrl) {
     logo = (await fetchImageOptional(logoUrl, 'logo')) ?? undefined
+    if (!logo) reasons.push(`logo URL unusable (${logoUrl})`)
     if (logo?.convertedForAi) {
       console.error(`[customize] logo: converted for AI (${logoUrl})`)
     }
@@ -46,9 +52,12 @@ export async function fetchBrandImages(
   const favicon = faviconUrl
     ? ((await fetchImageOptional(faviconUrl, 'favicon')) ?? undefined)
     : undefined
+  if (faviconUrl && !favicon) reasons.push(`favicon unusable (${faviconUrl})`)
 
   if (!logo && !favicon) {
-    throw new Error('Could not fetch any brand image (logo or favicon).')
+    throw new Error(
+      `Could not fetch any brand image (logo or favicon).${reasons.length ? ` ${reasons.join('; ')}` : ''}`,
+    )
   }
 
   if (!favicon && faviconUrl) {

@@ -6,6 +6,7 @@ import {
   generateCampaignSchema,
   listActiveVideosQuerySchema,
   listCampaignsQuerySchema,
+  regenerateHeroImageSchema,
   updateCampaignSchema,
   updateCampaignVideoSchema,
 } from './campaigns.schema.js'
@@ -130,8 +131,17 @@ campaignsRouter.patch('/:id', async (req, res) => {
 // its `pending` state — the render runs in the background and the client polls
 // the detail endpoint for the result.
 campaignsRouter.post('/:id/hero-image', async (req, res) => {
+  // Body is optional — `brand` just supplies the logo to render with.
+  const parsed = regenerateHeroImageSchema.safeParse(req.body ?? {})
+  if (!parsed.success) {
+    return res.status(400).json({ error: firstZodError(parsed.error) })
+  }
+
   try {
-    const campaign = await regenerateCampaignHeroImage(req.params.id)
+    const campaign = await regenerateCampaignHeroImage(
+      req.params.id,
+      parsed.data.brand,
+    )
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign not found' })
     }
