@@ -134,17 +134,26 @@ export function CheckoutPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <ul className="space-y-2 text-sm">
-              {items.map(({ product, quantity }) => (
-                <li
-                  key={product.id}
-                  className="flex justify-between gap-2 text-muted-foreground"
-                >
-                  <span className="truncate">
-                    {product.name} × {quantity}
-                  </span>
-                  <span className="shrink-0 text-foreground">
-                    {formatPrice(product.price * quantity, product.currency)}
-                  </span>
+              {items.map(({ product, quantity, box }) => (
+                <li key={product.id} className="space-y-1">
+                  <div className="flex justify-between gap-2 text-muted-foreground">
+                    <span className="truncate">
+                      {product.name} × {quantity}
+                    </span>
+                    <span className="shrink-0 text-foreground">
+                      {formatPrice(product.price * quantity, product.currency)}
+                    </span>
+                  </div>
+                  {/* A box ships as one line — say what's in it. */}
+                  {box && box.lines.length > 0 && (
+                    <ul className="ml-2 border-l border-border/40 pl-3 text-xs text-muted-foreground">
+                      {box.lines.map((line) => (
+                        <li key={line.productId} className="truncate">
+                          {line.name} × {line.quantity}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               ))}
             </ul>

@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
-import { Minus, Plus, Trash2 } from 'lucide-react'
+import { Minus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
 import { useBrand } from '@/context/BrandContext'
+import { boxPieceCount, isBoxSku } from '@/lib/box'
 import { getProductDisplayImage } from '@/lib/productImage'
 import { formatPrice } from '@/utils/format'
 import { Button } from '@/components/ui/button'
@@ -42,12 +43,16 @@ export function CartPage() {
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-start">
         <ul className="divide-y divide-border/40">
-          {items.map(({ product, quantity }) => {
+          {items.map(({ product, quantity, box }) => {
             // A built box is a client-side line item, not a catalog product —
-            // its detail page is the box builder.
-            const productUrl = product.sku?.startsWith('BOX-')
-              ? '/build-box'
-              : `/product/${product.id}`
+            // its detail page is the box builder, opened on this very box.
+            // Boxes added before contents were tracked just open the builder.
+            const editBoxUrl = `/build-box?edit=${encodeURIComponent(product.id)}`
+            const productUrl = box
+              ? editBoxUrl
+              : isBoxSku(product.sku)
+                ? '/build-box'
+                : `/product/${product.id}`
             return (
             <li
               key={product.id}
@@ -55,7 +60,7 @@ export function CartPage() {
             >
               <Link
                 to={productUrl}
-                className="overflow-hidden rounded-brand bg-muted/20"
+                className="overflow-hidden rounded-brand"
               >
                 <img
                   src={getProductDisplayImage(product, brandGeneration)}
@@ -64,17 +69,64 @@ export function CartPage() {
                 />
               </Link>
 
-              <div className="min-w-0 space-y-1">
-                <Link
-                  to={productUrl}
-                  className="font-display text-lg font-semibold hover:text-primary"
-                >
-                  {product.name}
-                </Link>
-                <p className="text-sm text-muted-foreground">{product.tagline}</p>
-                <p className="font-semibold text-primary">
-                  {formatPrice(product.price * quantity, product.currency)}
-                </p>
+              <div className="min-w-0">
+                <div className="space-y-1">
+                  <Link
+                    to={productUrl}
+                    className="font-display text-lg font-semibold hover:text-primary"
+                  >
+                    {product.name}
+                  </Link>
+                  <p className="text-sm text-muted-foreground">
+                    {product.tagline}
+                  </p>
+                  <p className="font-semibold text-primary">
+                    {formatPrice(product.price * quantity, product.currency)}
+                  </p>
+                </div>
+
+                {/* A box is one line, so what it holds is spelled out here. */}
+                {box && box.lines.length > 0 && (
+                  <div className="mt-3 rounded-brand border border-border/40 bg-muted/5 p-3">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Inside this box · {boxPieceCount(box.lines)} item
+                      {boxPieceCount(box.lines) === 1 ? '' : 's'}
+                    </p>
+                    <ul className="space-y-2">
+                      {box.lines.map((line) => (
+                        <li
+                          key={line.productId}
+                          className="flex items-center gap-2.5 text-sm"
+                        >
+                          <img
+                            src={getProductDisplayImage(line, brandGeneration)}
+                            alt=""
+                            className="size-9 shrink-0 rounded-brand border border-border/40 bg-background object-contain"
+                            loading="lazy"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate">{line.name}</p>
+                            <p className="text-xs tabular-nums text-muted-foreground">
+                              {formatPrice(line.price, line.currency)} ×{' '}
+                              {line.quantity}
+                            </p>
+                          </div>
+                          <span className="shrink-0 tabular-nums font-medium">
+                            {formatPrice(
+                              line.price * line.quantity,
+                              line.currency,
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {quantity > 1 && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Per box — you have {quantity} of these boxes.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="col-span-2 flex items-center justify-between gap-4 sm:col-span-1 sm:flex-col sm:items-end">
@@ -101,16 +153,31 @@ export function CartPage() {
                     <Plus className="size-4" />
                   </Button>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground"
-                  onClick={() => removeItem(product.id)}
-                >
-                  <Trash2 className="size-4" />
-                  Remove
-                </Button>
+                <div className="flex items-center gap-1 sm:flex-col sm:items-end">
+                  {box && (
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground"
+                    >
+                      <Link to={editBoxUrl}>
+                        <Pencil className="size-4" />
+                        Edit box
+                      </Link>
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    onClick={() => removeItem(product.id)}
+                  >
+                    <Trash2 className="size-4" />
+                    Remove
+                  </Button>
+                </div>
               </div>
             </li>
             )

@@ -4,13 +4,14 @@ import {
   Gift,
   Image as ImageIcon,
   Loader2,
+  Pencil,
   Plus,
   RotateCcw,
   ShoppingBag,
   Sparkles,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePostHog } from '@posthog/react'
 import { AddProductDialog } from '@/components/AddProductDialog'
 import { CampaignProductTile } from '@/components/CampaignProductTile'
@@ -35,9 +36,16 @@ import {
   useUpdateCampaign,
 } from '@/hooks/use-campaigns'
 import { useProductsByIds } from '@/hooks/use-products'
+import {
+  BOX_SKU_PREFIX,
+  boxSubtotal,
+  sameBoxLines,
+  toBoxLine,
+} from '@/lib/box'
 import { getProductDisplayImage } from '@/lib/productImage'
 import { cn } from '@/lib/utils'
 import { formatPrice } from '@/utils/format'
+import type { BoxDetails, BoxLine } from '@/types/box'
 import type { Product } from '@/types/product'
 
 const STORAGE_KEY = 'atelier-box-draft'
@@ -54,9 +62,35 @@ interface BoxDraft {
   campaignId: string | null
   title: string
   productIds: string[]
+  /** How many of each product the box holds; a missing entry means one. */
+  quantities: Record<string, number>
+  /**
+   * Set while the shopper is editing a box they already put in the cart — the
+   * id of that cart line, so saving writes back to it instead of adding a
+   * second box.
+   */
+  editingItemId: string | null
 }
 
-const EMPTY_DRAFT: BoxDraft = { campaignId: null, title: '', productIds: [] }
+const EMPTY_DRAFT: BoxDraft = {
+  campaignId: null,
+  title: '',
+  productIds: [],
+  quantities: {},
+  editingItemId: null,
+}
+
+/** Quantities come back from storage as untrusted JSON — keep whole, sane ones. */
+function parseQuantities(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object') return {}
+  const out: Record<string, number> = {}
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 1) {
+      out[id] = Math.floor(value)
+    }
+  }
+  return out
+}
 
 function loadDraft(): BoxDraft {
   try {
@@ -67,6 +101,9 @@ function loadDraft(): BoxDraft {
       campaignId: parsed.campaignId ?? null,
       title: typeof parsed.title === 'string' ? parsed.title : '',
       productIds: Array.isArray(parsed.productIds) ? parsed.productIds : [],
+      quantities: parseQuantities(parsed.quantities),
+      editingItemId:
+        typeof parsed.editingItemId === 'string' ? parsed.editingItemId : null,
     }
   } catch {
     return EMPTY_DRAFT
@@ -87,7 +124,8 @@ export function BuildBoxPage() {
   const posthog = usePostHog()
   const { brand } = useBrand()
   const { domain } = useAuth()
-  const { items: cartItems, addItem } = useCart()
+  const { items: cartItems, addItem, updateBoxItem } = useCart()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [draft, setDraft] = useState<BoxDraft>(loadDraft)
   const [brief, setBrief] = useState('')
@@ -133,6 +171,49 @@ export function BuildBoxPage() {
     [known, draft.productIds],
   )
 
+  const quantityOf = useCallback(
+    (id: string) => draft.quantities[id] ?? 1,
+    [draft.quantities],
+  )
+
+  const setQuantity = (id: string, quantity: number) =>
+    setDraft((d) => ({
+      ...d,
+      quantities: { ...d.quantities, [id]: Math.max(1, quantity) },
+    }))
+
+  // ── Editing a box that's already in the cart ─────────────────────────────
+  // The cart links here as `/build-box?edit=<cart line id>`; the line carries a
+  // full snapshot of the box, so it can be loaded back into the builder without
+  // a round-trip. The param is dropped straight away so a later refresh doesn't
+  // throw away edits made since.
+  const editParam = searchParams.get('edit')
+
+  useEffect(() => {
+    if (!editParam) return
+    const item = cartItems.find((i) => i.product.id === editParam)
+    if (item?.box) {
+      setDraft({
+        campaignId: item.box.campaignId,
+        title: item.product.name,
+        productIds: item.box.lines.map((l) => l.productId),
+        quantities: Object.fromEntries(
+          item.box.lines.map((l) => [l.productId, l.quantity]),
+        ),
+        editingItemId: item.product.id,
+      })
+      setError(null)
+    }
+    setSearchParams({}, { replace: true })
+  }, [editParam, cartItems, setSearchParams])
+
+  // The line can disappear while it's being edited (removed in another tab), in
+  // which case saving falls back to adding a new box.
+  const editingItem = draft.editingItemId
+    ? cartItems.find((i) => i.product.id === draft.editingItemId)
+    : undefined
+  const editing = Boolean(editingItem)
+
   const { data: campaign, error: campaignError } = useCampaign(
     draft.campaignId ?? undefined,
   )
@@ -162,7 +243,12 @@ export function BuildBoxPage() {
   const failed =
     !generating && (campaign?.heroImageStatus === 'failed' || Boolean(error))
 
-  const subtotal = products.reduce((sum, p) => sum + p.price, 0)
+  const lines: BoxLine[] = useMemo(
+    () => products.map((p) => toBoxLine(p, quantityOf(p.id))),
+    [products, quantityOf],
+  )
+  const subtotal = boxSubtotal(lines)
+  const pieceCount = lines.reduce((sum, l) => sum + l.quantity, 0)
   const currency = products[0]?.currency
   const fallbackTitle = `${brand.companyName} box`
 
@@ -177,11 +263,25 @@ export function BuildBoxPage() {
   }
 
   const removeProduct = (id: string) =>
-    setDraft((d) => ({ ...d, productIds: d.productIds.filter((p) => p !== id) }))
+    setDraft((d) => {
+      const { [id]: _dropped, ...quantities } = d.quantities
+      return {
+        ...d,
+        productIds: d.productIds.filter((p) => p !== id),
+        quantities,
+      }
+    })
 
+  // Emptying the box keeps the shopper in edit mode — they're still working on
+  // the same cart line, just from scratch.
   const startOver = () => {
-    setDraft(EMPTY_DRAFT)
+    setDraft((d) => ({ ...EMPTY_DRAFT, editingItemId: d.editingItemId }))
     setError(null)
+  }
+
+  const cancelEditing = () => {
+    setDraft((d) => ({ ...d, editingItemId: null }))
+    navigate('/cart')
   }
 
   /**
@@ -202,11 +302,13 @@ export function BuildBoxPage() {
         for (const p of created.products) next[p.id] = p
         return next
       })
-      setDraft({
+      setDraft((d) => ({
         campaignId: created.id,
         title: created.title,
         productIds: created.productIds,
-      })
+        quantities: {},
+        editingItemId: d.editingItemId,
+      }))
       posthog?.capture('box generated', {
         campaign_id: created.id,
         product_count: created.productIds.length,
@@ -262,43 +364,69 @@ export function BuildBoxPage() {
    * product carrying the box's name, image and total price. The id is a real
    * UUID (the campaign id when we have one) so the cart's by-ids hydration
    * lookup stays valid — it simply never matches a catalog row and the
-   * snapshot is kept as-is.
+   * snapshot is kept as-is. What's *inside* rides along as `BoxDetails` so the
+   * cart can list the contents and hand them back here for editing.
    */
-  const addBoxToCart = () => {
+  const boxProduct = (id: string, title: string): Product => ({
+    id,
+    sku: `${BOX_SKU_PREFIX}${id.slice(0, 8).toUpperCase()}`,
+    name: title,
+    tagline: `Gift box · ${pieceCount} item${pieceCount === 1 ? '' : 's'}`,
+    price: subtotal,
+    currency,
+    category: 'Gift box',
+    image: imageUrl ?? getProductDisplayImage(products[0]),
+    customizedImage: null,
+    description: `Gift box with: ${lines
+      .map((l) => (l.quantity > 1 ? `${l.name} × ${l.quantity}` : l.name))
+      .join(', ')}`,
+    details: lines.map((l) => `${l.name} × ${l.quantity}`),
+  })
+
+  const saveBoxToCart = () => {
     if (products.length === 0) return
     const title = draft.title.trim() || fallbackTitle
-    const description = `Gift box with: ${products.map((p) => p.name).join(', ')}`
+    const box: BoxDetails = { campaignId, lines }
+
+    // Editing writes back to the line the shopper came from, keeping its id and
+    // how many of the box they ordered.
+    if (editingItem) {
+      updateBoxItem(
+        editingItem.product.id,
+        boxProduct(editingItem.product.id, title),
+        box,
+      )
+      setDraft((d) => ({ ...d, editingItemId: null }))
+      posthog?.capture('box updated in cart', {
+        campaign_id: campaignId,
+        product_count: products.length,
+        piece_count: pieceCount,
+        subtotal,
+        domain,
+      })
+      navigate('/cart')
+      return
+    }
 
     // Re-adding the same box bumps the quantity of the existing line — but the
-    // cart keeps the first snapshot, so a box EDITED since it was added must
+    // cart keeps the first snapshot, so a box changed since it was added must
     // become its own line item under a fresh id.
     let id = campaignId ?? crypto.randomUUID()
     const existing = cartItems.find((i) => i.product.id === id)
     if (
       existing &&
-      (existing.product.price !== subtotal ||
-        existing.product.name !== title ||
-        existing.product.description !== description)
+      (existing.product.name !== title ||
+        !existing.box ||
+        !sameBoxLines(existing.box.lines, lines))
     ) {
       id = crypto.randomUUID()
     }
 
-    addItem({
-      id,
-      sku: `BOX-${id.slice(0, 8).toUpperCase()}`,
-      name: title,
-      tagline: `Gift box · ${products.length} item${products.length === 1 ? '' : 's'}`,
-      price: subtotal,
-      currency,
-      category: 'Gift box',
-      image: imageUrl ?? getProductDisplayImage(products[0]),
-      customizedImage: null,
-      description,
-      details: products.map((p) => p.name),
-    })
+    addItem(boxProduct(id, title), 1, box)
     posthog?.capture('box added to cart', {
       campaign_id: campaignId,
       product_count: products.length,
+      piece_count: pieceCount,
       subtotal,
       domain,
     })
@@ -321,13 +449,30 @@ export function BuildBoxPage() {
           {brand.companyName}
         </p>
         <h1 className="font-display text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
-          Build your box
+          {editing ? 'Edit your box' : 'Build your box'}
         </h1>
         <p className="text-lg text-muted-foreground">
-          Pick the pieces you want together, then let us photograph them as one
-          branded gift box.
+          {editing
+            ? 'Change what’s inside, then save it back to your cart.'
+            : 'Pick the pieces you want together, then let us photograph them as one branded gift box.'}
         </p>
       </section>
+
+      {editing && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-brand border border-primary/30 bg-primary/5 px-4 py-3">
+          <p className="flex items-center gap-2 text-sm">
+            <Pencil className="size-4 shrink-0 text-primary" />
+            <span>
+              Editing{' '}
+              <span className="font-medium">{editingItem?.product.name}</span>{' '}
+              from your cart — changes apply when you save.
+            </span>
+          </p>
+          <Button type="button" variant="ghost" size="sm" onClick={cancelEditing}>
+            Cancel
+          </Button>
+        </div>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
         {/* ── The box image ─────────────────────────────────────────────── */}
@@ -417,7 +562,7 @@ export function BuildBoxPage() {
             )}
           </Button>
 
-          <div className="flex items-center justify-between rounded-brand border border-border/40 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-brand border border-border/40 px-4 py-3">
             <div className="space-y-0.5">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 Box total
@@ -425,16 +570,22 @@ export function BuildBoxPage() {
               <p className="font-display text-lg font-semibold">
                 {formatPrice(subtotal, currency)}
               </p>
+              {pieceCount > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {pieceCount} item{pieceCount === 1 ? '' : 's'} in {products.length}{' '}
+                  product{products.length === 1 ? '' : 's'}
+                </p>
+              )}
             </div>
             <Button
               type="button"
               size="lg"
               variant="secondary"
-              onClick={addBoxToCart}
+              onClick={saveBoxToCart}
               disabled={products.length === 0}
             >
               <ShoppingBag className="size-4" />
-              Add box to cart
+              {editing ? 'Save box to cart' : 'Add box to cart'}
             </Button>
           </div>
 
@@ -518,7 +669,8 @@ export function BuildBoxPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">
-                In this box ({products.length})
+                In this box ({products.length}
+                {pieceCount !== products.length && ` · ${pieceCount} items`})
               </span>
               <div className="flex items-center gap-1">
                 {draft.productIds.length > 0 && (
@@ -562,6 +714,8 @@ export function BuildBoxPage() {
                     key={p.id}
                     product={p}
                     onRemove={() => removeProduct(p.id)}
+                    quantity={quantityOf(p.id)}
+                    onQuantityChange={(qty) => setQuantity(p.id, qty)}
                   />
                 ))}
               </div>

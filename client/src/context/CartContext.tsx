@@ -8,18 +8,23 @@ import {
   type ReactNode,
 } from 'react'
 import { useProductsByIds } from '@/hooks/use-products'
+import type { BoxDetails } from '@/types/box'
 import type { Product } from '@/types/product'
 
 export interface CartItem {
   product: Product
   quantity: number
+  /** Present when the line is a built gift box — the products inside it. */
+  box?: BoxDetails
 }
 
 interface CartContextValue {
   items: CartItem[]
-  addItem: (product: Product, quantity?: number) => void
+  addItem: (product: Product, quantity?: number, box?: BoxDetails) => void
   removeItem: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
+  /** Re-open a box from the cart, edit it, and write it back to the same line. */
+  updateBoxItem: (itemId: string, product: Product, box: BoxDetails) => void
   clearCart: () => void
   itemCount: number
   subtotal: number
@@ -50,48 +55,88 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // that moment — an item added as a guest, or before the company's branded
   // images finished generating, would keep showing the plain catalog picture.
   // Re-read the live (company-scoped) products and refresh the image fields so
-  // the customized variant is what every cart surface renders.
-  const storedIds = useMemo(() => items.map((i) => i.product.id), [items])
+  // the customized variant is what every cart surface renders. Products listed
+  // inside a box are snapshots too, so they're refreshed the same way.
+  const storedIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const item of items) {
+      ids.add(item.product.id)
+      for (const line of item.box?.lines ?? []) ids.add(line.productId)
+    }
+    return [...ids]
+  }, [items])
   const { data: liveProducts } = useProductsByIds(storedIds)
 
   const hydratedItems = useMemo(() => {
     if (!liveProducts?.length) return items
     const byId = new Map(liveProducts.map((p) => [p.id, p]))
-    return items.map((item) => {
-      const live = byId.get(item.product.id)
+
+    const freshImages = (
+      snapshot: { image: string; customizedImage: string | null },
+      id: string,
+    ) => {
+      const live = byId.get(id)
       if (
         !live ||
-        (live.customizedImage === item.product.customizedImage &&
-          live.image === item.product.image)
+        (live.image === snapshot.image &&
+          live.customizedImage === snapshot.customizedImage)
       ) {
-        return item
+        return null
       }
+      return { image: live.image, customizedImage: live.customizedImage }
+    }
+
+    let changed = false
+    const next = items.map((item) => {
       // Images only — price, name and the rest stay as captured at add time.
+      const productImages = freshImages(item.product, item.product.id)
+
+      let box = item.box
+      if (box) {
+        let linesChanged = false
+        const lines = box.lines.map((line) => {
+          const images = freshImages(line, line.productId)
+          if (!images) return line
+          linesChanged = true
+          return { ...line, ...images }
+        })
+        if (linesChanged) box = { ...box, lines }
+      }
+
+      if (!productImages && box === item.box) return item
+      changed = true
       return {
         ...item,
-        product: {
-          ...item.product,
-          image: live.image,
-          images: live.images,
-          customizedImage: live.customizedImage,
-        },
+        product: productImages
+          ? {
+              ...item.product,
+              ...productImages,
+              images: byId.get(item.product.id)?.images,
+            }
+          : item.product,
+        box,
       }
     })
+
+    return changed ? next : items
   }, [items, liveProducts])
 
-  const addItem = useCallback((product: Product, quantity = 1) => {
-    setItems((prev) => {
-      const existing = prev.find((i) => i.product.id === product.id)
-      if (existing) {
-        return prev.map((i) =>
-          i.product.id === product.id
-            ? { ...i, quantity: i.quantity + quantity }
-            : i,
-        )
-      }
-      return [...prev, { product, quantity }]
-    })
-  }, [])
+  const addItem = useCallback(
+    (product: Product, quantity = 1, box?: BoxDetails) => {
+      setItems((prev) => {
+        const existing = prev.find((i) => i.product.id === product.id)
+        if (existing) {
+          return prev.map((i) =>
+            i.product.id === product.id
+              ? { ...i, quantity: i.quantity + quantity }
+              : i,
+          )
+        }
+        return [...prev, { product, quantity, box }]
+      })
+    },
+    [],
+  )
 
   const removeItem = useCallback((productId: string) => {
     setItems((prev) => prev.filter((i) => i.product.id !== productId))
@@ -108,6 +153,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
       ),
     )
   }, [])
+
+  // An edited box replaces its line in place: the id, the position and how many
+  // of the box the shopper ordered all survive, only the contents change.
+  const updateBoxItem = useCallback(
+    (itemId: string, product: Product, box: BoxDetails) => {
+      setItems((prev) =>
+        prev.map((i) =>
+          i.product.id === itemId ? { ...i, product, box } : i,
+        ),
+      )
+    },
+    [],
+  )
 
   const clearCart = useCallback(() => setItems([]), [])
 
@@ -127,6 +185,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       addItem,
       removeItem,
       updateQuantity,
+      updateBoxItem,
       clearCart,
       itemCount,
       subtotal,
@@ -136,6 +195,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       addItem,
       removeItem,
       updateQuantity,
+      updateBoxItem,
       clearCart,
       itemCount,
       subtotal,
