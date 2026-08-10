@@ -1,6 +1,11 @@
 import { generateCustomImageGemini } from './generateGemini.js'
 import { generateCustomImageOpenAI } from './generateOpenai.js'
-import { buildCustomizePrompt } from '../systemInstruction/brandCustomize.js'
+import {
+  buildCustomizePrompt,
+  buildCustomizeTemplateVars,
+  type CustomizePromptContext,
+} from '../systemInstruction/brandCustomize.js'
+import { resolveInstruction } from '../modules/system-instructions/system-instructions.service.js'
 import { describeBrandMark } from './brandMarkFacts.js'
 import type { CustomizeAiContext } from './logCustomizeAi.js'
 import type { ImageLlmConfig } from './llmImageConfig.js'
@@ -49,13 +54,20 @@ export async function generateCustomImage(
     faviconImage ? describeBrandMark(faviconImage) : null,
   ])
 
-  const prompt = buildCustomizePrompt({
+  const promptCtx: CustomizePromptContext = {
     companyName: input.companyName,
     hasLogo: Boolean(logoImage),
     hasFavicon: Boolean(faviconImage),
     logoFacts,
     faviconFacts,
-  })
+  }
+  // Super-admin override (system_instructions table) wins; the built-in
+  // builder is the default and the fallback on any override failure.
+  const override = await resolveInstruction(
+    'brand-customize',
+    buildCustomizeTemplateVars(promptCtx),
+  )
+  const prompt = override ?? buildCustomizePrompt(promptCtx)
 
   const aiContext: CustomizeAiContext = {
     productId: input.productId,

@@ -5,6 +5,7 @@ import {
 } from "../systemInstruction/brandExtraction.js";
 import { openaiBrandJsonSchema } from "./openaiBrandSchema.js";
 import { parseBrandResponse } from "./parseBrandResponse.js";
+import { resolveInstruction } from "../modules/system-instructions/system-instructions.service.js";
 import type { BrandData } from "./types.js";
 
 export async function extractBrandDataOpenAI(
@@ -14,13 +15,16 @@ export async function extractBrandDataOpenAI(
   model: string
 ): Promise<BrandData> {
   const client = new OpenAI({ apiKey });
+  // Super-admin override for the system instruction; built-in is the fallback.
+  const system =
+    (await resolveInstruction("brand-extraction")) ?? SYSTEM_INSTRUCTION;
   const prompt = buildBrandExtractionUserPrompt(pageUrl, html);
 
   const response = await client.chat.completions.create({
     model,
     temperature: 0,
     messages: [
-      { role: "system", content: SYSTEM_INSTRUCTION },
+      { role: "system", content: system },
       { role: "user", content: prompt },
     ],
     response_format: {

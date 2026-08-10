@@ -5,6 +5,7 @@ import {
   Megaphone,
   Package,
   Palette,
+  ScrollText,
   Store,
   Users,
 } from 'lucide-react'
@@ -47,6 +48,7 @@ const navItems: NavItem[] = [
 const adminItems: NavItem[] = [
   { to: '/dashboard/admin/users', end: false, label: 'All Users', icon: Users, capability: 'manage_all' },
   { to: '/dashboard/admin/companies', end: false, label: 'All Companies', icon: Building2, capability: 'manage_all' },
+  { to: '/dashboard/admin/instructions', end: false, label: 'AI Instructions', icon: ScrollText, capability: 'manage_all' },
 ]
 
 export function AppSidebar() {

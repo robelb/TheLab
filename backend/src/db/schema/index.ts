@@ -35,3 +35,7 @@ export {
   type SharedDesign,
   type NewSharedDesign,
 } from './shared-designs.js'
+export {
+  systemInstructions,
+  type SystemInstruction,
+} from './system-instructions.js'

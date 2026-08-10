@@ -9,6 +9,7 @@ import {
   buildCampaignUserPrompt,
   type CampaignBrandSignals,
 } from '../../systemInstruction/campaign.js'
+import { resolveInstruction } from '../system-instructions/system-instructions.service.js'
 
 export interface CampaignCopy {
   title: string
@@ -52,6 +53,7 @@ function parseCopy(raw: string, brand: CampaignBrandSignals): CampaignCopy {
 }
 
 async function genOpenAI(
+  system: string,
   user: string,
   apiKey: string,
   model: string,
@@ -62,7 +64,7 @@ async function genOpenAI(
     temperature: 0.7,
     response_format: { type: 'json_object' },
     messages: [
-      { role: 'system', content: CAMPAIGN_SYSTEM_INSTRUCTION },
+      { role: 'system', content: system },
       { role: 'user', content: user },
     ],
   })
@@ -70,6 +72,7 @@ async function genOpenAI(
 }
 
 async function genGemini(
+  system: string,
   user: string,
   apiKey: string,
   model: string,
@@ -79,7 +82,7 @@ async function genGemini(
     model,
     contents: [{ role: 'user', parts: [{ text: user }] }],
     config: {
-      systemInstruction: CAMPAIGN_SYSTEM_INSTRUCTION,
+      systemInstruction: system,
       temperature: 0.7,
       responseMimeType: 'application/json',
     },
@@ -96,11 +99,14 @@ export async function generateCampaignCopy(
   const llm = resolveLlmConfig()
   if (!llm) throw new Error(missingLlmConfigMessage())
 
+  // Super-admin override for the system instruction; built-in is the fallback.
+  const system =
+    (await resolveInstruction('campaign-copy')) ?? CAMPAIGN_SYSTEM_INSTRUCTION
   const user = buildCampaignUserPrompt(brand, productNames, brief)
   const raw =
     llm.provider === 'openai'
-      ? await genOpenAI(user, llm.apiKey, llm.model)
-      : await genGemini(user, llm.apiKey, llm.model)
+      ? await genOpenAI(system, user, llm.apiKey, llm.model)
+      : await genGemini(system, user, llm.apiKey, llm.model)
 
   return parseCopy(raw, brand)
 }
