@@ -10,6 +10,7 @@ import { dashboardRouter } from './modules/dashboard/dashboard.router.js'
 import { extractRouter } from './modules/extract/extract.router.js'
 import { productsRouter } from './modules/products/products.router.js'
 import { shareRouter } from './modules/share/share.router.js'
+import { systemInstructionsRouter } from './modules/system-instructions/system-instructions.router.js'
 import { uploadsRouter } from './modules/uploads/uploads.router.js'
 import { usersRouter } from './modules/users/users.router.js'
 import { UPLOADS_DIR, VIDEOS_DIR } from './modules/uploads/uploads.service.js'
@@ -44,6 +45,7 @@ export function createApp() {
   app.use('/api/uploads', uploadsRouter)
   app.use('/api/extract', extractRouter)
   app.use('/api/share', shareRouter)
+  app.use('/api/system-instructions', systemInstructionsRouter)
 
   return app
 }

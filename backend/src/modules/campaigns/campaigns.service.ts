@@ -33,7 +33,11 @@ import {
   getProductById,
   searchProductsByText,
 } from '../products/products.service.js'
-import { buildCampaignKitImagePrompt } from '../../systemInstruction/campaign.js'
+import {
+  buildCampaignKitImagePrompt,
+  buildKitTemplateVars,
+} from '../../systemInstruction/campaign.js'
+import { resolveInstruction } from '../system-instructions/system-instructions.service.js'
 import { saveImage } from '../uploads/uploads.service.js'
 import type { ProductWithCategory } from '../../types/product.js'
 import type {
@@ -231,10 +235,19 @@ async function generateKitImage(
   // Measured logo facts let the prompt pin layout + colours as ground truth.
   const logoFacts = brand ? await describeBrandMark(brand.logo) : null
 
-  const prompt = buildCampaignKitImagePrompt(
-    usable.map((e) => e.product.name),
-    { hasLogo: Boolean(brand), companyName: brand?.companyName, logoFacts },
+  const kitNames = usable.map((e) => e.product.name)
+  const kitOptions = {
+    hasLogo: Boolean(brand),
+    companyName: brand?.companyName,
+    logoFacts,
+  }
+  // Super-admin override (system_instructions table) wins; the built-in
+  // builder is the default and the fallback on any override failure.
+  const override = await resolveInstruction(
+    'campaign-kit-image',
+    buildKitTemplateVars(kitNames, kitOptions),
   )
+  const prompt = override ?? buildCampaignKitImagePrompt(kitNames, kitOptions)
   const buffer = await generateProductPhoto(prompt, images, config, {
     size: '1024x1024',
   })

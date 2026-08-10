@@ -5,6 +5,7 @@ import {
 } from "../systemInstruction/brandExtraction.js";
 import { geminiResponseSchema } from "./geminiSchema.js";
 import { parseBrandResponse } from "./parseBrandResponse.js";
+import { resolveInstruction } from "../modules/system-instructions/system-instructions.service.js";
 import type { BrandData } from "./types.js";
 
 export async function extractBrandDataGemini(
@@ -14,13 +15,16 @@ export async function extractBrandDataGemini(
   model: string
 ): Promise<BrandData> {
   const ai = new GoogleGenAI({ apiKey });
+  // Super-admin override for the system instruction; built-in is the fallback.
+  const system =
+    (await resolveInstruction("brand-extraction")) ?? SYSTEM_INSTRUCTION;
   const prompt = buildBrandExtractionUserPrompt(pageUrl, html);
 
   const response = await ai.models.generateContent({
     model,
     contents: prompt,
     config: {
-      systemInstruction: SYSTEM_INSTRUCTION,
+      systemInstruction: system,
       responseMimeType: "application/json",
       responseSchema: geminiResponseSchema,
       temperature: 0,

@@ -23,6 +23,7 @@ import { TeamPage } from '@/pages/dashboard/TeamPage'
 import { CompanySettingsPage } from '@/pages/dashboard/CompanySettingsPage'
 import { UsersPage as AdminUsersPage } from '@/pages/admin/UsersPage'
 import { CompaniesPage as AdminCompaniesPage } from '@/pages/admin/CompaniesPage'
+import { SystemInstructionsPage } from '@/pages/admin/SystemInstructionsPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SignupPage } from '@/pages/SignupPage'
 import { SharePage } from '@/pages/SharePage'
@@ -76,6 +77,10 @@ export default function App() {
                   {/* Super-admin only (pages self-guard `manage_all`). */}
                   <Route path="admin/users" element={<AdminUsersPage />} />
                   <Route path="admin/companies" element={<AdminCompaniesPage />} />
+                  <Route
+                    path="admin/instructions"
+                    element={<SystemInstructionsPage />}
+                  />
                 </Route>
               </Routes>
             </CartProvider>
