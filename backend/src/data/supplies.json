@@ -1,0 +1,165 @@
+[
+  {
+    "sourceId": "d9fff850-3976-11ef-8e3b-87127b74de11",
+    "sku": "VZ9N01SDVGG",
+    "merchantSku": "222",
+    "name": "Füllmaterial - Grün",
+    "tagline": "Filling material · green",
+    "price": 2.1,
+    "currency": "EUR",
+    "categorySlug": "filling-materials",
+    "image": "https://ffn.api.jtl-software.com/api/pictures/VZ9N01SDVGGe8cd46ee-2433-4cb3-9011-964b889e29ff",
+    "description": "",
+    "details": []
+  },
+  {
+    "sourceId": "3b3b3cbb-f744-462d-a929-a0f1f17d087e",
+    "sku": "VZ9N01AJVNJ",
+    "merchantSku": "226",
+    "name": "Füllmaterial - nachhaltige Holzwolle",
+    "tagline": "Filling material · sustainable wood wool",
+    "price": 2.1,
+    "currency": "EUR",
+    "categorySlug": "filling-materials",
+    "image": "https://ffn.api.jtl-software.com/api/pictures/VZ9N01AJVNJefa03dca-2437-4904-8163-4d714bd16e4f",
+    "description": "",
+    "details": []
+  },
+  {
+    "sourceId": "fccaa3e3-9414-44e8-b46f-72c4dc9cd40e",
+    "sku": "VZ9N01RFJSG",
+    "merchantSku": "1341",
+    "name": "Füllmaterial - Natur",
+    "tagline": "Filling material · natural",
+    "price": 2.1,
+    "currency": "EUR",
+    "categorySlug": "filling-materials",
+    "image": "https://ffn.api.jtl-software.com/api/pictures/VZ9N01RFJSGc745f6ee-f5ce-41bb-8221-d6c6f5ee6d5f",
+    "description": "",
+    "details": []
+  },
+  {
+    "sourceId": "5ac1531c-c416-45d4-b56a-dceb79daec44",
+    "sku": "VZ9N018ASFY",
+    "merchantSku": "223",
+    "name": "Füllmaterial - Orange",
+    "tagline": "Filling material · orange",
+    "price": 2.1,
+    "currency": "EUR",
+    "categorySlug": "filling-materials",
+    "image": "https://ffn.api.jtl-software.com/api/pictures/VZ9N018ASFYbcd6a97f-aab8-423e-bc05-89e4dbf6f7d9",
+    "description": "",
+    "details": []
+  },
+  {
+    "sourceId": "5c7d4555-f7d2-424e-ab36-d647d81c4a10",
+    "sku": "VZ9N01TM8XY",
+    "merchantSku": "219",
+    "name": "Füllmaterial - Rot",
+    "tagline": "Filling material · red",
+    "price": 2.1,
+    "currency": "EUR",
+    "categorySlug": "filling-materials",
+    "image": "https://ffn.api.jtl-software.com/api/pictures/VZ9N01TM8XYee1516dc-7aef-461f-80b0-c28fa5e92715",
+    "description": "",
+    "details": []
+  },
+  {
+    "sourceId": "1c54044e-f324-4b1d-a6d7-31ab0489c401",
+    "sku": "VZ9N01PM5LP",
+    "merchantSku": "224",
+    "name": "Füllmaterial - Schwarz",
+    "tagline": "Filling material · black",
+    "price": 2.1,
+    "currency": "EUR",
+    "categorySlug": "filling-materials",
+    "image": "https://ffn.api.jtl-software.com/api/pictures/VZ9N01PM5LP23d3eb0f-6ac4-4524-b27a-52f4f5b5a67b",
+    "description": "",
+    "details": []
+  },
+  {
+    "sourceId": "49deeafb-25d6-4b74-b5a1-8d666259ae4b",
+    "sku": "VZ9N01E17EG",
+    "merchantSku": "225",
+    "name": "Füllmaterial - Weiß",
+    "tagline": "Filling material · white",
+    "price": 2.1,
+    "currency": "EUR",
+    "categorySlug": "filling-materials",
+    "image": "https://ffn.api.jtl-software.com/api/pictures/VZ9N01E17EGa3b4c092-e39e-483b-bb74-38ef0d1e92d9",
+    "description": "",
+    "details": []
+  },
+  {
+    "sourceId": "6aa08266-3947-11ef-9074-1b3c21f96fed",
+    "sku": "VZ9N01P55AW",
+    "merchantSku": "2648",
+    "name": "Eco Box natur",
+    "tagline": "34 × 25 × 10 cm · unbleached FSC-Mix",
+    "price": 13,
+    "currency": "EUR",
+    "categorySlug": "packaging",
+    "image": "https://ffn.api.jtl-software.com/api/pictures/VZ9N01P55AWcec296ad-910c-4d8c-bd94-ae4911bc1e89",
+    "description": "Our Eco Box is very environmentally friendly and perfectly suited for your customization. The box has a size of 34 x 25 x 10 cm and is made of of FSC-Mix certified cardboard. The box is 100% recycable. It's surface is not bleached or painted and can be customized with a print. You will receive the Eco Box including the design of your choice, filling material, tissue paper, closure sticker and packaging with your desired products. Various sizes are available depending on your requirements.",
+    "details": [
+      "34 × 25 × 10 cm",
+      "FSC-Mix certified cardboard",
+      "100% recyclable",
+      "Unbleached, unpainted surface"
+    ]
+  },
+  {
+    "sourceId": "6aa08267-3947-11ef-9074-1b3c21f96fed",
+    "sku": "VZ9N01NXQG5",
+    "merchantSku": "2649",
+    "name": "Eco Box white",
+    "tagline": "34 × 25 × 10 cm · FSC-Mix cardboard",
+    "price": 13,
+    "currency": "EUR",
+    "categorySlug": "packaging",
+    "image": "https://ffn.api.jtl-software.com/api/pictures/VZ9N01NXQG5c35bd875-055d-47a9-a113-8da700aa4f72",
+    "description": "Our Eco Box is very environmentally friendly and perfectly suited for your customization. The box has a size of 34 x 25 x 10 cm and is made of of FSC-Mix certified cardboard. The box is 100% recyclable. It is available in the basic colors natural or white and can be customized with a print. You will receive the Eco Box including the design of your choice, filling material, tissue paper, closure sticker and packaging with your desired products. Various sizes are available depending on your requirements.",
+    "details": [
+      "34 × 25 × 10 cm",
+      "FSC-Mix certified cardboard",
+      "100% recyclable",
+      "Customizable with a print"
+    ]
+  },
+  {
+    "sourceId": "6aa08264-3947-11ef-9074-1b3c21f96fed",
+    "sku": "VZ9N0128ACU",
+    "merchantSku": "2650",
+    "name": "Full Colour Box",
+    "tagline": "34 × 25.5 × 9 cm · full-colour print",
+    "price": 14.9,
+    "currency": "EUR",
+    "categorySlug": "packaging",
+    "image": "https://ffn.api.jtl-software.com/api/pictures/VZ9N0128ACU8d4046a5-345a-40fe-9172-c89d2ea92c0e",
+    "description": "Our Eco Box is a colorful eye-catcher, causes a stir and spices up every unwrapping experience. The box has a size of 34 x 25.5 x 9 cm and is made from FSC-Mix certified cardboard. The box is 100% recyclable. You will receive the full-color box incl. design of your choice, filling material, tissue paper, closure sticker and packaging with your desired products. Various sizes are available depending on requirements. After the final product selection the required size is checked again.",
+    "details": [
+      "34 × 25.5 × 9 cm",
+      "FSC-Mix certified cardboard",
+      "100% recyclable",
+      "Full-colour custom print"
+    ]
+  },
+  {
+    "sourceId": "6aa08268-3947-11ef-9074-1b3c21f96fed",
+    "sku": "VZ9N01XCX1V",
+    "merchantSku": "2651",
+    "name": "Magnetbox - weiß - 35x25x10cm",
+    "tagline": "35 × 25 × 10 cm · magnetic closure",
+    "price": 21.99,
+    "currency": "EUR",
+    "categorySlug": "packaging",
+    "image": "https://ffn.api.jtl-software.com/api/pictures/VZ9N01XCX1V1187394a-9132-4151-a155-825b52539942",
+    "description": "This magnetic box provides a unique unboxing experience and attracts all eyes. Our box looks very elegant and is particularly suitable as gift packaging. The magnetic box measures 35 x 25 x 10 cm. It is available in the basic colors natural, white or black and can be customized with a print on the lid and front. You will receive the magnetic box including the design of your choice, filling material, tissue paper,closure stickers and packaging with your desired products. Various sizes are available depending on requirements. After the final product selection the required size is checked again.",
+    "details": [
+      "35 × 25 × 10 cm",
+      "Natural, white or black",
+      "Magnetic closure",
+      "Print on lid and front"
+    ]
+  }
+]

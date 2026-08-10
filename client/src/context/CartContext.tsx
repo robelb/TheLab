@@ -8,7 +8,8 @@ import {
   type ReactNode,
 } from 'react'
 import { useProductsByIds } from '@/hooks/use-products'
-import type { BoxDetails } from '@/types/box'
+import { boxAllLines } from '@/lib/box'
+import type { BoxDetails, BoxLine } from '@/types/box'
 import type { Product } from '@/types/product'
 
 export interface CartItem {
@@ -61,7 +62,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const ids = new Set<string>()
     for (const item of items) {
       ids.add(item.product.id)
-      for (const line of item.box?.lines ?? []) ids.add(line.productId)
+      if (item.box) for (const line of boxAllLines(item.box)) ids.add(line.productId)
     }
     return [...ids]
   }, [items])
@@ -93,14 +94,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       let box = item.box
       if (box) {
-        let linesChanged = false
-        const lines = box.lines.map((line) => {
+        let boxChanged = false
+        const refresh = (line: BoxLine | null | undefined) => {
+          if (!line) return line
           const images = freshImages(line, line.productId)
           if (!images) return line
-          linesChanged = true
+          boxChanged = true
           return { ...line, ...images }
-        })
-        if (linesChanged) box = { ...box, lines }
+        }
+
+        const lines = box.lines.map((line) => refresh(line)!)
+        const packaging = refresh(box.packaging)
+        const filling = refresh(box.filling)
+        if (boxChanged) box = { ...box, lines, packaging, filling }
       }
 
       if (!productImages && box === item.box) return item

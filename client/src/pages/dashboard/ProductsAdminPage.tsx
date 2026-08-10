@@ -35,6 +35,7 @@ import {
 import { useDebounce } from '@/hooks/use-debounce'
 import { useDeleteProduct } from '@/hooks/use-product-mutations'
 import { useProducts } from '@/hooks/use-products'
+import { isSupplyCategory } from '@/lib/box'
 import { PAGE_SIZE_OPTIONS, type PageSize } from '@/types/product'
 import type { Product } from '@/types/product'
 
@@ -56,11 +57,14 @@ export function ProductsAdminPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<Product | null>(null)
 
+  // Packaging and filling material are hidden from the shop but managed here,
+  // so the dashboard table asks for them explicitly.
   const { data, isLoading, error, isFetching } = useProducts({
     page,
     limit,
     q: debouncedSearch,
     categories,
+    includeSupplies: true,
   })
   const deleteMutation = useDeleteProduct()
 
@@ -203,6 +207,13 @@ export function ProductsAdminPage() {
                         </Link>
                         {p.isFeatured && (
                           <Badge className="text-[10px]">Featured</Badge>
+                        )}
+                        {/* These never reach the shop — they're only offered
+                            when a shopper builds a box. */}
+                        {isSupplyCategory(p.categorySlug) && (
+                          <Badge variant="outline" className="text-[10px]">
+                            Supply
+                          </Badge>
                         )}
                       </div>
                       <p className="truncate text-xs text-muted-foreground">

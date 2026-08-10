@@ -5,6 +5,7 @@ import { useBrand } from '@/context/BrandContext'
 import { useCart } from '@/context/CartContext'
 import { BrandLogo } from '@/components/BrandLogo'
 import { BrandSwitcher } from '@/components/BrandSwitcher'
+import { VersionBadge } from '@/components/VersionBadge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -17,7 +18,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 export function Header() {
   const { itemCount } = useCart()
-  const { company, logout, can } = useAuth()
+  const { logout, can } = useAuth()
   const { hasExtractedBrand, brands } = useBrand()
   const canManage = can('manage_company')
 
@@ -26,14 +27,15 @@ export function Header() {
       <div className="mx-auto flex h-auto min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:h-16 lg:flex-nowrap lg:py-0 lg:px-8">
         <BrandLogo />
 
-        {hasExtractedBrand && company ? (
-          <p className="max-md:order-3 max-md:w-full max-md:text-center text-xs text-muted-foreground md:text-sm">
-            Themed from{' '}
-            <span className="font-medium text-foreground">{company.domain}</span>
-          </p>
-        ) : brands.length > 1 ? (
-          <BrandSwitcher className="max-md:order-3 max-md:w-full max-md:justify-center md:flex" />
-        ) : null}
+        {/*
+          The build stamp takes the slot the "themed from <domain>" line used to
+          hold — it's the one thing a tester needs to be able to read off any
+          screen, so it shows whatever the brand state is.
+        */}
+        <div className="flex items-center gap-2 max-md:order-3 max-md:w-full max-md:justify-center">
+          {!hasExtractedBrand && brands.length > 1 && <BrandSwitcher />}
+          <VersionBadge />
+        </div>
 
         <nav className="flex items-center gap-4 sm:gap-6" aria-label="Main">
           <NavLink to="/" end className={navLinkClass}>

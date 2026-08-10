@@ -4,6 +4,7 @@ import {
   Gift,
   Image as ImageIcon,
   Loader2,
+  Package,
   Pencil,
   Plus,
   RotateCcw,
@@ -15,6 +16,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePostHog } from '@posthog/react'
 import { AddProductDialog } from '@/components/AddProductDialog'
 import { CampaignProductTile } from '@/components/CampaignProductTile'
+import { SupplyPicker } from '@/components/SupplyPicker'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -35,9 +37,10 @@ import {
   useRegenerateCampaignHeroImage,
   useUpdateCampaign,
 } from '@/hooks/use-campaigns'
-import { useProductsByIds } from '@/hooks/use-products'
+import { useBoxSupplies, useProductsByIds } from '@/hooks/use-products'
 import {
   BOX_SKU_PREFIX,
+  boxAllLines,
   boxSubtotal,
   sameBoxLines,
   toBoxLine,
@@ -64,6 +67,9 @@ interface BoxDraft {
   productIds: string[]
   /** How many of each product the box holds; a missing entry means one. */
   quantities: Record<string, number>
+  /** The chosen box and filling material — both are charged for. */
+  packagingId: string | null
+  fillingId: string | null
   /**
    * Set while the shopper is editing a box they already put in the cart — the
    * id of that cart line, so saving writes back to it instead of adding a
@@ -77,6 +83,8 @@ const EMPTY_DRAFT: BoxDraft = {
   title: '',
   productIds: [],
   quantities: {},
+  packagingId: null,
+  fillingId: null,
   editingItemId: null,
 }
 
@@ -102,6 +110,9 @@ function loadDraft(): BoxDraft {
       title: typeof parsed.title === 'string' ? parsed.title : '',
       productIds: Array.isArray(parsed.productIds) ? parsed.productIds : [],
       quantities: parseQuantities(parsed.quantities),
+      packagingId:
+        typeof parsed.packagingId === 'string' ? parsed.packagingId : null,
+      fillingId: typeof parsed.fillingId === 'string' ? parsed.fillingId : null,
       editingItemId:
         typeof parsed.editingItemId === 'string' ? parsed.editingItemId : null,
     }
@@ -171,6 +182,31 @@ export function BuildBoxPage() {
     [known, draft.productIds],
   )
 
+  // ── Packaging & filling ─────────────────────────────────────────────────
+  // Every box ships in one and is padded with the other, so both are always
+  // part of the price. The cheapest of each is preselected (the API returns
+  // them price-ascending) and the shopper trades up from there.
+  const { supplies, isLoading: suppliesLoading } = useBoxSupplies()
+
+  const packaging =
+    supplies.packaging.find((p) => p.id === draft.packagingId) ?? null
+  const filling = supplies.filling.find((p) => p.id === draft.fillingId) ?? null
+
+  useEffect(() => {
+    if (suppliesLoading) return
+    setDraft((d) => {
+      // Also re-defaults when a saved choice no longer exists in the catalog.
+      const packagingId = supplies.packaging.some((p) => p.id === d.packagingId)
+        ? d.packagingId
+        : (supplies.packaging[0]?.id ?? null)
+      const fillingId = supplies.filling.some((p) => p.id === d.fillingId)
+        ? d.fillingId
+        : (supplies.filling[0]?.id ?? null)
+      if (packagingId === d.packagingId && fillingId === d.fillingId) return d
+      return { ...d, packagingId, fillingId }
+    })
+  }, [supplies, suppliesLoading])
+
   const quantityOf = useCallback(
     (id: string) => draft.quantities[id] ?? 1,
     [draft.quantities],
@@ -200,6 +236,10 @@ export function BuildBoxPage() {
         quantities: Object.fromEntries(
           item.box.lines.map((l) => [l.productId, l.quantity]),
         ),
+        // A box saved before supplies existed has neither — the defaulting
+        // effect then picks the cheapest of each.
+        packagingId: item.box.packaging?.productId ?? null,
+        fillingId: item.box.filling?.productId ?? null,
         editingItemId: item.product.id,
       })
       setError(null)
@@ -247,9 +287,18 @@ export function BuildBoxPage() {
     () => products.map((p) => toBoxLine(p, quantityOf(p.id))),
     [products, quantityOf],
   )
-  const subtotal = boxSubtotal(lines)
+  // One box, one lot of filling — the supplies don't scale with the contents.
+  const packagingLine = packaging ? toBoxLine(packaging, 1) : null
+  const fillingLine = filling ? toBoxLine(filling, 1) : null
+  const supplyLines = [packagingLine, fillingLine].filter(
+    (l): l is BoxLine => Boolean(l),
+  )
+
+  const productsSubtotal = boxSubtotal(lines)
+  const suppliesSubtotal = boxSubtotal(supplyLines)
+  const subtotal = productsSubtotal + suppliesSubtotal
   const pieceCount = lines.reduce((sum, l) => sum + l.quantity, 0)
-  const currency = products[0]?.currency
+  const currency = products[0]?.currency ?? packaging?.currency
   const fallbackTitle = `${brand.companyName} box`
 
   const addProduct = (product: Product) => {
@@ -303,11 +352,11 @@ export function BuildBoxPage() {
         return next
       })
       setDraft((d) => ({
+        ...d,
         campaignId: created.id,
         title: created.title,
         productIds: created.productIds,
         quantities: {},
-        editingItemId: d.editingItemId,
       }))
       posthog?.capture('box generated', {
         campaign_id: created.id,
@@ -380,13 +429,24 @@ export function BuildBoxPage() {
     description: `Gift box with: ${lines
       .map((l) => (l.quantity > 1 ? `${l.name} × ${l.quantity}` : l.name))
       .join(', ')}`,
-    details: lines.map((l) => `${l.name} × ${l.quantity}`),
+    // Packaging and filling ride along so the line item alone is enough to
+    // fulfil the order.
+    details: [
+      ...lines.map((l) => `${l.name} × ${l.quantity}`),
+      ...(packagingLine ? [`Box: ${packagingLine.name}`] : []),
+      ...(fillingLine ? [`Filling: ${fillingLine.name}`] : []),
+    ],
   })
 
   const saveBoxToCart = () => {
     if (products.length === 0) return
     const title = draft.title.trim() || fallbackTitle
-    const box: BoxDetails = { campaignId, lines }
+    const box: BoxDetails = {
+      campaignId,
+      lines,
+      packaging: packagingLine,
+      filling: fillingLine,
+    }
 
     // Editing writes back to the line the shopper came from, keeping its id and
     // how many of the box they ordered.
@@ -417,7 +477,8 @@ export function BuildBoxPage() {
       existing &&
       (existing.product.name !== title ||
         !existing.box ||
-        !sameBoxLines(existing.box.lines, lines))
+        // Compares the supplies too — swapping the box changes the price.
+        !sameBoxLines(boxAllLines(existing.box), boxAllLines(box)))
     ) {
       id = crypto.randomUUID()
     }
@@ -562,31 +623,61 @@ export function BuildBoxPage() {
             )}
           </Button>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-brand border border-border/40 px-4 py-3">
-            <div className="space-y-0.5">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Box total
-              </p>
-              <p className="font-display text-lg font-semibold">
-                {formatPrice(subtotal, currency)}
-              </p>
-              {pieceCount > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {pieceCount} item{pieceCount === 1 ? '' : 's'} in {products.length}{' '}
-                  product{products.length === 1 ? '' : 's'}
-                </p>
+          <div className="space-y-2 rounded-brand border border-border/40 px-4 py-3">
+            {/* Supplies are always charged, so the total is broken out — nobody
+                should have to work out where the extra euros came from. */}
+            <dl className="space-y-1 text-xs">
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">
+                  Products
+                  {pieceCount > 0 && ` (${pieceCount})`}
+                </dt>
+                <dd className="tabular-nums">
+                  {formatPrice(productsSubtotal, currency)}
+                </dd>
+              </div>
+              {packagingLine && (
+                <div className="flex justify-between gap-3">
+                  <dt className="min-w-0 truncate text-muted-foreground">
+                    Box · {packagingLine.name}
+                  </dt>
+                  <dd className="shrink-0 tabular-nums">
+                    {formatPrice(packagingLine.price, packagingLine.currency)}
+                  </dd>
+                </div>
               )}
+              {fillingLine && (
+                <div className="flex justify-between gap-3">
+                  <dt className="min-w-0 truncate text-muted-foreground">
+                    Filling · {fillingLine.name}
+                  </dt>
+                  <dd className="shrink-0 tabular-nums">
+                    {formatPrice(fillingLine.price, fillingLine.currency)}
+                  </dd>
+                </div>
+              )}
+            </dl>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-2">
+              <div className="space-y-0.5">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Box total
+                </p>
+                <p className="font-display text-lg font-semibold">
+                  {formatPrice(subtotal, currency)}
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="lg"
+                variant="secondary"
+                onClick={saveBoxToCart}
+                disabled={products.length === 0}
+              >
+                <ShoppingBag className="size-4" />
+                {editing ? 'Save box to cart' : 'Add box to cart'}
+              </Button>
             </div>
-            <Button
-              type="button"
-              size="lg"
-              variant="secondary"
-              onClick={saveBoxToCart}
-              disabled={products.length === 0}
-            >
-              <ShoppingBag className="size-4" />
-              {editing ? 'Save box to cart' : 'Add box to cart'}
-            </Button>
           </div>
 
           {outOfStock.length > 0 && (
@@ -720,6 +811,40 @@ export function BuildBoxPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* ── Packaging & filling ─────────────────────────────────────── */}
+          <div className="space-y-4 rounded-brand border border-border/40 bg-card/40 p-4">
+            <div className="space-y-1">
+              <p className="flex items-center gap-1.5 text-sm font-medium">
+                <Package className="size-4 text-primary" />
+                Packaging &amp; filling
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Every box ships in one of these, padded with filling material.
+                Both are included in the box total.
+              </p>
+            </div>
+
+            <SupplyPicker
+              label="Box"
+              hint="The gift box your products are packed into."
+              options={supplies.packaging}
+              selectedId={draft.packagingId}
+              onSelect={(p) =>
+                setDraft((d) => ({ ...d, packagingId: p.id }))
+              }
+              loading={suppliesLoading}
+            />
+
+            <SupplyPicker
+              label="Filling material"
+              hint="What cushions the products inside the box."
+              options={supplies.filling}
+              selectedId={draft.fillingId}
+              onSelect={(p) => setDraft((d) => ({ ...d, fillingId: p.id }))}
+              loading={suppliesLoading}
+            />
           </div>
         </div>
       </div>

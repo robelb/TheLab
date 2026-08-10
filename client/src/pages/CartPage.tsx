@@ -120,6 +120,30 @@ export function CartPage() {
                         </li>
                       ))}
                     </ul>
+                    {/* The box and its filling are charged alongside the
+                        contents, so they're itemised rather than folded in. */}
+                    {(box.packaging || box.filling) && (
+                      <ul className="mt-2 space-y-1 border-t border-border/40 pt-2">
+                        {[box.packaging, box.filling]
+                          .filter((line) => Boolean(line))
+                          .map((line) => (
+                            <li
+                              key={line!.productId}
+                              className="flex items-center gap-2 text-xs text-muted-foreground"
+                            >
+                              <span className="min-w-0 flex-1 truncate">
+                                {line!.name}
+                              </span>
+                              <span className="shrink-0 tabular-nums">
+                                {formatPrice(
+                                  line!.price * line!.quantity,
+                                  line!.currency,
+                                )}
+                              </span>
+                            </li>
+                          ))}
+                      </ul>
+                    )}
                     {quantity > 1 && (
                       <p className="mt-2 text-xs text-muted-foreground">
                         Per box — you have {quantity} of these boxes.

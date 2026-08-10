@@ -2,6 +2,8 @@ export interface Category {
   id: string
   name: string
   slug: string
+  /** Box-building supplies (packaging, filling) — never listed in the shop. */
+  isSupply?: boolean
 }
 
 export interface DashboardStats {

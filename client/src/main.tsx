@@ -3,12 +3,21 @@ import { createRoot } from 'react-dom/client'
 import posthog from 'posthog-js'
 import { PostHogErrorBoundary, PostHogProvider } from '@posthog/react'
 import App from './App.tsx'
+import { versionProperties } from '@/lib/version'
 import './index.css'
 
-posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN, {
+const posthogToken = import.meta.env.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN
+
+posthog.init(posthogToken, {
   api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
   defaults: '2026-01-30',
 })
+
+// Tag every event with the build it came from, so a funnel or a bug can be
+// traced back to the exact version the tester was on. `init` bails out before
+// setting up storage when the token is missing, and `register` would throw —
+// so it's gated on the same condition.
+if (posthogToken) posthog.register(versionProperties())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

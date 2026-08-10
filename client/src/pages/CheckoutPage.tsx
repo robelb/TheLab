@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { usePostHog } from '@posthog/react'
 import { useCart } from '@/context/CartContext'
 import { useBrand } from '@/context/BrandContext'
+import { boxAllLines } from '@/lib/box'
 import { formatPrice } from '@/utils/format'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -144,10 +145,11 @@ export function CheckoutPage() {
                       {formatPrice(product.price * quantity, product.currency)}
                     </span>
                   </div>
-                  {/* A box ships as one line — say what's in it. */}
-                  {box && box.lines.length > 0 && (
+                  {/* A box ships as one line — say what's in it, packaging
+                      and filling included, since both are charged for. */}
+                  {box && (
                     <ul className="ml-2 border-l border-border/40 pl-3 text-xs text-muted-foreground">
-                      {box.lines.map((line) => (
+                      {boxAllLines(box).map((line) => (
                         <li key={line.productId} className="truncate">
                           {line.name} × {line.quantity}
                         </li>

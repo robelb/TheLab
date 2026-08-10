@@ -18,5 +18,13 @@ export interface BoxLine {
 export interface BoxDetails {
   /** The saved campaign this box was built from, when it has one. */
   campaignId: string | null
+  /** The products the shopper picked. */
   lines: BoxLine[]
+  /**
+   * The box itself and what's packed around the products. Both are charged for
+   * alongside the contents. Optional because boxes built before supplies were
+   * offered have neither.
+   */
+  packaging?: BoxLine | null
+  filling?: BoxLine | null
 }

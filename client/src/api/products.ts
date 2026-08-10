@@ -19,6 +19,12 @@ export interface FetchProductsParams {
    * results sort purely by color.
    */
   pinFeatured?: boolean
+  /**
+   * Include box-building supplies (packaging, filling material), which the shop
+   * never shows. Only the dashboard sets this — it manages them alongside
+   * catalog products.
+   */
+  includeSupplies?: boolean
 }
 
 export interface ImageSearchParams {
@@ -88,6 +94,9 @@ export async function fetchProducts(
   if (params.pinFeatured === false) {
     search.pinFeatured = 'false'
   }
+  if (params.includeSupplies) {
+    search.includeSupplies = 'true'
+  }
 
   const { data } = await apiClient.get<ProductsResponse>('/products', {
     params: search,
@@ -112,6 +121,18 @@ export async function fetchProductsByIds(ids: string[]): Promise<Product[]> {
   const { data } = await apiClient.get<{ data: Product[] }>('/products/by-ids', {
     params: { ids: ids.join(',') },
   })
+  return data.data
+}
+
+/**
+ * Boxes and filling materials for the box builder. These are `isSupply`
+ * products, which every other product read filters out — this is the only
+ * endpoint that returns them.
+ */
+export async function fetchBoxSupplies(): Promise<Product[]> {
+  const { data } = await apiClient.get<{ data: Product[] }>(
+    '/products/supplies',
+  )
   return data.data
 }
 

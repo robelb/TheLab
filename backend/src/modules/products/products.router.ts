@@ -16,6 +16,7 @@ import {
   getProductsByIds,
   getRelatedProducts,
   listProducts,
+  listSupplies,
   runProductPhotoshoot,
   searchByImage,
   updateProduct,
@@ -172,6 +173,15 @@ productsRouter.post('/:id/photoshoot', async (req, res) => {
     console.warn('[products] photoshoot failed:', message)
     res.status(status).json({ error: message })
   }
+})
+
+// The box builder's boxes and filling materials — the one read that returns
+// supply products, which `GET /` and every other shop path filter out.
+// Registered before `/:id` so the literal path isn't captured as an id.
+productsRouter.get('/supplies', async (req, res) => {
+  const companyId = req.authUser?.companyId ?? undefined
+  const data = await listSupplies(companyId)
+  res.json({ data })
 })
 
 // Batch lookup for refreshing client-side product snapshots (the cart) against

@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { AppSidebar } from '@/components/dashboard/AppSidebar'
+import { VersionBadge } from '@/components/VersionBadge'
 import { Separator } from '@/components/ui/separator'
 import {
   SidebarInset,
@@ -27,6 +28,7 @@ export function DashboardLayout() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="font-display text-base font-semibold">{title}</h1>
+          <VersionBadge />
         </header>
         <div className="flex-1 p-4 sm:p-6">
           <Outlet />

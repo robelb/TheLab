@@ -10,6 +10,7 @@ import {
   lte,
   max,
   min,
+  notInArray,
   or,
   sql,
 } from 'drizzle-orm'
@@ -23,6 +24,10 @@ import {
 } from '../../db/schema/index.js'
 import { hexToLab } from '../../lib/color.js'
 import { normalizePublicImageUrl } from '../../lib/publicImageUrl.js'
+import {
+  NOT_SUPPLY_SQL,
+  SUPPLY_CATEGORY_SLUGS,
+} from '../../lib/supplies.js'
 import { embedText } from '../../services/embedding.js'
 import { captionImageForSearch } from '../../services/imageCaption.js'
 import { parseSearchQuery } from '../../services/queryParser.js'
@@ -72,8 +77,20 @@ const productSelect = {
 // Filter builders
 // ---------------------------------------------------------------------------
 
+/**
+ * Supplies (the box, the filling material) are products, but they belong to
+ * building a box rather than to the catalog — so every shop-facing read drops
+ * their categories. `listSupplies` is the one path that asks for them on
+ * purpose, and direct lookups (`by-ids`, `/:id`) still resolve them so a cart
+ * holding one can hydrate.
+ */
+const notASupply = notInArray(categories.slug, SUPPLY_CATEGORY_SLUGS)
+
 function buildNonTextFilters(params: ListProductsParams) {
-  const conditions = []
+  // `or(...)` narrows to undefined when handed nothing, which `and(...)` accepts.
+  const conditions: (SQL | undefined)[] = params.includeSupplies
+    ? []
+    : [notASupply]
 
   if (params.categories?.length) {
     // Match any of the selected categories (by slug or name).
@@ -264,6 +281,7 @@ async function semanticSearch(
   const vectorStr = `[${(await embedText(query)).join(',')}]`
 
   const clauses: string[] = ['p.embedding IS NOT NULL']
+  if (!params.includeSupplies) clauses.push(NOT_SUPPLY_SQL)
 
   if (params.categories?.length) {
     const list = params.categories
@@ -304,18 +322,26 @@ async function semanticSearch(
 // Catalog metadata (categories + price bounds) shared across list endpoints
 // ---------------------------------------------------------------------------
 
-async function getCatalogMeta(): Promise<{
+async function getCatalogMeta(includeSupplies = false): Promise<{
   categories: string[]
   priceRange: { min: number; max: number }
 }> {
+  // Both feed the filter chips and the price slider, so for the shop supplies
+  // are excluded here too — otherwise "Packaging" shows up as a filter that
+  // matches nothing, and a €1 box drags the slider's floor down. The dashboard
+  // asks for them, so it can filter its product table by them.
+  const scope = includeSupplies ? undefined : notASupply
   const [allCategories, priceResult] = await Promise.all([
     db
       .select({ name: categories.name })
       .from(categories)
+      .where(scope)
       .orderBy(asc(categories.name)),
     db
       .select({ min: min(products.price), max: max(products.price) })
-      .from(products),
+      .from(products)
+      .innerJoin(categories, eq(products.categoryId, categories.id))
+      .where(scope),
   ])
 
   return {
@@ -335,7 +361,7 @@ export async function listProducts(
   params: ListProductsParams,
 ): Promise<ListProductsResult> {
   const offset = (params.page - 1) * params.limit
-  const meta = await getCatalogMeta()
+  const meta = await getCatalogMeta(params.includeSupplies)
 
   // Parse the typed phrase into structured filters (price/category) and a
   // cleaned semantic query. Parsed constraints WIN over the incoming UI params
@@ -522,6 +548,24 @@ export async function getProductById(
     companyId,
   )
   return product
+}
+
+/**
+ * Every supply, grouped by the caller into its box / filling pickers. This is
+ * the only read that deliberately returns `isSupply` rows — the box builder
+ * needs them to price and assemble a box.
+ */
+export async function listSupplies(
+  companyId?: string,
+): Promise<ProductWithCategory[]> {
+  const rows = await db
+    .select(productSelect)
+    .from(products)
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .where(inArray(categories.slug, SUPPLY_CATEGORY_SLUGS))
+    .orderBy(asc(categories.slug), asc(products.price), asc(products.name))
+
+  return withCustomizations(rows.map(toProductWithCategory), companyId)
 }
 
 /**
@@ -815,6 +859,7 @@ export async function getRelatedProducts(
       SELECT embedding FROM products WHERE id = ${productId}::uuid
     ) ref
     WHERE p.id != ${productId}::uuid
+      AND ${rawSql.unsafe(NOT_SUPPLY_SQL)}
       AND p.embedding IS NOT NULL
       AND ref.embedding IS NOT NULL
     ORDER BY p.embedding <=> ref.embedding ASC

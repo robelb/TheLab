@@ -1,0 +1,6 @@
+allowBuilds:
+  '@google/genai': true
+  esbuild: true
+  ffmpeg-static: true
+  protobufjs: true
+  sharp: true

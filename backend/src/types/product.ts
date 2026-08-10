@@ -112,6 +112,12 @@ export interface ListProductsParams {
    * color to filter by (sort ALL products purely by color). Defaults to true.
    */
   pinFeatured?: boolean
+  /**
+   * Include box-building supplies (packaging, filling material), which every
+   * shop-facing read hides. Only the dashboard sets this — it manages them
+   * alongside catalog products.
+   */
+  includeSupplies?: boolean
 }
 
 /** How the server understood a free-text query (price bound extracted by the LLM). */

@@ -58,6 +58,12 @@ export const productsQuerySchema = z
       .enum(['true', 'false'])
       .optional()
       .transform((v) => v !== 'false'),
+    // Box-building supplies (packaging, filling) are hidden from the shop, but
+    // the dashboard manages them alongside everything else — it opts in here.
+    includeSupplies: z
+      .enum(['true', 'false'])
+      .optional()
+      .transform((v) => v === 'true'),
   })
   .refine(
     (data) =>

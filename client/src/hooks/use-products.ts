@@ -1,17 +1,51 @@
 import { useMutation, useQuery, keepPreviousData } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import {
+  fetchBoxSupplies,
   fetchProducts,
   fetchProductsByIds,
   searchProductsByImage,
   type FetchProductsParams,
   type ImageSearchParams,
 } from '@/api/products'
+import { FILLING_SLUG, PACKAGING_SLUG } from '@/lib/box'
+import type { Product } from '@/types/product'
 
 export const productsKeys = {
   all: ['products'] as const,
   list: (params: FetchProductsParams) => ['products', 'list', params] as const,
   detail: (id: string) => ['products', 'detail', id] as const,
   byIds: (ids: string) => ['products', 'by-ids', ids] as const,
+  supplies: () => ['products', 'supplies'] as const,
+}
+
+export interface BoxSupplies {
+  packaging: Product[]
+  filling: Product[]
+}
+
+const NO_SUPPLIES: BoxSupplies = { packaging: [], filling: [] }
+
+/**
+ * The box builder's two pickers. Sits under `['products']` like every other
+ * product read, so a login (and its branded images) invalidates it too.
+ */
+export function useBoxSupplies() {
+  const query = useQuery({
+    queryKey: productsKeys.supplies(),
+    queryFn: fetchBoxSupplies,
+    staleTime: 5 * 60_000,
+  })
+
+  const supplies = useMemo<BoxSupplies>(() => {
+    if (!query.data) return NO_SUPPLIES
+    return {
+      packaging: query.data.filter((p) => p.categorySlug === PACKAGING_SLUG),
+      filling: query.data.filter((p) => p.categorySlug === FILLING_SLUG),
+    }
+  }, [query.data])
+
+  return { ...query, supplies }
 }
 
 /**

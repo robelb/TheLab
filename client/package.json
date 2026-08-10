@@ -1,14 +1,16 @@
 {
   "name": "atelier-shop",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently -n web,api -c cyan,magenta \"vite\" \"pnpm --dir ../backend dev\"",
     "dev:web": "vite",
     "dev:api": "pnpm --dir ../backend dev",
     "build": "tsc -b && vite build",
+    "build:testing": "tsc -b && vite build --mode testing",
     "deploy": "pnpm build && firebase deploy --only hosting",
+    "deploy:testing": "pnpm build:testing && firebase deploy --only hosting",
     "preview": "vite preview"
   },
   "dependencies": {
