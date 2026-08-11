@@ -96,7 +96,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (box) {
         let boxChanged = false
         const refresh = (line: BoxLine | null | undefined) => {
-          if (!line) return line
+          // A box printed with the shopper's own design keeps it — refreshing
+          // from the catalog would swap their artwork for the plain box.
+          if (!line || line.customPrint) return line
           const images = freshImages(line, line.productId)
           if (!images) return line
           boxChanged = true

@@ -13,6 +13,12 @@ export interface BoxLine {
   quantity: number
   image: string
   customizedImage: string | null
+  /**
+   * `customizedImage` is a design generated for THIS box, not a catalog image.
+   * The cart's image refresh skips these lines — re-reading the catalog product
+   * would replace the shopper's print with the plain box.
+   */
+  customPrint?: boolean
 }
 
 export interface BoxDetails {
@@ -27,4 +33,11 @@ export interface BoxDetails {
    */
   packaging?: BoxLine | null
   filling?: BoxLine | null
+  /**
+   * The wording that produced the box's printed design, when the shopper
+   * customized it. The design itself is the packaging line's `customizedImage`;
+   * this is kept so re-opening the box can show what was asked for, and so the
+   * order says what to print.
+   */
+  packagingPrompt?: string | null
 }

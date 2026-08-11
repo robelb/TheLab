@@ -16,6 +16,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:seed:supplies": "tsx scripts/seed-supplies.ts",
     "import:supplies": "tsx scripts/import-supplies.ts",
+    "audit:prompts": "tsx scripts/audit-prompts.ts",
     "embed": "tsx scripts/generate-embeddings.ts",
     "colors": "tsx scripts/generate-colors.ts",
     "extract": "tsx scripts/extract-brand.ts",

@@ -9,6 +9,7 @@ import {
   fetchCampaigns,
   generateCampaign,
   regenerateCampaignHeroImage,
+  type HeroImageSupplies,
   updateCampaign,
   type CampaignCreate,
   type CampaignUpdate,
@@ -126,7 +127,12 @@ export function useRegenerateCampaignHeroImage() {
   const queryClient = useQueryClient()
   const brand = useCampaignBrandSignals()
   return useMutation({
-    mutationFn: (id: string) => regenerateCampaignHeroImage(id, brand),
+    // The box builder passes the chosen box and filling so the bundle photo
+    // shows them; the dashboard passes an id alone and gets the house style.
+    mutationFn: (input: string | { id: string; supplies?: HeroImageSupplies }) =>
+      typeof input === 'string'
+        ? regenerateCampaignHeroImage(input, brand)
+        : regenerateCampaignHeroImage(input.id, brand, input.supplies),
     onSuccess: (campaign) => {
       queryClient.setQueryData(campaignsKeys.detail(campaign.id), campaign)
       void queryClient.invalidateQueries({ queryKey: campaignsKeys.all })

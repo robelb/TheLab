@@ -77,13 +77,26 @@ export async function updateCampaign(
  * (campaign comes back with `heroImageStatus: 'pending'`); the caller polls the
  * campaign for the finished image.
  */
+/**
+ * The box and filling to photograph the bundle in. Render-time only — the
+ * campaign never stores them, so a dashboard regeneration falls back to the
+ * default kraft box.
+ */
+export interface HeroImageSupplies {
+  packagingId?: string
+  fillingId?: string
+  /** The shopper's printed-box design, used instead of the catalog photo. */
+  packagingImageUrl?: string
+}
+
 export async function regenerateCampaignHeroImage(
   id: string,
   brand?: CampaignBrandSignals,
+  supplies?: HeroImageSupplies,
 ): Promise<Campaign> {
   const { data } = await apiClient.post<Campaign>(
     `/campaigns/${encodeURIComponent(id)}/hero-image`,
-    brand ? { brand } : {},
+    { ...(brand ? { brand } : {}), ...(supplies ?? {}) },
   )
   return data
 }

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Minus, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ChevronRight, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
 import { useBrand } from '@/context/BrandContext'
@@ -85,14 +85,20 @@ export function CartPage() {
                   </p>
                 </div>
 
-                {/* A box is one line, so what it holds is spelled out here. */}
+                {/* A box is one line, so what it holds is spelled out here —
+                    folded away by default so a cart of boxes stays scannable. */}
                 {box && box.lines.length > 0 && (
-                  <div className="mt-3 rounded-brand border border-border/40 bg-muted/5 p-3">
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <details className="group mt-3 rounded-brand border border-border/40 bg-muted/5 p-3">
+                    <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground">
+                      <ChevronRight className="size-3.5 shrink-0 transition-transform group-open:rotate-90" />
                       Inside this box · {boxPieceCount(box.lines)} item
                       {boxPieceCount(box.lines) === 1 ? '' : 's'}
-                    </p>
-                    <ul className="space-y-2">
+                      <span className="ml-auto text-[0.7rem] normal-case tracking-normal text-primary">
+                        <span className="group-open:hidden">View products</span>
+                        <span className="hidden group-open:inline">Hide</span>
+                      </span>
+                    </summary>
+                    <ul className="mt-2 space-y-2">
                       {box.lines.map((line) => (
                         <li
                           key={line.productId}
@@ -123,7 +129,7 @@ export function CartPage() {
                     {/* The box and its filling are charged alongside the
                         contents, so they're itemised rather than folded in. */}
                     {(box.packaging || box.filling) && (
-                      <ul className="mt-2 space-y-1 border-t border-border/40 pt-2">
+                      <ul className="mt-2 space-y-1.5 border-t border-border/40 pt-2">
                         {[box.packaging, box.filling]
                           .filter((line) => Boolean(line))
                           .map((line) => (
@@ -131,8 +137,26 @@ export function CartPage() {
                               key={line!.productId}
                               className="flex items-center gap-2 text-xs text-muted-foreground"
                             >
+                              {/* A box the shopper designed shows the design —
+                                  it's what they're actually buying. */}
+                              {line!.customPrint && (
+                                <img
+                                  src={getProductDisplayImage(line!)}
+                                  alt=""
+                                  className="size-9 shrink-0 rounded-brand border border-primary/40 bg-background object-contain"
+                                  loading="lazy"
+                                />
+                              )}
                               <span className="min-w-0 flex-1 truncate">
                                 {line!.name}
+                                {line!.customPrint && (
+                                  <span className="block truncate text-primary">
+                                    Custom print
+                                    {box.packagingPrompt
+                                      ? `: “${box.packagingPrompt}”`
+                                      : ''}
+                                  </span>
+                                )}
                               </span>
                               <span className="shrink-0 tabular-nums">
                                 {formatPrice(
@@ -149,7 +173,7 @@ export function CartPage() {
                         Per box — you have {quantity} of these boxes.
                       </p>
                     )}
-                  </div>
+                  </details>
                 )}
               </div>
 

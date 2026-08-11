@@ -78,6 +78,11 @@ export const INSTRUCTION_DEFINITIONS: InstructionDefinition[] = [
         description: 'The numbered PRODUCT SET block listing every product.',
       },
       {
+        name: 'scene',
+        description:
+          'The SCENE block: the chosen gift box and filling material, or the default kraft box when the campaign has none.',
+      },
+      {
         name: 'measuredLogoFacts',
         description:
           'Measured ground truth about the logo: aspect ratio, line count, exact colours. Empty when measurement failed.',

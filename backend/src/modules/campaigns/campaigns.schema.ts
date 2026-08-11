@@ -47,10 +47,21 @@ export const updateCampaignSchema = z
     message: 'At least one field must be provided',
   })
 
-/** Manual re-render. Body is optional; `brand` supplies the logo when given. */
+/**
+ * Manual re-render. Body is optional; `brand` supplies the logo when given.
+ * The supplies are render-time only, never persisted: the box builder sends
+ * whatever the shopper has selected right now so the bundle photo shows the
+ * box they actually chose rather than a generic kraft one.
+ */
 export const regenerateHeroImageSchema = z.object({
   brand: campaignBrandSchema.optional(),
+  packagingId: z.string().uuid().optional(),
+  fillingId: z.string().uuid().optional(),
+  /** The shopper's printed-box design, used in place of the catalog photo. */
+  packagingImageUrl: z.string().trim().min(1).optional(),
 })
+
+export type RegenerateHeroImageBody = z.infer<typeof regenerateHeroImageSchema>
 
 export const listCampaignsQuerySchema = z.object({
   domain: z.string().optional(),

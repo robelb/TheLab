@@ -1,4 +1,10 @@
 import type { BrandMarkFacts } from '../customizer/brandMarkFacts.js'
+import { lineCountClaim } from './brandCustomize.js'
+import {
+  LOGO_ONE_LINE_BLOCK,
+  MARK_SCALE_BLOCK,
+  PRINT_TEXT_BLOCK,
+} from './printScale.js'
 
 /**
  * Instructions for the "Your Company Kit" campaign assembly:
@@ -53,12 +59,26 @@ export function buildCampaignUserPrompt(
 
 // ── Composite "kit" image ────────────────────────────────────────────────────
 
+/** One supply the box is actually built from, with a reference image attached. */
+export interface KitSupplyFact {
+  name: string
+  /** The supplier's own copy — dimensions, material, printable surfaces. */
+  description?: string | null
+}
+
 export interface CampaignKitImageOptions {
   /** A brand logo is supplied as the LAST reference image, after the products. */
   hasLogo?: boolean
   companyName?: string | null
   /** Measured from the supplied logo image — rendered as ground-truth facts. */
   logoFacts?: BrandMarkFacts | null
+  /**
+   * The box and filling the shopper chose, each supplied as a reference image
+   * after the products. Absent for a campaign assembled without a box builder,
+   * which falls back to the original kraft-box house style.
+   */
+  packaging?: KitSupplyFact | null
+  filling?: KitSupplyFact | null
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,10 +92,20 @@ export interface CampaignKitImageOptions {
 const KIT_TASK_BLOCK =
   'You are an expert commercial product photographer and photo compositor. Create ONE photorealistic top-down (90° overhead) flat-lay photograph of a corporate gift box that contains exactly the products listed below.'
 
+/**
+ * Attachment order is the contract with the caller: products first (the first
+ * image is the edit base), then the box, then the filling, then the logo last.
+ * Composite models routinely mix up which reference plays which role, so each
+ * one is named by position.
+ */
 function kitReferenceImagesBlock(
   count: number,
-  hasLogo: boolean,
-  brand: string | undefined,
+  options: {
+    hasPackaging?: boolean
+    hasFilling?: boolean
+    hasLogo?: boolean
+    brand?: string
+  },
 ): string {
   const refs = ['Reference images, in the order provided:']
   if (count === 1) {
@@ -87,9 +117,19 @@ function kitReferenceImagesBlock(
   } else {
     refs.push('- The provided images are PRODUCT references.')
   }
-  if (hasLogo) {
+  if (options.hasPackaging) {
     refs.push(
-      `- The FINAL image is the company logo${brand ? ` of ${brand}` : ''}. It is a branding reference only — never place it in the box as an item.`,
+      '- The next image is the BOX reference — the actual gift box to photograph, including any artwork already printed on it. It is the container, never an item inside the box.',
+    )
+  }
+  if (options.hasFilling) {
+    refs.push(
+      '- The next image is the FILLING reference — the packing material that beds the box interior. It is never an item inside the box and never a product.',
+    )
+  }
+  if (options.hasLogo) {
+    refs.push(
+      `- The FINAL image is the company logo${options.brand ? ` of ${options.brand}` : ''}. It is a branding reference only — never place it in the box as an item.`,
     )
   }
   return refs.join('\n')
@@ -109,12 +149,45 @@ const KIT_PRODUCT_FIDELITY_BLOCK = [
   '- Include every listed product exactly once. No duplicates, no substitutes, no invented extras, no omissions.',
 ].join('\n')
 
-const KIT_SCENE_BLOCK = [
-  'SCENE — fixed house style, identical for every render:',
-  '- One open kraft-brown corrugated cardboard gift box, centred in the frame, all four walls visible.',
-  '- The box interior is bedded with brown crinkle-cut shredded-paper filler, clearly visible in every gap between products.',
-  '- Outside the box the background is pure white and seamless. No props, hands, surfaces, ribbons, greeting cards, decorations, text overlays or watermarks.',
-].join('\n')
+/**
+ * The box and its filling are real products the shopper picked, so the scene
+ * describes THOSE rather than a fixed house style. Falls back to the original
+ * kraft box + brown filler when a campaign was assembled without them.
+ */
+function kitSceneBlock(
+  packaging?: KitSupplyFact | null,
+  filling?: KitSupplyFact | null,
+): string {
+  const lines = ['SCENE — one gift box, photographed the same way every time:']
+
+  if (packaging) {
+    lines.push(
+      `- The box is the "${packaging.name}" shown in the BOX reference image. Reproduce that exact box: same construction, colour, material, finish and proportions, including any artwork already printed on it — never substitute a different or generic box, recolour it, or add printing it does not have. Show it open, viewed from directly overhead, with all four walls visible.`,
+    )
+    if (packaging.description?.trim()) {
+      lines.push(`- About that box (ground truth): ${packaging.description.trim()}`)
+    }
+  } else {
+    lines.push(
+      '- One open kraft-brown corrugated cardboard gift box, centred in the frame, all four walls visible.',
+    )
+  }
+
+  if (filling) {
+    lines.push(
+      `- Bed the interior with the "${filling.name}" shown in the FILLING reference image — the same colour and texture as that reference, not a generic brown. It is clearly visible in every gap between the products and never covers them.`,
+    )
+  } else {
+    lines.push(
+      '- The box interior is bedded with brown crinkle-cut shredded-paper filler, clearly visible in every gap between products.',
+    )
+  }
+
+  lines.push(
+    '- Outside the box the background is pure white and seamless. No props, hands, surfaces, ribbons, greeting cards, decorations, text overlays or watermarks.',
+  )
+  return lines.join('\n')
+}
 
 const KIT_ARRANGEMENT_BLOCK = [
   'ARRANGEMENT:',
@@ -133,7 +206,7 @@ const KIT_LIGHTING_BLOCK = [
 function kitLogoFactsLines(f: BrandMarkFacts | null | undefined): string {
   if (!f) return ''
   const lines = [
-    `- MEASURED LOGO FACTS — measured from the supplied file; treat as ground truth: ${f.shape} — tight bounding box ${f.width}×${f.height} px, aspect ratio ${f.aspectRatio}:1.${f.aspectRatio >= 1.8 ? ' It is ONE single line of artwork.' : ''} On every product the printed logo keeps exactly this silhouette and aspect ratio.`,
+    `- MEASURED LOGO FACTS — measured from the supplied file; treat as ground truth: ${f.shape} — tight bounding box ${f.width}×${f.height} px, aspect ratio ${f.aspectRatio}:1.${lineCountClaim(f)} On every product the printed logo keeps exactly this silhouette and aspect ratio.`,
   ]
   if (f.colors.length > 0) {
     lines.push(
@@ -150,16 +223,17 @@ function kitBrandingBlock(factsLines: string): string {
     '- Exactly one logo per product, printed, embossed or label-applied directly onto the item itself or onto its packaging. No item is left unbranded.',
     ...(factsLines ? [factsLines] : []),
     '- Reproduce the logo exactly as supplied: identical shapes, colours and proportions. The only permitted transformations are uniform scaling, perspective mapping onto the surface, and material/lighting integration.',
-    '- Same line count on every product: the logo keeps the same number of lines as the supplied image. A one-line horizontal wordmark stays on one line — never stack, wrap, break or re-flow it to fit.',
+    '- ONE LINE ON EVERY PRODUCT: if the supplied logo is a single line of artwork, it is printed as a single line on every item in the box — the mug, the pen, the notebook, all of them. Never stack it, wrap it, break it across lines, or re-typeset it into a square or vertical block to make it fit.',
+    '- When a one-line logo will not fit an item at a comfortable size, PRINT IT SMALLER until it does. Size is what you adjust to make it fit; the layout is not. A small, correct, one-line logo is right — a large stacked one is wrong. If it would become too small to read on a narrow item, move it to a wider face of that same item rather than changing its layout.',
     '- Same lockup on every product: icon and text keep their relative positions (an icon left of the text stays left of it, never above).',
     '- Same letterforms: exact spelling, capitalisation, letter spacing and weight. Never re-type it in another font and never add taglines or extra wording.',
     '- Same colours on every product: the original logo colours, exactly. Never recolour, invert, darken, lighten or adapt them to an item — if the colours would blend into a surface, place the logo on a lighter or darker area of that item instead of changing them.',
     '- Uniform scale only: never stretch, squash, crop, rotate or mirror it. If the logo does not fit a surface, print it SMALLER or use a wider face of that product — never reshape or re-stack it.',
     '- On each product, choose the OPTIMAL spot: where that product category is branded in real life (centre chest of apparel, the upward-facing side of mugs and bottles, the front panel of bags, boxes and notebooks, the barrel of pens) — preferring the widest flat surface visible from above that fits the logo legibly without changing its layout, clear of seams, handles, edges and existing artwork. Centre the logo there with balanced margins.',
-    '- Keep the placement logic and relative scale consistent across the whole set: smaller on small items, larger on wide flat ones.',
+    '- Apply the MARK SCALE rules below consistently across the whole set, so the logo reads as the same size relative to each item — proportionally smaller on small items, never larger on big ones. A set where one logo dominates its product is wrong even if each item looks fine on its own.',
     "- Integrate it physically: correct perspective for the overhead view, wrapping with any curvature, matching each surface's finish, texture and lighting — printed on the product, never a flat sticker pasted onto the photograph.",
     '- If a product reference already shows this logo, keep that print as it is and do not add a second copy.',
-    '- The logo goes on the products only — never on the cardboard box, the shredded-paper filler or the background.',
+    '- The logo goes on the products only — never on the box, the filling material or the background. If the BOX reference already carries printed artwork, keep it exactly as it is and do not add the logo to it.',
   ].join('\n')
 }
 
@@ -173,12 +247,12 @@ const KIT_OUTPUT_BLOCK =
   'OUTPUT: exactly ONE unified photograph of one box — never a grid of separate frames, a collage, a contact sheet, a mosaic or labelled panels.'
 
 const KIT_PRIORITY_BLOCK =
-  'PRIORITY — if any two rules conflict, obey the earlier one: (1) the exact product set, (2) product fidelity, (3) logo fidelity, (4) scene styling.'
+  'PRIORITY — if any two rules conflict, obey the earlier one: (1) the exact product set, (2) product fidelity, (3) the box and filling matching their references, (4) logo fidelity, (5) logo scale — modest and consistent across the set, (6) scene styling.'
 
 function kitFinalCheckBlock(hasLogo: boolean): string {
   return `FINAL CHECK before returning the image: every listed product appears exactly once${
     hasLogo
-      ? '; the logo on every product has the SAME layout as the supplied logo image (same number of lines, same lockup, same aspect ratio) and the SAME colours, unaltered'
+      ? '; a one-line logo is printed on ONE line on every single product — check each item individually and, if any logo is stacked, wrapped or broken across lines, redo it smaller on one line; the logo on every product has the SAME lockup, aspect ratio and colours as the supplied image, unaltered; every logo spans about a quarter to a third of the face it sits on — never past 40% — and none crowds an edge; if a logo looks large, it is too large'
       : ''
   }; the output is one single photograph of one box. If any check fails, correct it and return the corrected image.`
 }
@@ -214,13 +288,21 @@ export function buildCampaignKitImagePrompt(
 
   return [
     KIT_TASK_BLOCK,
-    kitReferenceImagesBlock(count, hasLogo, brand),
+    kitReferenceImagesBlock(count, {
+      hasPackaging: Boolean(options.packaging),
+      hasFilling: Boolean(options.filling),
+      hasLogo,
+      brand,
+    }),
     kitProductSetBlock(productNames),
     KIT_PRODUCT_FIDELITY_BLOCK,
-    KIT_SCENE_BLOCK,
+    kitSceneBlock(options.packaging, options.filling),
     KIT_ARRANGEMENT_BLOCK,
     KIT_LIGHTING_BLOCK,
     hasLogo ? kitBrandingBlock(kitLogoFactsLines(options.logoFacts)) : '',
+    hasLogo ? MARK_SCALE_BLOCK : '',
+    hasLogo ? LOGO_ONE_LINE_BLOCK : '',
+    hasLogo ? PRINT_TEXT_BLOCK : '',
     kitTextPolicyBlock(hasLogo),
     KIT_OUTPUT_BLOCK,
     KIT_PRIORITY_BLOCK,
@@ -247,13 +329,15 @@ export function buildKitTemplateVars(
   return {
     companyName: brand ?? '',
     productCount: String(productNames.length),
-    referenceImages: kitReferenceImagesBlock(
-      productNames.length,
-      Boolean(options.hasLogo),
+    referenceImages: kitReferenceImagesBlock(productNames.length, {
+      hasPackaging: Boolean(options.packaging),
+      hasFilling: Boolean(options.filling),
+      hasLogo: Boolean(options.hasLogo),
       brand,
-    ),
+    }),
     productSet: kitProductSetBlock(productNames),
     measuredLogoFacts: kitLogoFactsLines(options.logoFacts),
+    scene: kitSceneBlock(options.packaging, options.filling),
   }
 }
 
@@ -267,10 +351,13 @@ export const KIT_IMAGE_DEFAULT_TEMPLATE = [
   '{{referenceImages}}',
   '{{productSet}}',
   KIT_PRODUCT_FIDELITY_BLOCK,
-  KIT_SCENE_BLOCK,
+  '{{scene}}',
   KIT_ARRANGEMENT_BLOCK,
   KIT_LIGHTING_BLOCK,
   kitBrandingBlock('{{measuredLogoFacts}}'),
+  MARK_SCALE_BLOCK,
+  LOGO_ONE_LINE_BLOCK,
+  PRINT_TEXT_BLOCK,
   kitTextPolicyBlock(true),
   KIT_OUTPUT_BLOCK,
   KIT_PRIORITY_BLOCK,

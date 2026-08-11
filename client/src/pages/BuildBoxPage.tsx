@@ -10,11 +10,13 @@ import {
   RotateCcw,
   ShoppingBag,
   Sparkles,
+  Wand2,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePostHog } from '@posthog/react'
 import { AddProductDialog } from '@/components/AddProductDialog'
+import { BoxCustomizerDialog } from '@/components/BoxCustomizerDialog'
 import { CampaignProductTile } from '@/components/CampaignProductTile'
 import { SupplyPicker } from '@/components/SupplyPicker'
 import { Button } from '@/components/ui/button'
@@ -70,6 +72,20 @@ interface BoxDraft {
   /** The chosen box and filling material — both are charged for. */
   packagingId: string | null
   fillingId: string | null
+  /** A design printed onto the chosen box, and the words that produced it. */
+  packagingImage: string | null
+  packagingPrompt: string | null
+  /**
+   * The box + filling the bundle photo was last rendered with. The campaign
+   * doesn't persist them, so this is what tells us the photo has gone stale
+   * because the shopper swapped the packaging.
+   */
+  heroSupplies: string | null
+  /**
+   * Which image represents the box: the photographed bundle, or one of the
+   * printed-box designs. Null follows the default (the bundle photo).
+   */
+  mainImage: string | null
   /**
    * Set while the shopper is editing a box they already put in the cart — the
    * id of that cart line, so saving writes back to it instead of adding a
@@ -85,6 +101,10 @@ const EMPTY_DRAFT: BoxDraft = {
   quantities: {},
   packagingId: null,
   fillingId: null,
+  packagingImage: null,
+  packagingPrompt: null,
+  heroSupplies: null,
+  mainImage: null,
   editingItemId: null,
 }
 
@@ -113,6 +133,15 @@ function loadDraft(): BoxDraft {
       packagingId:
         typeof parsed.packagingId === 'string' ? parsed.packagingId : null,
       fillingId: typeof parsed.fillingId === 'string' ? parsed.fillingId : null,
+      packagingImage:
+        typeof parsed.packagingImage === 'string' ? parsed.packagingImage : null,
+      packagingPrompt:
+        typeof parsed.packagingPrompt === 'string'
+          ? parsed.packagingPrompt
+          : null,
+      heroSupplies:
+        typeof parsed.heroSupplies === 'string' ? parsed.heroSupplies : null,
+      mainImage: typeof parsed.mainImage === 'string' ? parsed.mainImage : null,
       editingItemId:
         typeof parsed.editingItemId === 'string' ? parsed.editingItemId : null,
     }
@@ -141,6 +170,7 @@ export function BuildBoxPage() {
   const [draft, setDraft] = useState<BoxDraft>(loadDraft)
   const [brief, setBrief] = useState('')
   const [addOpen, setAddOpen] = useState(false)
+  const [customizeOpen, setCustomizeOpen] = useState(false)
   const [preview, setPreview] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -240,6 +270,25 @@ export function BuildBoxPage() {
         // effect then picks the cheapest of each.
         packagingId: item.box.packaging?.productId ?? null,
         fillingId: item.box.filling?.productId ?? null,
+        packagingImage: item.box.packaging?.customPrint
+          ? (item.box.packaging.customizedImage ?? null)
+          : null,
+        packagingPrompt: item.box.packagingPrompt ?? null,
+        // The saved photo was rendered with whatever this box already holds, so
+        // it only reads as stale once the shopper changes something.
+        heroSupplies: `${item.box.packaging?.productId ?? ''}|${
+          item.box.filling?.productId ?? ''
+        }|${
+          item.box.packaging?.customPrint
+            ? (item.box.packaging.customizedImage ?? '')
+            : ''
+        }`,
+        // Only restore the printed box as the main image when it actually was.
+        mainImage:
+          item.box.packaging?.customPrint &&
+          item.product.image === item.box.packaging.customizedImage
+            ? item.product.image
+            : null,
         editingItemId: item.product.id,
       })
       setError(null)
@@ -279,7 +328,13 @@ export function BuildBoxPage() {
     campaign !== undefined &&
     campaign.heroImageProductIds.length === draft.productIds.length &&
     campaign.heroImageProductIds.every((id, i) => id === draft.productIds[i])
-  const imageStale = Boolean(imageUrl) && !imageMatchesBox && !generating
+  // The campaign snapshots the products it rendered, but knows nothing about
+  // the box and filling — so swapping those is tracked here instead.
+  const supplySignature = `${draft.packagingId ?? ''}|${draft.fillingId ?? ''}|${draft.packagingImage ?? ''}`
+  const suppliesChanged =
+    draft.heroSupplies !== null && draft.heroSupplies !== supplySignature
+  const imageStale =
+    Boolean(imageUrl) && (!imageMatchesBox || suppliesChanged) && !generating
   const failed =
     !generating && (campaign?.heroImageStatus === 'failed' || Boolean(error))
 
@@ -288,11 +343,43 @@ export function BuildBoxPage() {
     [products, quantityOf],
   )
   // One box, one lot of filling — the supplies don't scale with the contents.
-  const packagingLine = packaging ? toBoxLine(packaging, 1) : null
+  // A printed design rides on the line as its customized image, so the cart
+  // and the order show the box the shopper actually designed.
+  const packagingLine = packaging
+    ? {
+        ...toBoxLine(packaging, 1),
+        customizedImage: draft.packagingImage ?? packaging.customizedImage,
+        customPrint: Boolean(draft.packagingImage),
+      }
+    : null
   const fillingLine = filling ? toBoxLine(filling, 1) : null
   const supplyLines = [packagingLine, fillingLine].filter(
     (l): l is BoxLine => Boolean(l),
   )
+
+  // ── Main image ───────────────────────────────────────────────────────────
+  // The box can be shown as the photographed bundle or as any of the printed-box
+  // designs. Whichever is selected is what the cart shows for this line.
+  // The bundle photo and the box's current printed design. Using a new design
+  // replaces the last one, so at most one printed box is ever offered.
+  const imageOptions = useMemo(() => {
+    const options: { url: string; label: string }[] = []
+    if (imageUrl) options.push({ url: imageUrl, label: 'Bundle photo' })
+    if (draft.packagingImage) {
+      options.push({ url: draft.packagingImage, label: 'Printed box' })
+    }
+    return options
+  }, [imageUrl, draft.packagingImage])
+
+  const mainImage =
+    (draft.mainImage &&
+      imageOptions.some((o) => o.url === draft.mainImage) &&
+      draft.mainImage) ||
+    imageOptions[0]?.url ||
+    null
+
+  const selectMainImage = (url: string) =>
+    setDraft((d) => ({ ...d, mainImage: url }))
 
   const productsSubtotal = boxSubtotal(lines)
   const suppliesSubtotal = boxSubtotal(supplyLines)
@@ -380,6 +467,16 @@ export function BuildBoxPage() {
     const title = draft.title.trim() || fallbackTitle
 
     try {
+      // Photograph the bundle in the box and filling the shopper actually
+      // chose, printed design included, rather than a generic kraft box.
+      const supplies = {
+        ...(draft.packagingId ? { packagingId: draft.packagingId } : {}),
+        ...(draft.fillingId ? { fillingId: draft.fillingId } : {}),
+        ...(draft.packagingImage
+          ? { packagingImageUrl: draft.packagingImage }
+          : {}),
+      }
+
       if (!campaignId) {
         const created = await create.mutateAsync({
           title,
@@ -387,7 +484,7 @@ export function BuildBoxPage() {
           productIds: draft.productIds,
         })
         setDraft((d) => ({ ...d, campaignId: created.id, title }))
-        await regenerate.mutateAsync(created.id)
+        await regenerate.mutateAsync({ id: created.id, supplies })
       } else {
         const saved = await update.mutateAsync({
           id: campaignId,
@@ -395,9 +492,13 @@ export function BuildBoxPage() {
         })
         // An unchanged bundle doesn't auto-regenerate — ask for it directly.
         if (saved.heroImageStatus !== 'pending') {
-          await regenerate.mutateAsync(saved.id)
+          await regenerate.mutateAsync({ id: saved.id, supplies })
         }
       }
+      // Asking for a new bundle photo means wanting to see it — fall back to
+      // the default so the render that lands becomes the main image. Record
+      // what it's being rendered with, so a later swap reads as stale.
+      setDraft((d) => ({ ...d, mainImage: null, heroSupplies: supplySignature }))
       posthog?.capture('box image generated', {
         campaign_id: campaignId,
         product_count: products.length,
@@ -424,7 +525,7 @@ export function BuildBoxPage() {
     price: subtotal,
     currency,
     category: 'Gift box',
-    image: imageUrl ?? getProductDisplayImage(products[0]),
+    image: mainImage ?? getProductDisplayImage(products[0]),
     customizedImage: null,
     description: `Gift box with: ${lines
       .map((l) => (l.quantity > 1 ? `${l.name} × ${l.quantity}` : l.name))
@@ -446,6 +547,7 @@ export function BuildBoxPage() {
       lines,
       packaging: packagingLine,
       filling: fillingLine,
+      packagingPrompt: draft.packagingImage ? draft.packagingPrompt : null,
     }
 
     // Editing writes back to the line the shopper came from, keeping its id and
@@ -456,7 +558,8 @@ export function BuildBoxPage() {
         boxProduct(editingItem.product.id, title),
         box,
       )
-      setDraft((d) => ({ ...d, editingItemId: null }))
+      // The box now lives in the cart — the builder starts fresh next time.
+      setDraft(EMPTY_DRAFT)
       posthog?.capture('box updated in cart', {
         campaign_id: campaignId,
         product_count: products.length,
@@ -484,6 +587,9 @@ export function BuildBoxPage() {
     }
 
     addItem(boxProduct(id, title), 1, box)
+    // Once it's in the cart it belongs to the cart. Coming back to the builder
+    // means starting another box — the saved one is reachable via "Edit box".
+    setDraft(EMPTY_DRAFT)
     posthog?.capture('box added to cart', {
       campaign_id: campaignId,
       product_count: products.length,
@@ -542,7 +648,7 @@ export function BuildBoxPage() {
             className="relative overflow-hidden rounded-brand border border-border/40 bg-muted/20"
             aria-busy={generating}
           >
-            {imageUrl ? (
+            {mainImage ? (
               <button
                 type="button"
                 onClick={() => setPreview(true)}
@@ -551,7 +657,7 @@ export function BuildBoxPage() {
               >
                 {/* The previous render stays up while a new one is in flight. */}
                 <img
-                  src={imageUrl}
+                  src={mainImage}
                   alt={draft.title || fallbackTitle}
                   className={cn(
                     'aspect-square w-full cursor-zoom-in object-contain transition-opacity',
@@ -584,6 +690,43 @@ export function BuildBoxPage() {
               </div>
             )}
           </div>
+
+          {/* Bundle photo and every printed-box design, side by side — whichever
+              is picked is how this box shows up in the cart. */}
+          {imageOptions.length > 1 && (
+            <div
+              className="flex flex-wrap gap-2"
+              role="radiogroup"
+              aria-label="Box image"
+            >
+              {imageOptions.map((option) => {
+                const active = option.url === mainImage
+                return (
+                  <button
+                    key={option.url}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    title={option.label}
+                    onClick={() => selectMainImage(option.url)}
+                    className={cn(
+                      'relative size-16 overflow-hidden rounded-brand border bg-muted/20 transition-colors',
+                      active
+                        ? 'border-primary ring-1 ring-primary'
+                        : 'border-border/40 hover:border-border',
+                    )}
+                  >
+                    <img
+                      src={option.url}
+                      alt={option.label}
+                      className="h-full w-full object-contain"
+                      loading="lazy"
+                    />
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
           {failed && (
             <p className="flex items-start gap-2 rounded-brand border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -831,11 +974,38 @@ export function BuildBoxPage() {
               hint="The gift box your products are packed into."
               options={supplies.packaging}
               selectedId={draft.packagingId}
-              onSelect={(p) =>
-                setDraft((d) => ({ ...d, packagingId: p.id }))
-              }
+              // Picking a different box keeps any generated design — it took
+              // real time to render, and only confirming a new one replaces it.
+              onSelect={(p) => setDraft((d) => ({ ...d, packagingId: p.id }))}
               loading={suppliesLoading}
+              previewImage={draft.packagingImage}
             />
+
+            {packaging && (
+              <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border/40 bg-background/60 px-3 py-2">
+                <Wand2 className="size-4 shrink-0 text-primary" />
+                <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+                  {draft.packagingImage ? (
+                    <>
+                      Printed with{' '}
+                      <span className="text-foreground">
+                        “{draft.packagingPrompt || 'your design'}”
+                      </span>
+                    </>
+                  ) : (
+                    <>Print a name, message or your logo on this box.</>
+                  )}
+                </p>
+                <Button
+                  type="button"
+                  variant={draft.packagingImage ? 'ghost' : 'outline'}
+                  size="sm"
+                  onClick={() => setCustomizeOpen(true)}
+                >
+                  {draft.packagingImage ? 'Change design' : 'Customise box'}
+                </Button>
+              </div>
+            )}
 
             <SupplyPicker
               label="Filling material"
@@ -857,12 +1027,37 @@ export function BuildBoxPage() {
         title="Add to your box"
       />
 
-      {imageUrl && (
+      <BoxCustomizerDialog
+        box={packaging}
+        open={customizeOpen}
+        onOpenChange={setCustomizeOpen}
+        currentImage={draft.packagingImage}
+        onApply={(image, prompt) =>
+          setDraft((d) => ({
+            ...d,
+            // A box carries one design — using a new one replaces the last
+            // rather than leaving the old box in the strip.
+            packagingImage: image,
+            packagingPrompt: prompt || d.packagingPrompt,
+            mainImage: image,
+          }))
+        }
+        onClear={() =>
+          setDraft((d) => ({
+            ...d,
+            packagingImage: null,
+            packagingPrompt: null,
+            mainImage: d.mainImage === d.packagingImage ? null : d.mainImage,
+          }))
+        }
+      />
+
+      {mainImage && (
         <Dialog open={preview} onOpenChange={setPreview}>
           <DialogContent className="max-w-4xl border-none bg-transparent p-0 shadow-none">
             <DialogTitle className="sr-only">Box image</DialogTitle>
             <img
-              src={imageUrl}
+              src={mainImage}
               alt={draft.title || fallbackTitle}
               className="max-h-[85vh] w-full rounded-brand object-contain"
             />

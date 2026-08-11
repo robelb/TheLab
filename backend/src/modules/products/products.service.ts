@@ -26,6 +26,7 @@ import { hexToLab } from '../../lib/color.js'
 import { normalizePublicImageUrl } from '../../lib/publicImageUrl.js'
 import {
   NOT_SUPPLY_SQL,
+  PACKAGING_SLUG,
   SUPPLY_CATEGORY_SLUGS,
 } from '../../lib/supplies.js'
 import { embedText } from '../../services/embedding.js'
@@ -608,13 +609,19 @@ import {
   fetchedImageFromDataUrl,
   generateProductPhoto,
 } from '../../photoshoot/generate.js'
+import { buildBoxPrintPrompt } from '../../systemInstruction/boxCustomization.js'
 import {
   buildPhotoshootPrompt,
   isValidSceneType,
   resolveAspectRatio,
 } from '../../systemInstruction/productPhotoshoot.js'
 import { saveImage } from '../uploads/uploads.service.js'
-import type { CreateProductBody, PhotoshootBody, UpdateProductBody } from './products.schema.js'
+import type {
+  CreateProductBody,
+  CustomizeBoxBody,
+  PhotoshootBody,
+  UpdateProductBody,
+} from './products.schema.js'
 
 // ---------------------------------------------------------------------------
 // AI photoshoot — generate a styled product image from the 3-image system
@@ -700,6 +707,77 @@ export async function runProductPhotoshoot(
   // canvas (this is also what stops the model laying out a grid of variations).
   const buffer = await generateProductPhoto(prompt, images, config, {
     size: ratio.openaiSize,
+  })
+  const url = await saveImage(buffer.toString('base64'))
+
+  return { url, prompt }
+}
+
+// ---------------------------------------------------------------------------
+// Box customization — print a design onto a packaging supply
+// ---------------------------------------------------------------------------
+
+export interface CustomizeBoxResult {
+  url: string
+  prompt: string
+}
+
+/**
+ * Render the chosen gift box with a design printed on it. Same generation
+ * pipeline as the product photoshoot, but a different brief: the box is the
+ * thing being changed rather than the thing being preserved, and its own
+ * catalogue copy (dimensions, material, printable surfaces) is fed in as fact.
+ */
+export async function customizeBox(
+  productId: string,
+  params: CustomizeBoxBody,
+): Promise<CustomizeBoxResult> {
+  const product = await getProductById(productId)
+  if (!product) throw new Error('Product not found')
+  if (product.categorySlug !== PACKAGING_SLUG) {
+    throw new Error('Only packaging can be customized')
+  }
+
+  const config = resolveImageLlmConfig()
+  if (!config) throw new Error(missingImageLlmConfigMessage())
+
+  // The box is the edit base — unless we're iterating, where the previous
+  // render is, so successive tweaks build on each other.
+  const boxImage = await fetchImage(
+    params.boxImageUrl ?? product.image,
+    'product',
+  )
+  const baseImage = params.baseImageUrl
+    ? await fetchImage(params.baseImageUrl, 'product')
+    : undefined
+
+  let brandingImage: FetchedImage | undefined
+  if (params.brandingImage) {
+    brandingImage = await fetchedImageFromDataUrl(params.brandingImage, 'logo')
+  } else if (params.brandingImageUrl) {
+    brandingImage =
+      (await fetchImageOptional(params.brandingImageUrl, 'logo')) ?? undefined
+  } else if (params.brandingSvg) {
+    brandingImage = await fetchedImageFromInlineSvg(params.brandingSvg)
+  }
+
+  const images: FetchedImage[] = baseImage
+    ? [baseImage, boxImage]
+    : [boxImage]
+  if (brandingImage) images.push(brandingImage)
+
+  const prompt = buildBoxPrintPrompt({
+    boxName: product.name,
+    boxDescription: product.description,
+    boxDetails: product.details,
+    color: params.color,
+    request: params.prompt,
+    hasBranding: Boolean(brandingImage),
+    hasBase: Boolean(baseImage),
+  })
+
+  const buffer = await generateProductPhoto(prompt, images, config, {
+    size: '1024x1024',
   })
   const url = await saveImage(buffer.toString('base64'))
 

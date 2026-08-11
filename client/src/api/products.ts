@@ -136,6 +136,35 @@ export async function fetchBoxSupplies(): Promise<Product[]> {
   return data.data
 }
 
+export interface CustomizeBoxRequest {
+  /** What the shopper wants printed, in their own words. */
+  prompt: string
+  color?: string
+  /** A previous render to iterate on, so tweaks build on each other. */
+  baseImageUrl?: string
+  /** Optional logo applied alongside the design. */
+  brandingImage?: string
+  brandingImageUrl?: string
+  brandingSvg?: string
+}
+
+export interface CustomizeBoxResponse {
+  url: string
+  prompt: string
+}
+
+/** Render the chosen gift box with a design printed on it. */
+export async function customizeBox(
+  id: string,
+  body: CustomizeBoxRequest,
+): Promise<CustomizeBoxResponse> {
+  const { data } = await apiClient.post<CustomizeBoxResponse>(
+    `/products/${encodeURIComponent(id)}/customize-box`,
+    body,
+  )
+  return data
+}
+
 export async function createProduct(input: ProductInput): Promise<Product> {
   const { data } = await apiClient.post<Product>('/products', input)
   return data

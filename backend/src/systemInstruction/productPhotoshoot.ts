@@ -12,6 +12,8 @@
  * assemble one art-director brief — a SINGLE photo, never a grid of variations.
  */
 
+import { LOGO_ONE_LINE_BLOCK, MARK_SCALE_BLOCK } from './printScale.js'
+
 export interface SceneType {
   id: string
   label: string
@@ -152,8 +154,11 @@ export function buildPhotoshootPrompt(input: BuildPhotoshootPromptInput): string
 
     if (input.hasBranding) {
       p.push(
-        "Keep this brand's logo (from the BRANDING reference) on the product — sharp, correctly coloured, undistorted and clearly legible. Make sure no other, different, placeholder or made-up logo, brand name or wordmark appears anywhere in the image (product, packaging, screens, wall art or signage); replace any such mark with this brand's logo or remove it.",
+        "Keep this brand's logo (from the BRANDING reference) on the product exactly as it already appears — same position, same size, same colours, sharp and undistorted. Do not enlarge, re-stack or re-letter it. Make sure no other, different, placeholder or made-up logo, brand name or wordmark appears anywhere in the image (product, packaging, screens, wall art or signage); replace any such mark with this brand's logo or remove it.",
       )
+      // The requested change can push the logo onto a tighter surface, which is
+      // exactly when the model starts stacking it.
+      p.push(LOGO_ONE_LINE_BLOCK)
     }
   } else if (input.hasStyle) {
     // ── Style-driven: keep the style image as the scene, drop the product in.
@@ -202,10 +207,12 @@ export function buildPhotoshootPrompt(input: BuildPhotoshootPromptInput): string
   if (input.hasBranding && !input.hasBase) {
     p.push(
       'BRANDING IS CRITICAL — get this exactly right:\n' +
-        "- Apply the EXACT logo/mark from the BRANDING reference onto the product's main branding area so it looks genuinely printed, embroidered or embossed — following the surface's perspective, curvature, folds, lighting and material. It must be sharp, correctly coloured, undistorted, properly sized and clearly legible.\n" +
+        "- Apply the EXACT logo/mark from the BRANDING reference onto the product's main branding area so it looks genuinely printed, embroidered or embossed — following the surface's perspective, curvature, folds, lighting and material. It must be sharp, correctly coloured and undistorted.\n" +
         '- This is the ONLY brand allowed anywhere in the image. Scan the whole scene — the product, packaging, tags, screens, and especially any wall art, posters, signage or background logos — and REPLACE every other, different, placeholder, or made-up logo, brand name or wordmark with THIS brand\'s logo, or remove it entirely.\n' +
-        '- Never invent, keep, or show any competing or unrelated brand. Reproduce the supplied logo faithfully; do not redraw, restyle, recolour, mirror or add extra text to it.',
+        '- Never invent, keep, or show any competing or unrelated brand. Reproduce the supplied logo faithfully; do not redraw, restyle, recolour, mirror, re-stack or add extra text to it. A horizontal wordmark stays on one line.',
     )
+    p.push(MARK_SCALE_BLOCK)
+    p.push(LOGO_ONE_LINE_BLOCK)
   }
 
   // ── Framing + aspect ratio + single-subject discipline — shared.
@@ -223,7 +230,7 @@ export function buildPhotoshootPrompt(input: BuildPhotoshootPromptInput): string
   )
 
   p.push(
-    'Avoid: multiple images, grids, collages, contact sheets, panels or variations; duplicated or extra products; a cropped or distorted product; warped or illegible branding; extra logos or text; distorted anatomy or hands; and plastic, cheap, or obvious-mockup looks.',
+    'Avoid: multiple images, grids, collages, contact sheets, panels or variations; duplicated or extra products; a cropped or distorted product; warped, oversized, edge-to-edge or illegible branding; a wordmark broken onto extra lines; extra logos or text; distorted anatomy or hands; and plastic, cheap, or obvious-mockup looks.',
   )
 
   p.push(

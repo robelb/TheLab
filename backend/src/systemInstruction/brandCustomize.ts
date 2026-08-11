@@ -1,4 +1,23 @@
 import type { BrandMarkFacts } from '../customizer/brandMarkFacts.js'
+import {
+  LOGO_ONE_LINE_BLOCK,
+  MARK_SCALE_BLOCK,
+  PRINT_TEXT_BLOCK,
+} from './printScale.js'
+
+/**
+ * What the measured aspect ratio tells us about the mark's line count, stated
+ * as strongly as the measurement supports. Anything wider than tall is a
+ * single line in practice; only a tall mark may legitimately be stacked, and
+ * there we say nothing rather than assert something we cannot see.
+ */
+export function lineCountClaim(f: BrandMarkFacts): string {
+  if (f.aspectRatio >= 1.8) return ' It is ONE single line of artwork.'
+  if (f.aspectRatio >= 1.1) {
+    return ' It reads as ONE single line of artwork — do not split it across lines.'
+  }
+  return ' Keep exactly the number of lines the artwork already has.'
+}
 
 export interface CustomizePromptContext {
   companyName?: string | null
@@ -11,7 +30,7 @@ export interface CustomizePromptContext {
 
 /** One measured-facts bullet per mark: silhouette + exact palette. */
 function markFactsLines(label: string, f: BrandMarkFacts): string {
-  const oneLine = f.aspectRatio >= 1.8 ? ' It is ONE single line of artwork.' : ''
+  const oneLine = lineCountClaim(f)
   const lines = [
     `- ${label}: ${f.shape} — tight bounding box ${f.width}×${f.height} px, aspect ratio ${f.aspectRatio}:1.${oneLine} The printed mark keeps exactly this silhouette and aspect ratio.`,
   ]
@@ -77,11 +96,11 @@ function markSelectionBlock(ctx: CustomizePromptContext): string {
 }
 
 const PRIORITY_BLOCK =
-  'PRIORITY — if any two rules conflict, obey the earlier one: (1) the product is present exactly once and unchanged, (2) mark fidelity, (3) placement quality, (4) mark size and visibility. A mark that does not fit a space is made SMALLER or moved to a larger surface — never reshaped, never re-stacked, and never solved by altering, duplicating or removing the product.'
+  'PRIORITY — if any two rules conflict, obey the earlier one: (1) the product is present exactly once and unchanged, (2) mark fidelity, (3) mark scale — a modest, well-margined print, (4) placement quality. A mark that does not fit a space is made SMALLER or moved to a larger surface — never reshaped, never re-stacked, never enlarged past the scale limits, and never solved by altering, duplicating or removing the product.'
 
 const MARK_FIDELITY_BLOCK = [
   'MARK FIDELITY — reproduce the mark exactly as supplied. The only permitted transformations are uniform scaling, perspective mapping onto the surface, and realistic material/lighting integration:',
-  '- Same line count: the mark keeps the same number of lines as the supplied image. A one-line horizontal wordmark stays on one line — never stack, wrap, break or re-flow it.',
+  '- Same line count: the mark keeps the same number of lines as the supplied image, and a horizontal wordmark is one line unless the artwork visibly shows otherwise. Never stack, wrap, break or re-flow it, and never introduce a line break the artwork does not have.',
   '- Same lockup: icon and text keep their relative positions (an icon left of the text stays left of it, never above).',
   '- Same letterforms: exact spelling, capitalisation, letter spacing and weight. Never re-type it in another font and never add or remove any element.',
   '- Same colours: print the mark in its original colours, exactly. Never recolour, invert, darken, lighten, add gradients or outlines, or adapt the colours to the product. If the colours would blend into the chosen surface, move the mark to a surface where they stay visible — never change the colours.',
@@ -112,12 +131,11 @@ const PLACEMENT_BLOCK = [
   '- Centre the mark within the chosen area with balanced margins on every side — not crammed against an edge.',
   '- The mark goes on the product itself (or its packaging shown in the photo) — never floating in the background. Always apply it, never skip it.',
   "- Integrate it physically: match the product's perspective, surface curvature, lighting, texture and finish so it reads as printed or embossed, never as a flat sticker pasted onto the photograph.",
-  '- Size it to be clearly legible at a glance while respecting the fidelity rules.',
 ].join('\n')
 
 function companyNameBlock(name: string | undefined): string {
   if (!name) return ''
-  return `COMPANY NAME (optional): the company is "${name}". Add the name only if the print area comfortably fits it as a small, clearly separate text element near the mark — never merged into the mark and never used to re-letter it. When in doubt, leave it out.`
+  return `COMPANY NAME (optional): the company is "${name}". Add the name only if the print area comfortably fits it as a small, clearly separate text element near the mark, set on one line and no taller than the mark itself — never merged into the mark and never used to re-letter it. When in doubt, leave it out.`
 }
 
 const CANVAS_BLOCK =
@@ -127,7 +145,7 @@ const OUTPUT_BLOCK =
   'OUTPUT: exactly ONE photograph — the edited product photo. No collage, split layout, grid, banner, multiple views, borders, captions or watermarks.'
 
 const FINAL_CHECK_BLOCK =
-  'FINAL CHECK before returning the image — if any of these fail, discard the result and redo the edit from the PRODUCT PHOTO: (1) the product from the PRODUCT PHOTO is present, exactly ONCE, unchanged in size, position and appearance; (2) the output is not a logo-only image and contains no duplicate of the product; (3) the printed mark has the SAME layout as the supplied mark image — same number of lines, same lockup, same aspect ratio; (4) the printed mark has the SAME colours as the supplied mark image, unaltered; (5) apart from the printed mark and any seamless background extension, nothing differs from the PRODUCT PHOTO.'
+  'FINAL CHECK before returning the image — if any of these fail, discard the result and redo the edit from the PRODUCT PHOTO: (1) the product from the PRODUCT PHOTO is present, exactly ONCE, unchanged in size, position and appearance; (2) the output is not a logo-only image and contains no duplicate of the product; (3) the printed mark has the SAME layout as the supplied mark image — same number of lines, same lockup, same aspect ratio; (4) the printed mark has the SAME colours as the supplied mark image, unaltered; (5) the mark spans about a quarter to a third of the width of the face it sits on — never past 40% — with clear space around it and no edge crowding; if it looks large, it is too large; (6) apart from the printed mark and any seamless background extension, nothing differs from the PRODUCT PHOTO.'
 
 /**
  * Build the single prompt sent for both OpenAI and Gemini brand customization
@@ -160,6 +178,9 @@ export function buildCustomizePrompt(ctx: CustomizePromptContext): string {
     PRIORITY_BLOCK,
     MARK_FIDELITY_BLOCK,
     measuredFactsBlock(ctx),
+    MARK_SCALE_BLOCK,
+    LOGO_ONE_LINE_BLOCK,
+    PRINT_TEXT_BLOCK,
     PLACEMENT_BLOCK,
     companyNameBlock(name),
     CANVAS_BLOCK,
@@ -204,6 +225,9 @@ export const CUSTOMIZE_DEFAULT_TEMPLATE = [
   PRIORITY_BLOCK,
   MARK_FIDELITY_BLOCK,
   '{{measuredMarkFacts}}',
+  MARK_SCALE_BLOCK,
+  LOGO_ONE_LINE_BLOCK,
+  PRINT_TEXT_BLOCK,
   PLACEMENT_BLOCK,
   '{{companyNameSection}}',
   CANVAS_BLOCK,

@@ -214,3 +214,43 @@ export const photoshootSchema = z.object({
 })
 
 export type PhotoshootBody = z.infer<typeof photoshootSchema>
+
+// ---------------------------------------------------------------------------
+// Box customization — print a shopper's design onto a packaging supply
+// ---------------------------------------------------------------------------
+
+export const customizeBoxSchema = z
+  .object({
+    /**
+     * What the shopper wants printed, in their own words. Optional: adding or
+     * dropping the logo is a complete instruction on its own, as is asking to
+     * change a design that already exists.
+     */
+    prompt: z.string().trim().max(2000).optional().default(''),
+    /**
+     * For a stock-colour box (Eco Box, Magnetbox), which board colour it is
+     * supplied in. For a full-colour box, the colour to print the whole box.
+     */
+    color: z.string().trim().max(40).optional(),
+    /** Which of the box's images to print onto; defaults to its cover. */
+    boxImageUrl: z.string().trim().min(1).optional(),
+    /** A previous render to iterate on, so tweaks build on each other. */
+    baseImageUrl: z.string().trim().min(1).optional(),
+    /** Optional logo to apply alongside the design (data URL / URL / inline SVG). */
+    brandingImage: z.string().min(1).optional(),
+    brandingImageUrl: z.string().trim().min(1).optional(),
+    brandingSvg: z.string().min(1).optional(),
+  })
+  .refine(
+    (v) =>
+      Boolean(
+        v.prompt ||
+          v.brandingImage ||
+          v.brandingImageUrl ||
+          v.brandingSvg ||
+          v.baseImageUrl,
+      ),
+    { message: 'Describe what to print, or include your logo' },
+  )
+
+export type CustomizeBoxBody = z.infer<typeof customizeBoxSchema>

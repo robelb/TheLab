@@ -21,6 +21,45 @@ export function isSupplyCategory(slug?: string | null): boolean {
   return slug === PACKAGING_SLUG || slug === FILLING_SLUG
 }
 
+const KNOWN_BOX_COLORS: Record<string, string> = {
+  natural: 'natural',
+  natur: 'natural',
+  white: 'white',
+  'weiß': 'white',
+  black: 'black',
+  schwarz: 'black',
+  kraft: 'kraft',
+  brown: 'brown',
+}
+
+/**
+ * Which base colours a box comes in, scanned out of its supplier description
+ * ("available in the basic colors natural, white or black"). A heuristic over
+ * prose, so it only ever offers choices — the shopper can still describe any
+ * finish they want in the prompt. Mirrors `boxColorOptions` on the server.
+ */
+/**
+ * Whether this box is printed edge to edge — its colour is part of the design
+ * rather than fixed stock. Mirrors `boxPrintCapability` on the server, which is
+ * what actually drives the generation.
+ */
+export function isFullColourBox(
+  name?: string | null,
+  description?: string | null,
+): boolean {
+  return /full[- ]colou?r/.test(`${name ?? ''} ${description ?? ''}`.toLowerCase())
+}
+
+export function boxColorOptions(description?: string | null): string[] {
+  if (!description) return []
+  const text = description.toLowerCase()
+  const found = new Set<string>()
+  for (const [needle, color] of Object.entries(KNOWN_BOX_COLORS)) {
+    if (new RegExp(`\\b${needle}\\b`).test(text)) found.add(color)
+  }
+  return [...found]
+}
+
 /** Everything a box charges for: its products, plus the box and the filling. */
 export function boxAllLines(
   box: Pick<BoxDetails, 'lines' | 'packaging' | 'filling'>,

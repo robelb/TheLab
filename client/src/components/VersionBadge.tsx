@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { copyText } from '@/lib/clipboard'
 import { cn } from '@/lib/utils'
-import { versionDetail, versionLabel } from '@/lib/version'
+import { BUILD, versionCopyText, versionDetail, versionLabel } from '@/lib/version'
 
 interface VersionBadgeProps {
   className?: string
@@ -29,14 +29,15 @@ export function VersionBadge({
   }, [copied])
 
   const copy = async () => {
-    if (await copyText(versionDetail())) {
+    // Just the version number — it goes straight into a message or a ticket.
+    if (await copyText(versionCopyText())) {
       setCopied(true)
       return
     }
-    toast.info('Copy this build info', {
+    toast.info('Copy this version', {
       description: (
-        <pre className="mt-1 whitespace-pre-wrap font-mono text-xs select-all">
-          {versionDetail()}
+        <pre className="mt-1 font-mono text-xs select-all">
+          {versionCopyText()}
         </pre>
       ),
       duration: 15_000,
@@ -48,7 +49,7 @@ export function VersionBadge({
       type="button"
       onClick={() => void copy()}
       title={versionDetail()}
-      aria-label={`Build ${versionLabel()} — click to copy build details`}
+      aria-label={`Version ${BUILD.version} — click to copy the version number`}
       className={cn(
         'inline-flex shrink-0 items-center gap-1.5 rounded-brand px-2 py-1 font-mono text-xs whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground',
         variant === 'outline' && 'border border-border/40 hover:border-border',

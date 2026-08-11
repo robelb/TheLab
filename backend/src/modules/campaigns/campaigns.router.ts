@@ -138,9 +138,11 @@ campaignsRouter.post('/:id/hero-image', async (req, res) => {
   }
 
   try {
+    const { brand, ...supplies } = parsed.data
     const campaign = await regenerateCampaignHeroImage(
       req.params.id,
-      parsed.data.brand,
+      brand,
+      supplies,
     )
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign not found' })

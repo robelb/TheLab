@@ -1,10 +1,12 @@
 import { useMutation, useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import {
+  customizeBox,
   fetchBoxSupplies,
   fetchProducts,
   fetchProductsByIds,
   searchProductsByImage,
+  type CustomizeBoxRequest,
   type FetchProductsParams,
   type ImageSearchParams,
 } from '@/api/products'
@@ -61,6 +63,19 @@ export function useProductsByIds(ids: string[]) {
     queryFn: () => fetchProductsByIds(ids),
     enabled: ids.length > 0,
     staleTime: 60_000,
+  })
+}
+
+/**
+ * Print a design onto a gift box. A mutation rather than a query — it runs on
+ * an explicit click and takes ~15s, and the caller keeps the result to preview.
+ */
+export function useCustomizeBox(boxId: string | undefined) {
+  return useMutation({
+    mutationFn: (body: CustomizeBoxRequest) => {
+      if (!boxId) throw new Error('Pick a box first')
+      return customizeBox(boxId, body)
+    },
   })
 }
 

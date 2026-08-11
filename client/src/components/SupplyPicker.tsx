@@ -12,6 +12,8 @@ interface SupplyPickerProps {
   selectedId: string | null
   onSelect: (product: Product) => void
   loading?: boolean
+  /** Overrides the selected tile's thumbnail — e.g. a customised box design. */
+  previewImage?: string | null
 }
 
 /**
@@ -26,6 +28,7 @@ export function SupplyPicker({
   selectedId,
   onSelect,
   loading = false,
+  previewImage,
 }: SupplyPickerProps) {
   return (
     <fieldset className="space-y-2">
@@ -64,7 +67,9 @@ export function SupplyPicker({
                 )}
               >
                 <img
-                  src={getProductDisplayImage(option)}
+                  src={
+                    (selected && previewImage) || getProductDisplayImage(option)
+                  }
                   alt=""
                   className="size-10 shrink-0 rounded-brand bg-muted/20 object-contain"
                   loading="lazy"

@@ -3,6 +3,7 @@ import { optionalAuth } from '../../middleware/auth.js'
 import { createShare } from '../share/share.service.js'
 import {
   createProductSchema,
+  customizeBoxSchema,
   imageSearchSchema,
   photoshootSchema,
   productIdsQuerySchema,
@@ -11,6 +12,7 @@ import {
 } from './products.schema.js'
 import {
   createProduct,
+  customizeBox,
   deleteProduct,
   getProductById,
   getProductsByIds,
@@ -171,6 +173,31 @@ productsRouter.post('/:id/photoshoot', async (req, res) => {
       err instanceof Error ? err.message : 'Failed to generate image'
     const status = message === 'Product not found' ? 404 : 502
     console.warn('[products] photoshoot failed:', message)
+    res.status(status).json({ error: message })
+  }
+})
+
+// Print a shopper's design onto a gift box. Registered before `/:id` routes so
+// the literal segment isn't captured as an id.
+productsRouter.post('/:id/customize-box', async (req, res) => {
+  const parsed = customizeBoxSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: firstZodError(parsed.error) })
+  }
+
+  try {
+    const result = await customizeBox(req.params.id, parsed.data)
+    res.json(result)
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Failed to customize the box'
+    const status =
+      message === 'Product not found'
+        ? 404
+        : message === 'Only packaging can be customized'
+          ? 400
+          : 502
+    console.warn('[products] box customization failed:', message)
     res.status(status).json({ error: message })
   }
 })

@@ -195,9 +195,52 @@ async function resolveBundleBrand(
  * caller can either surface the reason (manual regeneration) or swallow it
  * (campaign assembly, where copy + bundle are still useful on their own).
  */
+/**
+ * The box and filling the shopper picked, resolved to products with reference
+ * images. Render-time only — a campaign doesn't store them, so a dashboard
+ * regeneration simply falls back to the default kraft box.
+ */
+export interface KitSupplySelection {
+  packagingId?: string
+  fillingId?: string
+  /** The shopper's printed-box design, preferred over the catalog photo. */
+  packagingImageUrl?: string
+}
+
+interface ResolvedSupply {
+  name: string
+  description?: string | null
+  image: FetchedImage
+}
+
+/** Load one supply and its reference image; null if either is unavailable. */
+async function resolveSupply(
+  id: string | undefined,
+  imageOverride?: string,
+): Promise<ResolvedSupply | null> {
+  if (!id) return null
+  try {
+    const product = await getProductById(id)
+    if (!product) return null
+    const image = await fetchImage(
+      imageOverride ?? product.customizedImage ?? product.image,
+      'product',
+    )
+    return { name: product.name, description: product.description, image }
+  } catch (err) {
+    // A supply we can't load just drops us back to the house-style scene.
+    console.warn(
+      '[campaigns] could not load supply for the kit image:',
+      err instanceof Error ? err.message : err,
+    )
+    return null
+  }
+}
+
 async function generateKitImage(
   products: ProductWithCategory[],
   brand?: BundleBrand,
+  supplies?: KitSupplySelection,
 ): Promise<string> {
   const config = resolveImageLlmConfig()
   if (!config) throw new Error(missingImageLlmConfigMessage())
@@ -228,8 +271,16 @@ async function generateKitImage(
     throw new Error('None of the bundle product images could be loaded.')
   }
 
-  // Order matters: products first (the first image is the edit base), logo last.
+  const [packaging, filling] = await Promise.all([
+    resolveSupply(supplies?.packagingId, supplies?.packagingImageUrl),
+    resolveSupply(supplies?.fillingId),
+  ])
+
+  // Order is the contract the prompt describes by position: products first
+  // (the first image is the edit base), then the box, the filling, logo last.
   const images = usable.map((e) => e.result.value)
+  if (packaging) images.push(packaging.image)
+  if (filling) images.push(filling.image)
   if (brand) images.push(brand.logo)
 
   // Measured logo facts let the prompt pin layout + colours as ground truth.
@@ -240,6 +291,10 @@ async function generateKitImage(
     hasLogo: Boolean(brand),
     companyName: brand?.companyName,
     logoFacts,
+    packaging: packaging
+      ? { name: packaging.name, description: packaging.description }
+      : null,
+    filling: filling ? { name: filling.name } : null,
   }
   // Super-admin override (system_instructions table) wins; the built-in
   // builder is the default and the fallback on any override failure.
@@ -318,6 +373,8 @@ const heroImageJobs = new Set<string>()
 const heroImageReruns = new Set<string>()
 /** Caller-supplied brand for an in-flight job, so a rerun keeps the logo. */
 const heroImageBrands = new Map<string, CampaignBrandInput>()
+/** Same, for the chosen box and filling — a rerun must not lose them. */
+const heroImageSupplies = new Map<string, KitSupplySelection>()
 
 /**
  * A `pending` row with no live job and no recent activity was interrupted
@@ -343,6 +400,7 @@ async function reconcileHeroImageStatus(c: Campaign): Promise<Campaign> {
 async function runHeroImageJob(
   campaignId: string,
   brand?: CampaignBrandInput,
+  supplies?: KitSupplySelection,
 ): Promise<void> {
   try {
     await db
@@ -381,7 +439,7 @@ async function runHeroImageJob(
 
     const url = await withTimeout(
       resolveBundleBrand(brand, row.domain).then((bundleBrand) =>
-        generateKitImage(products, bundleBrand),
+        generateKitImage(products, bundleBrand, supplies),
       ),
       KIT_IMAGE_TIMEOUT_MS,
       'kit image',
@@ -419,8 +477,10 @@ async function runHeroImageJob(
 function startHeroImageJob(
   campaignId: string,
   brand?: CampaignBrandInput,
+  supplies?: KitSupplySelection,
 ): void {
   if (brand) heroImageBrands.set(campaignId, brand)
+  if (supplies) heroImageSupplies.set(campaignId, supplies)
   if (heroImageJobs.has(campaignId)) {
     heroImageReruns.add(campaignId)
     return
@@ -430,12 +490,17 @@ function startHeroImageJob(
     try {
       do {
         heroImageReruns.delete(campaignId)
-        await runHeroImageJob(campaignId, heroImageBrands.get(campaignId))
+        await runHeroImageJob(
+          campaignId,
+          heroImageBrands.get(campaignId),
+          heroImageSupplies.get(campaignId),
+        )
       } while (heroImageReruns.has(campaignId))
     } finally {
       heroImageJobs.delete(campaignId)
       heroImageReruns.delete(campaignId)
       heroImageBrands.delete(campaignId)
+      heroImageSupplies.delete(campaignId)
     }
   })()
 }
@@ -447,6 +512,7 @@ function startHeroImageJob(
 export async function regenerateCampaignHeroImage(
   id: string,
   brand?: CampaignBrandInput,
+  supplies?: KitSupplySelection,
 ): Promise<HydratedCampaign | null> {
   const [row] = await db
     .select()
@@ -462,7 +528,7 @@ export async function regenerateCampaignHeroImage(
     .set({ heroImageStatus: 'pending', heroImageError: null })
     .where(eq(campaigns.id, id))
     .returning()
-  startHeroImageJob(id, brand)
+  startHeroImageJob(id, brand, supplies)
   return hydrate(pending ?? row)
 }
 

@@ -6,8 +6,8 @@
  */
 export const BUILD = {
   version: __APP_VERSION__,
+  /** Not shown anywhere — kept so analytics can pin an event to a build. */
   sha: __GIT_SHA__,
-  branch: __GIT_BRANCH__,
   /** Built with uncommitted changes — the sha alone doesn't reproduce it. */
   dirty: __GIT_DIRTY__,
   time: __BUILD_TIME__,
@@ -23,27 +23,30 @@ export const BUILD = {
 
 export const isProduction = BUILD.env === 'production'
 
-/** Short label for the badge: `v0.1.0 · a3f9c2d · testing`. */
+/** Short label for the badge: `v0.1.0 · testing`. */
 export function versionLabel(): string {
   const parts = [`v${BUILD.version}`]
-  if (BUILD.sha) parts.push(BUILD.sha + (BUILD.dirty ? '*' : ''))
   // A release build needs no qualifier — every other build says what it is.
   if (!isProduction) parts.push(BUILD.env)
   return parts.join(' · ')
 }
 
-/** Everything worth pasting into a bug report. */
+/**
+ * What lands on the clipboard: the bare version number, nothing else, so it
+ * pastes cleanly into a message or a ticket.
+ */
+export function versionCopyText(): string {
+  return BUILD.version
+}
+
+/** Hover detail — the version and what it is, without the git plumbing. */
 export function versionDetail(): string {
   const built = BUILD.time ? new Date(BUILD.time).toLocaleString() : 'unknown'
-  const lines = [
+  return [
     `Version:     ${BUILD.version}`,
     `Environment: ${BUILD.env}`,
-    `Commit:      ${BUILD.sha || 'unknown'}${BUILD.dirty ? ' (uncommitted changes)' : ''}`,
-    `Branch:      ${BUILD.branch || 'unknown'}`,
     `Built:       ${built}`,
-    `Build mode:  ${BUILD.mode}`,
-  ]
-  return lines.join('\n')
+  ].join('\n')
 }
 
 /** Flat shape for analytics — one property per field, easy to filter on. */
@@ -52,7 +55,6 @@ export function versionProperties() {
     app_version: BUILD.version,
     app_env: BUILD.env,
     app_commit: BUILD.sha || null,
-    app_branch: BUILD.branch || null,
     app_dirty: BUILD.dirty,
     app_built_at: BUILD.time,
     app_mode: BUILD.mode,

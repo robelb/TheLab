@@ -48,7 +48,6 @@ export default defineConfig(({ mode }) => {
   const buildInfo = {
     __APP_VERSION__: JSON.stringify(appVersion()),
     __GIT_SHA__: JSON.stringify(git('rev-parse --short HEAD')),
-    __GIT_BRANCH__: JSON.stringify(git('rev-parse --abbrev-ref HEAD')),
     __GIT_DIRTY__: JSON.stringify(git('status --porcelain') !== ''),
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     __BUILD_MODE__: JSON.stringify(mode),
