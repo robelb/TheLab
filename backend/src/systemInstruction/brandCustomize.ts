@@ -5,6 +5,7 @@ import {
   LOGO_PRIME_RULE,
   MARK_SCALE_BLOCK,
   PRINT_TEXT_BLOCK,
+  SINGLE_RENDER_BLOCK,
 } from './printScale.js'
 
 /**
@@ -108,7 +109,7 @@ const MARK_FIDELITY_BLOCK = [
   '- Same line count: the mark keeps the same number of lines as the supplied image, and a horizontal wordmark is one line unless the artwork visibly shows otherwise. Never stack, wrap, break or re-flow it, and never introduce a line break the artwork does not have.',
   '- Same lockup: icon and text keep their relative positions (an icon left of the text stays left of it, never above).',
   '- Same letterforms: exact spelling, capitalisation, letter spacing and weight. Never re-type it in another font and never add or remove any element.',
-  '- Same colours by default: print the mark in its original colours, exactly — never darkened, lightened, tinted or given gradients or outlines. The ONE permitted change is the LOGO CONTRAST rule: on a surface that matches the mark\u2019s own colour, the whole mark switches to solid white or solid black.',
+  '- Same colours by default: print the mark in its original colours, exactly — never darkened, lightened, tinted or given gradients or outlines. The ONE permitted change is the LOGO CONTRAST rule: on a surface that matches the mark\u2019s own colour, only its black and white parts swap for the opposite — every other colour stays exactly as supplied.',
   '- Uniform scale only: never stretch, squash, crop, rotate, mirror or change its aspect ratio.',
 ].join('\n')
 
@@ -127,11 +128,6 @@ function measuredFactsBlock(ctx: CustomizePromptContext): string {
   ].join('\n')
 }
 
-/**
- * What the product is, in words — the photo alone can be ambiguous (a black
- * cylinder could be a bottle, a tube or a speaker), and the right print spot
- * depends on which it is.
- */
 /** Catalogue copy arrives as HTML of any length; the prompt gets one clean clause. */
 function clampDescription(raw: string): string {
   const text = raw
@@ -143,6 +139,11 @@ function clampDescription(raw: string): string {
   return text.length > 400 ? `${text.slice(0, 400).trimEnd()}…` : text
 }
 
+/**
+ * What the product is, in words — the photo alone can be ambiguous (a black
+ * cylinder could be a bottle, a tube or a speaker), and the right print spot
+ * depends on which it is.
+ */
 function productFactsBlock(ctx: CustomizePromptContext): string {
   const name = ctx.productName?.trim()
   const description = ctx.productDescription?.trim()
@@ -182,7 +183,7 @@ const OUTPUT_BLOCK =
   'OUTPUT: exactly ONE photograph — the edited product photo. No collage, split layout, grid, banner, multiple views, borders, captions or watermarks.'
 
 const FINAL_CHECK_BLOCK =
-  'FINAL CHECK before returning the image — if any of these fail, discard the result and redo the edit from the PRODUCT PHOTO: (1) the product from the PRODUCT PHOTO is present, exactly ONCE, unchanged in size, position and appearance; (2) the output is not a logo-only image and contains no duplicate of the product; (3) the printed mark has the SAME layout as the supplied mark image — same number of lines, same lockup, same aspect ratio; (4) the printed mark has the SAME colours as the supplied mark image — or, where its colours would have vanished against the surface, is rendered ENTIRELY in solid white or solid black, and is clearly visible either way; (5) the mark spans about a quarter to a third of the width of the face it sits on — never past 40% — with clear space around it and no edge crowding; if it looks large, it is too large; (6) apart from the printed mark and any seamless background extension, nothing differs from the PRODUCT PHOTO.'
+  'FINAL CHECK before returning the image — if any of these fail, discard the result and redo the edit from the PRODUCT PHOTO: (1) the product from the PRODUCT PHOTO is present, exactly ONCE, unchanged in size, position and appearance; (2) the output is not a logo-only image and contains no duplicate of the product; (3) the printed mark has the SAME layout as the supplied mark image — same number of lines, same lockup, same aspect ratio; (4) the printed mark has the SAME colours as the supplied mark image — or, where its colours would have vanished against the surface, has ONLY its black and white parts swapped (black↔white) with every other colour untouched, and is clearly visible either way; (5) the mark spans about a quarter to a third of the width of the face it sits on — never past 40% — with clear space around it and no edge crowding; if it looks large, it is too large; (6) apart from the printed mark and any seamless background extension, nothing differs from the PRODUCT PHOTO.'
 
 /**
  * Build the single prompt sent for both OpenAI and Gemini brand customization
@@ -225,6 +226,7 @@ export function buildCustomizePrompt(ctx: CustomizePromptContext): string {
     PLACEMENT_BLOCK,
     companyNameBlock(name),
     CANVAS_BLOCK,
+    SINGLE_RENDER_BLOCK,
     OUTPUT_BLOCK,
     FINAL_CHECK_BLOCK,
   ]
@@ -276,6 +278,7 @@ export const CUSTOMIZE_DEFAULT_TEMPLATE = [
   PLACEMENT_BLOCK,
   '{{companyNameSection}}',
   CANVAS_BLOCK,
+  SINGLE_RENDER_BLOCK,
   OUTPUT_BLOCK,
   FINAL_CHECK_BLOCK,
 ].join('\n\n')

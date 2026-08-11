@@ -6,6 +6,7 @@ import {
   LOGO_PRIME_RULE,
   MARK_SCALE_BLOCK,
   PRINT_TEXT_BLOCK,
+  SINGLE_RENDER_BLOCK,
 } from './printScale.js'
 
 /**
@@ -229,7 +230,7 @@ function kitBrandingBlock(factsLines: string): string {
     '- When a one-line logo will not fit an item at a comfortable size, PRINT IT SMALLER until it does. Size is what you adjust to make it fit; the layout is not. A small, correct, one-line logo is right — a large stacked one is wrong. If it would become too small to read on a narrow item, move it to a wider face of that same item rather than changing its layout.',
     '- Same lockup on every product: icon and text keep their relative positions (an icon left of the text stays left of it, never above).',
     '- Same letterforms: exact spelling, capitalisation, letter spacing and weight. Never re-type it in another font and never add taglines or extra wording.',
-    '- Same colours on every product by default: the original logo colours, exactly — never darkened, lightened, tinted or adapted per item. The ONE permitted change is the LOGO CONTRAST rule: on an item whose surface matches the logo\u2019s own colour, that item\u2019s mark switches WHOLLY to solid white or solid black; every other item keeps the original colours.',
+    '- Same colours on every product by default: the original logo colours, exactly — never darkened, lightened, tinted or adapted per item. The ONE permitted change is the LOGO CONTRAST rule: on an item whose surface matches the logo\u2019s own colour, only that mark\u2019s black and white parts swap for the opposite — its other colours, and every other item\u2019s mark, stay exactly as supplied.',
     '- Uniform scale only: never stretch, squash, crop, rotate or mirror it. If the logo does not fit a surface, print it SMALLER or use a wider face of that product — never reshape or re-stack it.',
     '- On each product, first identify what the item IS — from its name in the PRODUCT SET and from its reference image — then choose the OPTIMAL spot: where that product is branded in real life (centre chest of apparel, the upward-facing side of mugs and bottles, the front panel of bags, boxes and notebooks, the barrel of pens) — preferring the widest flat surface visible from above that fits the logo legibly without changing its layout, clear of seams, handles, edges and existing artwork. Centre the logo there with balanced margins.',
     '- Apply the MARK SCALE rules below consistently across the whole set, so the logo reads as the same size relative to each item — proportionally smaller on small items, never larger on big ones. A set where one logo dominates its product is wrong even if each item looks fine on its own.',
@@ -254,7 +255,7 @@ const KIT_PRIORITY_BLOCK =
 function kitFinalCheckBlock(hasLogo: boolean): string {
   return `FINAL CHECK before returning the image: every listed product appears exactly once${
     hasLogo
-      ? '; a one-line logo is printed on ONE line on every single product — check each item individually and, if any logo is stacked, wrapped or broken across lines, redo it smaller on one line; the logo on every product has the SAME lockup and aspect ratio as the supplied image, and its original colours — or, where an item\u2019s surface matched the logo\u2019s colour, an all-white or all-black one-colour version, clearly visible either way; every logo spans about a quarter to a third of the face it sits on — never past 40% — and none crowds an edge; if a logo looks large, it is too large'
+      ? '; a one-line logo is printed on ONE line on every single product — check each item individually and, if any logo is stacked, wrapped or broken across lines, redo it smaller on one line; the logo on every product has the SAME lockup and aspect ratio as the supplied image, and its original colours — or, where an item\u2019s surface matched the logo\u2019s colour, only the black/white parts swapped with every other colour untouched — clearly visible either way; every logo spans about a quarter to a third of the face it sits on — never past 40% — and none crowds an edge; if a logo looks large, it is too large'
       : ''
   }; the output is one single photograph of one box. If any check fails, correct it and return the corrected image.`
 }
@@ -310,6 +311,7 @@ export function buildCampaignKitImagePrompt(
     hasLogo ? PRINT_TEXT_BLOCK : '',
     kitTextPolicyBlock(hasLogo),
     KIT_OUTPUT_BLOCK,
+    SINGLE_RENDER_BLOCK,
     KIT_PRIORITY_BLOCK,
     kitFinalCheckBlock(hasLogo),
   ]
@@ -367,6 +369,7 @@ export const KIT_IMAGE_DEFAULT_TEMPLATE = [
   PRINT_TEXT_BLOCK,
   kitTextPolicyBlock(true),
   KIT_OUTPUT_BLOCK,
+  SINGLE_RENDER_BLOCK,
   KIT_PRIORITY_BLOCK,
   kitFinalCheckBlock(true),
 ].join('\n\n')

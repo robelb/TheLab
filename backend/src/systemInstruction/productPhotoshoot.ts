@@ -17,6 +17,7 @@ import {
   LOGO_ONE_LINE_BLOCK,
   LOGO_PRIME_RULE,
   MARK_SCALE_BLOCK,
+  SINGLE_RENDER_BLOCK,
 } from './printScale.js'
 
 export interface SceneType {
@@ -231,6 +232,8 @@ export function buildPhotoshootPrompt(input: BuildPhotoshootPromptInput): string
   p.push(
     `Make ${subject} the single hero of the shot. Keep the entire product inside the frame — its full width and full height — well placed with comfortable margins; never crop or cut off any part of it. The final image must be ${ratio.promptLabel} (${ratio.label}) image. Produce just this one scene.`,
   )
+
+  p.push(SINGLE_RENDER_BLOCK)
 
   if (input.extra?.trim()) {
     p.push(`Additional art direction: ${input.extra.trim()}`)

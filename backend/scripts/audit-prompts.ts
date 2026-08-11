@@ -165,13 +165,17 @@ for (const [name, p] of variants) {
     'the as-is / shrink-only / never-multi-line contract must be the first line of every logo-bearing prompt',
   )
   check(
-    `${name}: contrast rule (white/black one-colour toggle)`,
-    /LOGO CONTRAST/.test(p) && /solid white/.test(p) && /solid black/.test(p),
+    `${name}: contrast rule (black/white swap, other colours untouched)`,
+    /LOGO CONTRAST/.test(p) &&
+      /black and white parts/.test(p) &&
+      /Every OTHER colour in the logo stays exactly as supplied/.test(p),
   )
   check(
-    `${name}: no leftover absolute colour ban`,
-    !/never change the colours/.test(p) && !/lighter or darker area of that item instead/.test(p),
-    'an old absolute never-recolour phrase survives and contradicts the contrast rule',
+    `${name}: no stale colour phrasing`,
+    !/never change the colours/.test(p) &&
+      !/lighter or darker area of that item instead/.test(p) &&
+      !/WHOLE mark in solid|switches WHOLLY|rendered ENTIRELY in solid|ENTIRE mark to a one-colour|whole mark switches/.test(p),
+    'an outdated colour rule (absolute ban, or whole-mark toggle) survives and contradicts the black/white-swap rule',
   )
 }
 {
@@ -262,6 +266,25 @@ console.log('\n── F. attachment descriptions ──')
   const kit = buildCampaignKitImagePrompt(['Mug'], { hasLogo: true, companyName: 'BLT', packaging: { name: 'Box' }, filling: { name: 'Fill' } })
   check('kit: box + filling + logo all described',
     /BOX reference/.test(kit) && /FILLING reference/.test(kit) && /FINAL image is the company logo/.test(kit))
+}
+
+// ── H. single render: no duplicates, one scene at the given dimensions ──────
+console.log('\n── H. single render ──')
+{
+  const everyVariant: [string, string][] = [
+    ...variants,
+    ['shoot·no-brand', buildPhotoshootPrompt({ sceneType: 'studio-hero', aspectRatio: 'portrait', productName: 'Mug', hasStyle: false, hasBranding: false })],
+    ['box·no-brand', buildBoxPrintPrompt({ boxName: 'Eco Box white', boxDescription: 'natural or white', request: 'print "Hi"', hasBranding: false })],
+    ['kit·no-logo', buildCampaignKitImagePrompt(['Mug'], { hasLogo: false })],
+  ]
+  for (const [name, p] of everyVariant) {
+    check(
+      `${name}: single-render contract present`,
+      /SINGLE RENDER — one of everything/.test(p) &&
+        /never fill it by repeating the product/.test(p),
+      'the no-duplication / fill-with-background contract is missing',
+    )
+  }
 }
 
 // ── G. placement follows the product identity ───────────────────────────────

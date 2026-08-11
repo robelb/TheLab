@@ -22,6 +22,7 @@ import {
   LOGO_ONE_LINE_BLOCK,
   LOGO_PRIME_RULE,
   PRINT_TEXT_BLOCK,
+  SINGLE_RENDER_BLOCK,
 } from './printScale.js'
 
 const KNOWN_COLORS = [
@@ -315,6 +316,8 @@ export function buildBoxPrintPrompt(input: BuildBoxPrintPromptInput): string {
     `Frame the ${name} as the single hero of the shot, entirely inside the frame with comfortable margins — never cropped or cut off. Clean studio lighting on an uncluttered background. Square 1:1 image.`,
   )
 
+  p.push(SINGLE_RENDER_BLOCK)
+
   p.push(
     'Avoid: multiple images, grids, collages or variations; more than one box; a cropped or distorted box; warped, misspelled or illegible text; text broken onto extra lines; an oversized logo; extra logos or decoration nobody asked for; and flat, cheap, obvious-mockup looks.' +
       (capability.fullSurface
@@ -337,7 +340,7 @@ export function buildBoxPrintPrompt(input: BuildBoxPrintPromptInput): string {
       capability.fullSurface
         ? 'the printed colour covers the whole box with no unprinted white or kraft showing at the edges or sides'
         : `every unprinted area is still ${color ?? 'the box’s own stock colour'}, and the design sits within a clear unprinted margin without bleeding off the edges`
-    }; (4) any logo is small, on one line, and clearly visible — in its original colours, or all-white/all-black where the surface matched its colour; (5) one box, one photograph. If a check fails, correct it and return the corrected image.`,
+    }; (4) any logo is small, on one line, and clearly visible — in its original colours, or with only its black/white parts swapped where the surface matched its colour; (5) one box, one photograph. If a check fails, correct it and return the corrected image.`,
   )
 
   return p.join('\n\n')
