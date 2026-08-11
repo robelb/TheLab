@@ -21,7 +21,21 @@
  * only permitted change.
  */
 export const LOGO_PRIME_RULE =
-  'FIRST, THE LOGO RULE — before anything else: use the supplied brand logo exactly AS IT IS. You are free to make it SMALLER — shrink it as much as needed to fit a surface — but you may not change it in any other way: never redraw, restyle, recolour, stretch, crop or re-typeset it, and NEVER turn a single-line logo into two or more lines. If the logo does not fit somewhere, it becomes smaller; its artwork and layout never change.'
+  'FIRST, THE LOGO RULE — before anything else: use the supplied brand logo exactly AS IT IS. You are free to make it SMALLER — shrink it as much as needed to fit a surface — but you may not change its artwork: never redraw, restyle, stretch, crop or re-typeset it, and NEVER turn a single-line logo into two or more lines. Keep its original colours, with ONE exception: where the logo would disappear against a surface of nearly its own colour, print the WHOLE mark in solid white (on dark surfaces) or solid black (on light surfaces), like a real one-colour print. If the logo does not fit somewhere, it becomes smaller; its artwork and layout never change.'
+
+/**
+ * What to do when the logo's own colours vanish against the surface it sits
+ * on — a dark logo on a black product, a white mark on white board. Real merch
+ * printing solves this with a one-colour version of the mark, so that is the
+ * ONLY colour change permitted, and it applies to the whole mark at once.
+ */
+export const LOGO_CONTRAST_BLOCK = [
+  'LOGO CONTRAST — the logo must stay clearly visible against whatever it sits on:',
+  '- Default: print the logo in its original colours, exactly as supplied. Use them whenever they read clearly against the chosen surface.',
+  '- If the surface is the same or nearly the same colour as the logo — a dark logo on a dark product, a white logo on white material — do what a real print shop does: switch the ENTIRE mark to a one-colour version, solid white on dark surfaces or solid black on light surfaces. Every element of the mark switches together; never recolour only part of it.',
+  '- Those are the only two alternatives to the original colours. Never pick any other colour, never invert selectively, and never force contrast with outlines, glows, drop shadows or a backing panel behind the logo.',
+  '- The shape, layout and line count stay identical in the one-colour version — only the fill colour changes.',
+].join('\n')
 
 /**
  * How big a printed brand mark may be. Used wherever a logo goes onto a

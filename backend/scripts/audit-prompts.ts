@@ -67,6 +67,8 @@ console.log('\n── A. template ↔ builder sync ──')
 {
   const ctx = {
     companyName: 'big little things',
+    productName: 'ARCONOT Notebook — Black',
+    productDescription: '<p>A5 hardcover notebook with elastic closure.</p>',
     hasLogo: true,
     hasFavicon: true,
     logoFacts: wideLogo,
@@ -162,6 +164,15 @@ for (const [name, p] of variants) {
     p.startsWith('FIRST, THE LOGO RULE'),
     'the as-is / shrink-only / never-multi-line contract must be the first line of every logo-bearing prompt',
   )
+  check(
+    `${name}: contrast rule (white/black one-colour toggle)`,
+    /LOGO CONTRAST/.test(p) && /solid white/.test(p) && /solid black/.test(p),
+  )
+  check(
+    `${name}: no leftover absolute colour ban`,
+    !/never change the colours/.test(p) && !/lighter or darker area of that item instead/.test(p),
+    'an old absolute never-recolour phrase survives and contradicts the contrast rule',
+  )
 }
 {
   // And prompts WITHOUT a logo must not open with a rule about an image
@@ -251,6 +262,33 @@ console.log('\n── F. attachment descriptions ──')
   const kit = buildCampaignKitImagePrompt(['Mug'], { hasLogo: true, companyName: 'BLT', packaging: { name: 'Box' }, filling: { name: 'Fill' } })
   check('kit: box + filling + logo all described',
     /BOX reference/.test(kit) && /FILLING reference/.test(kit) && /FINAL image is the company logo/.test(kit))
+}
+
+// ── G. placement follows the product identity ───────────────────────────────
+console.log('\n── G. identity-driven placement ──')
+{
+  const withFacts = buildCustomizePrompt({
+    companyName: 'BLT',
+    productName: 'UTAH GLASS — Black',
+    productDescription: '<p>Glass bottle with bamboo lid, 500&nbsp;ml.</p>',
+    hasLogo: true,
+    hasFavicon: false,
+    logoFacts: wideLogo,
+  })
+  check('customize: THE PRODUCT facts present when supplied',
+    /THE PRODUCT — what you are printing on:/.test(withFacts) && /UTAH GLASS/.test(withFacts))
+  check('customize: description is stripped of HTML and entities',
+    /Glass bottle with bamboo lid, 500 ml\./.test(withFacts) && !/<p>|&nbsp;/.test(withFacts))
+  check('customize: placement step 2 reads the facts',
+    /identify what the product IS — from THE PRODUCT facts when given/.test(withFacts))
+  const noFacts = buildCustomizePrompt({ companyName: 'BLT', hasLogo: true, hasFavicon: false, logoFacts: wideLogo })
+  check('customize: no empty THE PRODUCT block when facts are unknown', !/THE PRODUCT —/.test(noFacts))
+  const kit = buildCampaignKitImagePrompt(['Mug'], { hasLogo: true, companyName: 'BLT' })
+  check('kit: per-item identity step before choosing the spot',
+    /first identify what the item IS — from its name in the PRODUCT SET and from its reference image/.test(kit))
+  const shoot = buildPhotoshootPrompt({ sceneType: 'studio-hero', aspectRatio: 'square', productName: 'Mug', hasStyle: false, hasBranding: true })
+  check('photoshoot: placement judged from what the product is',
+    /where that product is branded in real life — judge from what the product is and what the photo shows/.test(shoot))
 }
 
 console.log(`\n${failures === 0 ? 'ALL CLEAN' : `${failures} ISSUE(S) FOUND`}`)

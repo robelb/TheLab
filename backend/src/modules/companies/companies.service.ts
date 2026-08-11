@@ -2,6 +2,7 @@ import { and, count, desc, eq, ilike, or } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import {
+  campaigns,
   companies,
   type Company,
   type CompanyBrand,
@@ -123,11 +124,18 @@ export async function updateCompany(
 
 export async function deleteCompany(id: string): Promise<void> {
   const [row] = await db
-    .select({ id: companies.id })
+    .select({ id: companies.id, domain: companies.domain })
     .from(companies)
     .where(eq(companies.id, id))
     .limit(1)
   if (!row) throw new AuthError('Company not found.', 404)
+
+  // Campaigns are keyed by domain (no company FK) — wipe them first so
+  // campaign_videos cascade with the campaign rows.
+  await db.delete(campaigns).where(eq(campaigns.domain, row.domain))
+
+  // Users, brand_customizations, company_product_images, and shared_designs
+  // cascade via FK onDelete.
   await db.delete(companies).where(eq(companies.id, id))
 }
 

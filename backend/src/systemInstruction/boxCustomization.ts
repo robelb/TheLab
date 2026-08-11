@@ -18,6 +18,7 @@
 import {
   BOX_FULL_BLEED_SCALE_BLOCK,
   BOX_PRINT_SCALE_BLOCK,
+  LOGO_CONTRAST_BLOCK,
   LOGO_ONE_LINE_BLOCK,
   LOGO_PRIME_RULE,
   PRINT_TEXT_BLOCK,
@@ -304,9 +305,10 @@ export function buildBoxPrintPrompt(input: BuildBoxPrintPromptInput): string {
 
   if (input.hasBranding) {
     p.push(
-      "BRANDING — the FINAL reference image is the brand's logo. Apply it to the box exactly as given: sharp, correctly coloured and undistorted. Keep it small — roughly a quarter of the width of the face, clearly separated from the requested design and never competing with it. It is the only brand allowed in the image; remove or replace any other, different, placeholder or made-up logo, brand name or wordmark. Never redraw, restyle, recolour or add text to it.",
+      "BRANDING — the FINAL reference image is the brand's logo. Apply it to the box exactly as given: sharp, correctly coloured and undistorted. Keep it small — roughly a quarter of the width of the face, clearly separated from the requested design and never competing with it. It is the only brand allowed in the image; remove or replace any other, different, placeholder or made-up logo, brand name or wordmark. Never redraw, restyle or add text to it, and keep its original colours except where the LOGO CONTRAST rule applies.",
     )
     p.push(LOGO_ONE_LINE_BLOCK)
+    p.push(LOGO_CONTRAST_BLOCK)
   }
 
   p.push(
@@ -335,7 +337,7 @@ export function buildBoxPrintPrompt(input: BuildBoxPrintPromptInput): string {
       capability.fullSurface
         ? 'the printed colour covers the whole box with no unprinted white or kraft showing at the edges or sides'
         : `every unprinted area is still ${color ?? 'the box’s own stock colour'}, and the design sits within a clear unprinted margin without bleeding off the edges`
-    }; (4) any logo is small and on one line; (5) one box, one photograph. If a check fails, correct it and return the corrected image.`,
+    }; (4) any logo is small, on one line, and clearly visible — in its original colours, or all-white/all-black where the surface matched its colour; (5) one box, one photograph. If a check fails, correct it and return the corrected image.`,
   )
 
   return p.join('\n\n')

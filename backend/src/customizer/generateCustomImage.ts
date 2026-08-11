@@ -15,6 +15,9 @@ export interface GenerateCustomImageInput {
   mainImageUrl: string
   productId?: string
   companyName?: string | null
+  /** What the product is — placement follows the item, not just its pixels. */
+  productName?: string | null
+  productDescription?: string | null
   /** Pre-fetched brand images (preferred — avoids duplicate downloads). */
   logoImage?: FetchedImage
   faviconImage?: FetchedImage
@@ -56,6 +59,8 @@ export async function generateCustomImage(
 
   const promptCtx: CustomizePromptContext = {
     companyName: input.companyName,
+    productName: input.productName,
+    productDescription: input.productDescription,
     hasLogo: Boolean(logoImage),
     hasFavicon: Boolean(faviconImage),
     logoFacts,

@@ -22,7 +22,7 @@ export const users = pgTable(
     passwordHash: text('password_hash').notNull(),
     role: text('role').notNull().default('member'),
     companyId: uuid('company_id').references(() => companies.id, {
-      onDelete: 'set null',
+      onDelete: 'cascade',
     }),
     /** Derived from email (part after `@`), for grouping/lookup by domain. */
     emailDomain: text('email_domain'),

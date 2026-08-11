@@ -53,6 +53,11 @@ export const INSTRUCTION_DEFINITIONS: InstructionDefinition[] = [
           'Measured ground truth about the logo: aspect ratio, line count, exact colours. Empty when measurement failed.',
       },
       {
+        name: 'productFacts',
+        description:
+          'THE PRODUCT block: the product name and catalogue description, so placement follows what the item is. Empty when unknown.',
+      },
+      {
         name: 'companyNameSection',
         description:
           'The optional company-name paragraph. Empty when the company has no name.',

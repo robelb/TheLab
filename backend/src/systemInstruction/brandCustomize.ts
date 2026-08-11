@@ -1,5 +1,6 @@
 import type { BrandMarkFacts } from '../customizer/brandMarkFacts.js'
 import {
+  LOGO_CONTRAST_BLOCK,
   LOGO_ONE_LINE_BLOCK,
   LOGO_PRIME_RULE,
   MARK_SCALE_BLOCK,
@@ -22,6 +23,9 @@ export function lineCountClaim(f: BrandMarkFacts): string {
 
 export interface CustomizePromptContext {
   companyName?: string | null
+  /** What the product IS — lets placement follow the item, not just pixels. */
+  productName?: string | null
+  productDescription?: string | null
   hasLogo: boolean
   hasFavicon: boolean
   /** Measured from the supplied mark images — rendered as ground-truth facts. */
@@ -104,7 +108,7 @@ const MARK_FIDELITY_BLOCK = [
   '- Same line count: the mark keeps the same number of lines as the supplied image, and a horizontal wordmark is one line unless the artwork visibly shows otherwise. Never stack, wrap, break or re-flow it, and never introduce a line break the artwork does not have.',
   '- Same lockup: icon and text keep their relative positions (an icon left of the text stays left of it, never above).',
   '- Same letterforms: exact spelling, capitalisation, letter spacing and weight. Never re-type it in another font and never add or remove any element.',
-  '- Same colours: print the mark in its original colours, exactly. Never recolour, invert, darken, lighten, add gradients or outlines, or adapt the colours to the product. If the colours would blend into the chosen surface, move the mark to a surface where they stay visible — never change the colours.',
+  '- Same colours by default: print the mark in its original colours, exactly — never darkened, lightened, tinted or given gradients or outlines. The ONE permitted change is the LOGO CONTRAST rule: on a surface that matches the mark\u2019s own colour, the whole mark switches to solid white or solid black.',
   '- Uniform scale only: never stretch, squash, crop, rotate, mirror or change its aspect ratio.',
 ].join('\n')
 
@@ -123,10 +127,42 @@ function measuredFactsBlock(ctx: CustomizePromptContext): string {
   ].join('\n')
 }
 
+/**
+ * What the product is, in words — the photo alone can be ambiguous (a black
+ * cylinder could be a bottle, a tube or a speaker), and the right print spot
+ * depends on which it is.
+ */
+/** Catalogue copy arrives as HTML of any length; the prompt gets one clean clause. */
+function clampDescription(raw: string): string {
+  const text = raw
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.length > 400 ? `${text.slice(0, 400).trimEnd()}…` : text
+}
+
+function productFactsBlock(ctx: CustomizePromptContext): string {
+  const name = ctx.productName?.trim()
+  const description = ctx.productDescription?.trim()
+  if (!name && !description) return ''
+  const facts: string[] = ['THE PRODUCT — what you are printing on:']
+  if (name) facts.push(`- It is: ${name}.`)
+  if (description) {
+    const clean = clampDescription(description)
+    if (clean) facts.push(`- Catalogue description: ${clean}`)
+  }
+  facts.push(
+    '- Combine these facts with what you actually see in the PRODUCT PHOTO to identify the product type, its material and which surface faces the camera — then choose the placement the way a merch printer would for exactly this item.',
+  )
+  return facts.join('\n')
+}
+
 const PLACEMENT_BLOCK = [
   'PLACEMENT — first CHOOSE the optimal spot on the product, then print there. Decide in this order:',
   '1. If the photo marks a print zone (dashed outline or placeholder), that is the spot — print there and remove the zone indicator.',
-  "2. Otherwise use the spot where this product category is branded in real life: centre chest of a shirt or hoodie; the side of a mug or bottle facing the camera, centred; the front panel of a bag, box or notebook; the barrel of a pen; the front face of packaging.",
+  "2. Otherwise identify what the product IS — from THE PRODUCT facts when given, and from the photo itself — and use the spot where that product is branded in real life: centre chest of a shirt or hoodie; the side of a mug or bottle facing the camera, centred; the front panel of a bag, box or notebook; the barrel of a pen; the front face of packaging.",
   '3. If neither applies, pick the surface that scores best on ALL of: (a) wide and flat enough for the mark at a legible size WITHOUT changing its layout — a wide wordmark needs a wide surface; (b) fully visible and facing the camera, not curving out of view; (c) evenly lit; (d) clear of seams, zips, handles, buttons, edges and existing artwork.',
   'Then print it there:',
   '- Centre the mark within the chosen area with balanced margins on every side — not crammed against an edge.',
@@ -146,7 +182,7 @@ const OUTPUT_BLOCK =
   'OUTPUT: exactly ONE photograph — the edited product photo. No collage, split layout, grid, banner, multiple views, borders, captions or watermarks.'
 
 const FINAL_CHECK_BLOCK =
-  'FINAL CHECK before returning the image — if any of these fail, discard the result and redo the edit from the PRODUCT PHOTO: (1) the product from the PRODUCT PHOTO is present, exactly ONCE, unchanged in size, position and appearance; (2) the output is not a logo-only image and contains no duplicate of the product; (3) the printed mark has the SAME layout as the supplied mark image — same number of lines, same lockup, same aspect ratio; (4) the printed mark has the SAME colours as the supplied mark image, unaltered; (5) the mark spans about a quarter to a third of the width of the face it sits on — never past 40% — with clear space around it and no edge crowding; if it looks large, it is too large; (6) apart from the printed mark and any seamless background extension, nothing differs from the PRODUCT PHOTO.'
+  'FINAL CHECK before returning the image — if any of these fail, discard the result and redo the edit from the PRODUCT PHOTO: (1) the product from the PRODUCT PHOTO is present, exactly ONCE, unchanged in size, position and appearance; (2) the output is not a logo-only image and contains no duplicate of the product; (3) the printed mark has the SAME layout as the supplied mark image — same number of lines, same lockup, same aspect ratio; (4) the printed mark has the SAME colours as the supplied mark image — or, where its colours would have vanished against the surface, is rendered ENTIRELY in solid white or solid black, and is clearly visible either way; (5) the mark spans about a quarter to a third of the width of the face it sits on — never past 40% — with clear space around it and no edge crowding; if it looks large, it is too large; (6) apart from the printed mark and any seamless background extension, nothing differs from the PRODUCT PHOTO.'
 
 /**
  * Build the single prompt sent for both OpenAI and Gemini brand customization
@@ -183,7 +219,9 @@ export function buildCustomizePrompt(ctx: CustomizePromptContext): string {
     measuredFactsBlock(ctx),
     MARK_SCALE_BLOCK,
     LOGO_ONE_LINE_BLOCK,
+    LOGO_CONTRAST_BLOCK,
     PRINT_TEXT_BLOCK,
+    productFactsBlock(ctx),
     PLACEMENT_BLOCK,
     companyNameBlock(name),
     CANVAS_BLOCK,
@@ -212,6 +250,7 @@ export function buildCustomizeTemplateVars(
     referenceImages: referenceImagesBlock(ctx),
     markSelection: markSelectionBlock(ctx),
     measuredMarkFacts: measuredFactsBlock(ctx),
+    productFacts: productFactsBlock(ctx),
     companyNameSection: companyNameBlock(name),
   }
 }
@@ -231,7 +270,9 @@ export const CUSTOMIZE_DEFAULT_TEMPLATE = [
   '{{measuredMarkFacts}}',
   MARK_SCALE_BLOCK,
   LOGO_ONE_LINE_BLOCK,
+  LOGO_CONTRAST_BLOCK,
   PRINT_TEXT_BLOCK,
+  '{{productFacts}}',
   PLACEMENT_BLOCK,
   '{{companyNameSection}}',
   CANVAS_BLOCK,

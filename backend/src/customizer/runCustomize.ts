@@ -50,6 +50,9 @@ interface ResolvedFeaturedProduct {
   dbId: string
   sku: string
   mainImageUrl: string
+  /** Fed into the branding prompt so logo placement follows what the item is. */
+  name: string
+  description: string
 }
 
 /** Optional per-SKU image overrides (preferred print-position mockups). */
@@ -69,6 +72,8 @@ async function resolveFeaturedProducts(): Promise<ResolvedFeaturedProduct[]> {
       id: products.id,
       sku: products.sku,
       image: products.image,
+      name: products.name,
+      description: products.description,
     })
     .from(products)
     .where(eq(products.isFeatured, true))
@@ -78,6 +83,8 @@ async function resolveFeaturedProducts(): Promise<ResolvedFeaturedProduct[]> {
       dbId: r.id,
       sku: r.sku,
       mainImageUrl: FEATURED_IMAGE_OVERRIDES.get(r.sku) ?? r.image,
+      name: r.name,
+      description: r.description,
     }))
     .filter((p) => Boolean(p.mainImageUrl))
 }
@@ -133,6 +140,8 @@ export async function runCustomize(
           productId: product.sku,
           mainImageUrl: product.mainImageUrl,
           companyName: options.companyName,
+          productName: product.name,
+          productDescription: product.description,
           logoImage: brandImages.logo,
           faviconImage: brandImages.favicon,
         },
