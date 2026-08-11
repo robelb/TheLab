@@ -210,16 +210,7 @@ export function BoxCustomizerDialog({
 
             <div className="flex flex-wrap gap-1.5">
               {EXAMPLES.map((example) => (
-                <button
-                  key={example.label}
-                  type="button"
-                  title={example.prompt}
-                  onClick={() => setPrompt(example.prompt)}
-                  disabled={customize.isPending}
-                  className="rounded-brand border border-border/40 px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-border hover:text-foreground"
-                >
-                  {example.label}
-                </button>
+                <Button size='sm' variant="outline" key={example.label} title={example.prompt} onClick={() => setPrompt(example.prompt)} disabled={customize.isPaused} className='py-1 px-2 text-xs' >{example.label}</Button>
               ))}
             </div>
 
@@ -259,7 +250,7 @@ export function BoxCustomizerDialog({
                   }}
                   disabled={customize.isPending}
                 />
-                Include the {brand.companyName} logo
+                Include Your Logo
               </label>
             )}
 

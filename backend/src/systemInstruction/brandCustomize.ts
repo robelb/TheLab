@@ -1,6 +1,7 @@
 import type { BrandMarkFacts } from '../customizer/brandMarkFacts.js'
 import {
   LOGO_ONE_LINE_BLOCK,
+  LOGO_PRIME_RULE,
   MARK_SCALE_BLOCK,
   PRINT_TEXT_BLOCK,
 } from './printScale.js'
@@ -171,6 +172,8 @@ const FINAL_CHECK_BLOCK =
 export function buildCustomizePrompt(ctx: CustomizePromptContext): string {
   const name = ctx.companyName?.trim() || undefined
   return [
+    // The logo contract opens the prompt — models weight the first line most.
+    ctx.hasLogo || ctx.hasFavicon ? LOGO_PRIME_RULE : '',
     TASK_BLOCK,
     referenceImagesBlock(ctx),
     outputContractBlock(Boolean(name)),
@@ -218,6 +221,7 @@ export function buildCustomizeTemplateVars(
  * starting point shown to super admins when creating an override.
  */
 export const CUSTOMIZE_DEFAULT_TEMPLATE = [
+  LOGO_PRIME_RULE,
   TASK_BLOCK,
   '{{referenceImages}}',
   outputContractBlock(true),

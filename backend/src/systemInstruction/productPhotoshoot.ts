@@ -12,7 +12,11 @@
  * assemble one art-director brief — a SINGLE photo, never a grid of variations.
  */
 
-import { LOGO_ONE_LINE_BLOCK, MARK_SCALE_BLOCK } from './printScale.js'
+import {
+  LOGO_ONE_LINE_BLOCK,
+  LOGO_PRIME_RULE,
+  MARK_SCALE_BLOCK,
+} from './printScale.js'
 
 export interface SceneType {
   id: string
@@ -125,6 +129,9 @@ export function buildPhotoshootPrompt(input: BuildPhotoshootPromptInput): string
   const subject = productName ? `the ${productName}` : 'the product'
 
   const p: string[] = []
+
+  // The logo contract opens the prompt — models weight the first line most.
+  if (input.hasBranding) p.push(LOGO_PRIME_RULE)
 
   if (input.hasBase) {
     // ── Refine mode: iterate on a previously generated image (chat follow-up).

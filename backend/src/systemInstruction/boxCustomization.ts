@@ -19,6 +19,7 @@ import {
   BOX_FULL_BLEED_SCALE_BLOCK,
   BOX_PRINT_SCALE_BLOCK,
   LOGO_ONE_LINE_BLOCK,
+  LOGO_PRIME_RULE,
   PRINT_TEXT_BLOCK,
 } from './printScale.js'
 
@@ -178,6 +179,9 @@ export function buildBoxPrintPrompt(input: BuildBoxPrintPromptInput): string {
   const request = input.request.trim()
   const wording = requestedText(request)
   const p: string[] = []
+
+  // The logo contract opens the prompt — models weight the first line most.
+  if (input.hasBranding) p.push(LOGO_PRIME_RULE)
 
   if (input.hasBase) {
     p.push(

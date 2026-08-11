@@ -2,6 +2,7 @@ import type { BrandMarkFacts } from '../customizer/brandMarkFacts.js'
 import { lineCountClaim } from './brandCustomize.js'
 import {
   LOGO_ONE_LINE_BLOCK,
+  LOGO_PRIME_RULE,
   MARK_SCALE_BLOCK,
   PRINT_TEXT_BLOCK,
 } from './printScale.js'
@@ -287,6 +288,8 @@ export function buildCampaignKitImagePrompt(
   const hasLogo = Boolean(options.hasLogo)
 
   return [
+    // The logo contract opens the prompt — models weight the first line most.
+    hasLogo ? LOGO_PRIME_RULE : '',
     KIT_TASK_BLOCK,
     kitReferenceImagesBlock(count, {
       hasPackaging: Boolean(options.packaging),
@@ -347,6 +350,7 @@ export function buildKitTemplateVars(
  * with-logo variant (the shipping configuration).
  */
 export const KIT_IMAGE_DEFAULT_TEMPLATE = [
+  LOGO_PRIME_RULE,
   KIT_TASK_BLOCK,
   '{{referenceImages}}',
   '{{productSet}}',

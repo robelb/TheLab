@@ -157,6 +157,23 @@ for (const [name, p] of variants) {
     `${name}: one-line + shrink-to-fit`,
     /one line|ONE single line|ONE LINE/i.test(p) && /SMALLER/i.test(p),
   )
+  check(
+    `${name}: opens with the logo rule`,
+    p.startsWith('FIRST, THE LOGO RULE'),
+    'the as-is / shrink-only / never-multi-line contract must be the first line of every logo-bearing prompt',
+  )
+}
+{
+  // And prompts WITHOUT a logo must not open with a rule about an image
+  // that is not attached.
+  const noLogo: [string, string][] = [
+    ['shoot·no-brand', buildPhotoshootPrompt({ sceneType: 'studio-hero', aspectRatio: 'square', productName: 'Mug', hasStyle: false, hasBranding: false })],
+    ['box·no-brand', buildBoxPrintPrompt({ boxName: 'Eco Box white', boxDescription: 'natural or white', request: 'print "Hi"', hasBranding: false })],
+    ['kit·no-logo', buildCampaignKitImagePrompt(['Mug'], { hasLogo: false })],
+  ]
+  for (const [name, p] of noLogo) {
+    check(`${name}: no phantom logo rule`, !p.includes('FIRST, THE LOGO RULE'))
+  }
 }
 
 console.log('\n── D. contradictions ──')

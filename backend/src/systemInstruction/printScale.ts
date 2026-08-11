@@ -14,6 +14,16 @@
  */
 
 /**
+ * The very first thing every logo-bearing prompt says, before the task itself.
+ * Models weight the opening of a prompt heavily, and the single worst logo
+ * failure is re-typesetting a one-line mark into a stacked block — so the
+ * non-negotiable contract goes first: the logo is used as-is, shrinking is the
+ * only permitted change.
+ */
+export const LOGO_PRIME_RULE =
+  'FIRST, THE LOGO RULE — before anything else: use the supplied brand logo exactly AS IT IS. You are free to make it SMALLER — shrink it as much as needed to fit a surface — but you may not change it in any other way: never redraw, restyle, recolour, stretch, crop or re-typeset it, and NEVER turn a single-line logo into two or more lines. If the logo does not fit somewhere, it becomes smaller; its artwork and layout never change.'
+
+/**
  * How big a printed brand mark may be. Used wherever a logo goes onto a
  * product — onboarding branding, the bundle photo, the product photoshoot.
  */
