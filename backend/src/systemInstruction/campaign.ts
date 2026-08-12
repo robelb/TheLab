@@ -92,6 +92,15 @@ export interface CampaignKitImageOptions {
 //   3. KIT_IMAGE_DEFAULT_TEMPLATE (the editable starting point in the admin UI)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * A compact recap of the per-product logo contract, placed right after the
+ * task statement. The detailed rules live in the branding/scale/one-line
+ * blocks further down; with many products in one frame the model needs the
+ * headline version early, before it starts composing.
+ */
+const KIT_LOGO_RECAP =
+  'EVERY PRODUCT GETS THE LOGO — the same supplied logo on each product, exactly as it is: copied from its reference image (never drawn from memory or invented), SMALL — about a quarter to a third of the face it sits on — and on ONE line when the artwork is one line, which it is for most logos. One logo per product, no product left out, and never a stacked, wrapped or re-typeset copy on any of them.'
+
 const KIT_TASK_BLOCK =
   'You are an expert commercial product photographer and photo compositor. Create ONE photorealistic top-down (90° overhead) flat-lay photograph of a corporate gift box that contains exactly the products listed below.'
 
@@ -222,7 +231,7 @@ function kitLogoFactsLines(f: BrandMarkFacts | null | undefined): string {
 /** `factsLines` slots in before the reproduce-exactly bullet; '' to omit. */
 function kitBrandingBlock(factsLines: string): string {
   return [
-    'BRANDING — essential: apply the company logo (the final reference image) to EVERY product in the box, as if each item were genuine branded corporate merchandise.',
+    'BRANDING — essential: apply the company logo (the final reference image) to EVERY product in the box, as if each item were genuine branded corporate merchandise. Copy it from that reference image exactly — never draw it from memory, never approximate it, never substitute a similar-looking or invented mark.',
     '- Exactly one logo per product, printed, embossed or label-applied directly onto the item itself or onto its packaging. No item is left unbranded.',
     ...(factsLines ? [factsLines] : []),
     '- Reproduce the logo exactly as supplied: identical shapes, colours and proportions. The only permitted transformations are uniform scaling, perspective mapping onto the surface, and material/lighting integration.',
@@ -293,6 +302,7 @@ export function buildCampaignKitImagePrompt(
     // The logo contract opens the prompt — models weight the first line most.
     hasLogo ? LOGO_PRIME_RULE : '',
     KIT_TASK_BLOCK,
+    hasLogo ? KIT_LOGO_RECAP : '',
     kitReferenceImagesBlock(count, {
       hasPackaging: Boolean(options.packaging),
       hasFilling: Boolean(options.filling),
@@ -356,6 +366,7 @@ export function buildKitTemplateVars(
 export const KIT_IMAGE_DEFAULT_TEMPLATE = [
   LOGO_PRIME_RULE,
   KIT_TASK_BLOCK,
+  KIT_LOGO_RECAP,
   '{{referenceImages}}',
   '{{productSet}}',
   KIT_PRODUCT_FIDELITY_BLOCK,

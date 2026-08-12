@@ -176,6 +176,18 @@ const INTERPRETATION_BLOCK = [
   '- If a detail is genuinely ambiguous, choose the most conventional, giftable reading. Never render a question, a placeholder or lorem text on the box.',
 ].join('\n')
 
+/**
+ * Multiple boxes in one output is the box prompt's own duplication failure —
+ * triggered above all in refine mode, where TWO box pictures go in (the
+ * current design and the original reference) and the model renders both.
+ */
+const ONE_BOX_BLOCK = [
+  'ONE BOX ONLY — the finished image contains exactly ONE gift box:',
+  '- A single box, shown once, from one angle. All the reference images describe this one SAME box — they are never a request for several boxes.',
+  '- Never render two boxes side by side, a row or stack of boxes, the same box at multiple angles or sizes, an open and a closed version together, or a small extra box in the background.',
+  '- If a draft shows more than one box, it is wrong: redo it with exactly one.',
+].join('\n')
+
 export function buildBoxPrintPrompt(input: BuildBoxPrintPromptInput): string {
   const name = input.boxName.trim() || 'gift box'
   const request = input.request.trim()
@@ -220,6 +232,8 @@ export function buildBoxPrintPrompt(input: BuildBoxPrintPromptInput): string {
       'KEEP THE BOX ITSELF UNCHANGED. Same construction, same proportions, same lid and closure, same material and texture, same photographic angle. You are changing only what is PRINTED on its surface — do not redesign, reshape, resize or replace the box, and do not turn it into a different style of packaging. Its printed colour may change where the SURFACE rules below allow it; its shape never does.',
     )
   }
+
+  p.push(ONE_BOX_BLOCK)
 
   // ── Facts about this specific box, straight from the supplier.
   const facts: string[] = [`This box is the "${name}".`]
@@ -306,7 +320,7 @@ export function buildBoxPrintPrompt(input: BuildBoxPrintPromptInput): string {
 
   if (input.hasBranding) {
     p.push(
-      "BRANDING — the FINAL reference image is the brand's logo. Apply it to the box exactly as given: sharp, correctly coloured and undistorted. Keep it small — roughly a quarter of the width of the face, clearly separated from the requested design and never competing with it. It is the only brand allowed in the image; remove or replace any other, different, placeholder or made-up logo, brand name or wordmark. Never redraw, restyle or add text to it, and keep its original colours except where the LOGO CONTRAST rule applies.",
+      "BRANDING — the FINAL reference image is the brand's logo, and it MUST appear on the box: applying it is part of the task, never optional, never skipped, and never postponed. Copy it from that reference image exactly — never draw it from memory, never approximate it, and never substitute a similar-looking or invented mark; the reference is the only source of what this logo looks like. Apply it sharp and undistorted, and keep it small — roughly a quarter of the width of the face, clearly separated from the requested design and never competing with it. It is the only brand allowed in the image; remove or replace any other, different, placeholder or made-up logo, brand name or wordmark. Never redraw, restyle or add text to it, and keep its original colours except where the LOGO CONTRAST rule applies.",
     )
     p.push(LOGO_ONE_LINE_BLOCK)
     p.push(LOGO_CONTRAST_BLOCK)
@@ -335,12 +349,18 @@ export function buildBoxPrintPrompt(input: BuildBoxPrintPromptInput): string {
       ? 'the wording is the corrected, properly spelled and capitalised message the shopper meant — no typos, no instruction words — set on one line unless it was too long to be'
       : 'no wording appears that was not asked for'
 
+  // A requested logo is verified as PRESENT and faithful; without one, the box
+  // must carry no brand at all — an invented mark is the failure being pinned.
+  const logoCheck = input.hasBranding
+    ? 'the brand logo from the FINAL reference image IS on the box — exactly once, matching that reference exactly (never redrawn, approximated or invented), small, on one line, and clearly visible in its original colours or with only its black/white parts swapped where the surface matched its colour'
+    : 'no logo, brand name or wordmark appears anywhere on the box'
+
   p.push(
     `FINAL CHECK before returning the image: (1) it is the same box as the reference — same construction, proportions and angle; (2) ${wordingCheck}; (3) ${
       capability.fullSurface
         ? 'the printed colour covers the whole box with no unprinted white or kraft showing at the edges or sides'
         : `every unprinted area is still ${color ?? 'the box’s own stock colour'}, and the design sits within a clear unprinted margin without bleeding off the edges`
-    }; (4) any logo is small, on one line, and clearly visible — in its original colours, or with only its black/white parts swapped where the surface matched its colour; (5) one box, one photograph. If a check fails, correct it and return the corrected image.`,
+    }; (4) ${logoCheck}; (5) exactly ONE box appears, in one single photograph. If a check fails, correct it and return the corrected image.`,
   )
 
   return p.join('\n\n')

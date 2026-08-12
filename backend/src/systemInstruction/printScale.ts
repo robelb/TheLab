@@ -21,7 +21,7 @@
  * only permitted change.
  */
 export const LOGO_PRIME_RULE =
-  'FIRST, THE LOGO RULE — before anything else: use the supplied brand logo exactly AS IT IS. You are free to make it SMALLER — shrink it as much as needed to fit a surface — but you may not change its artwork: never redraw, restyle, stretch, crop or re-typeset it, and NEVER turn a single-line logo into two or more lines. Keep its original colours, with ONE exception: where the logo would disappear against a surface of nearly its own colour, swap ONLY its black and white parts for the opposite — black becomes white on dark surfaces, white becomes black on light ones — while every other colour in the logo stays exactly as supplied. If the logo does not fit somewhere, it becomes smaller; its artwork and layout never change.'
+  'FIRST, THE LOGO RULE — before anything else: use the supplied brand logo exactly AS IT IS, copied from its reference image — never drawn from memory, never approximated, never replaced with a similar-looking or invented mark. You are free to make it SMALLER — shrink it as much as needed to fit a surface — but you may not change its artwork: never redraw, restyle, stretch, crop or re-typeset it, and NEVER turn a single-line logo into two or more lines. Keep its original colours, with ONE exception: where the logo would disappear against a surface of nearly its own colour, swap ONLY its black and white parts for the opposite — black becomes white on dark surfaces, white becomes black on light ones — while every other colour in the logo stays exactly as supplied. If the logo does not fit somewhere, it becomes smaller; its artwork and layout never change.'
 
 /**
  * What to do when the logo's own colours vanish against the surface it sits

@@ -755,8 +755,16 @@ export async function customizeBox(
   if (params.brandingImage) {
     brandingImage = await fetchedImageFromDataUrl(params.brandingImage, 'logo')
   } else if (params.brandingImageUrl) {
-    brandingImage =
-      (await fetchImageOptional(params.brandingImageUrl, 'logo')) ?? undefined
+    // The shopper asked for their logo — rendering without it would silently
+    // produce an unbranded (or model-invented) box, so a failed fetch fails
+    // the request instead.
+    const fetched = await fetchImageOptional(params.brandingImageUrl, 'logo')
+    if (!fetched) {
+      throw new Error(
+        'Could not load your logo. Check the brand logo and try again.',
+      )
+    }
+    brandingImage = fetched
   } else if (params.brandingSvg) {
     brandingImage = await fetchedImageFromInlineSvg(params.brandingSvg)
   }

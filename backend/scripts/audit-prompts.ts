@@ -171,6 +171,11 @@ for (const [name, p] of variants) {
       /Every OTHER colour in the logo stays exactly as supplied/.test(p),
   )
   check(
+    `${name}: logo copied from reference, never from memory`,
+    /never drawn from memory/.test(p),
+    'the anti-hallucination clause is missing from the opening logo rule',
+  )
+  check(
     `${name}: no stale colour phrasing`,
     !/never change the colours/.test(p) &&
       !/lighter or darker area of that item instead/.test(p) &&
@@ -266,6 +271,38 @@ console.log('\n── F. attachment descriptions ──')
   const kit = buildCampaignKitImagePrompt(['Mug'], { hasLogo: true, companyName: 'BLT', packaging: { name: 'Box' }, filling: { name: 'Fill' } })
   check('kit: box + filling + logo all described',
     /BOX reference/.test(kit) && /FILLING reference/.test(kit) && /FINAL image is the company logo/.test(kit))
+}
+
+// ── I. box print: one box only, logo present when requested ─────────────────
+console.log('\n── I. one box + logo presence ──')
+{
+  const fresh = buildBoxPrintPrompt({ boxName: 'Eco Box white', boxDescription: 'natural or white', request: 'print "Hi"', hasBranding: true })
+  const refine = buildBoxPrintPrompt({ boxName: 'Eco Box white', boxDescription: 'natural or white', request: 'add stars', hasBranding: true, hasBase: true })
+  const noBrand = buildBoxPrintPrompt({ boxName: 'Eco Box white', boxDescription: 'natural or white', request: 'print "Hi"', hasBranding: false })
+  for (const [name, pr] of [['fresh', fresh], ['refine', refine], ['no-brand', noBrand]] as const) {
+    check(`box·${name}: ONE BOX block present`,
+      /ONE BOX ONLY — the finished image contains exactly ONE gift box/.test(pr) &&
+        /All the reference images describe this one SAME box/.test(pr))
+  }
+  check('box·branded: logo made mandatory, never invented',
+    /it MUST appear on the box/.test(fresh) && /never draw it from memory/.test(fresh))
+  check('box·branded: FINAL CHECK verifies the logo IS present',
+    /\(4\) the brand logo from the FINAL reference image IS on the box/.test(fresh))
+  check('box·no-brand: FINAL CHECK forbids any brand mark',
+    /\(4\) no logo, brand name or wordmark appears anywhere on the box/.test(noBrand))
+  check('box: final check demands exactly ONE box',
+    /\(5\) exactly ONE box appears, in one single photograph/.test(fresh))
+
+  const kitWithLogo = buildCampaignKitImagePrompt(['Mug', 'Pen'], { hasLogo: true, companyName: 'BLT' })
+  const kitNoLogo = buildCampaignKitImagePrompt(['Mug', 'Pen'], { hasLogo: false })
+  check('kit·logo: early per-product recap (small, one line, as-is, on each)',
+    /EVERY PRODUCT GETS THE LOGO/.test(kitWithLogo) &&
+      /on ONE line when the artwork is one line/.test(kitWithLogo) &&
+      /no product left out/.test(kitWithLogo))
+  check('kit·no-logo: no recap for a logo that is not attached',
+    !/EVERY PRODUCT GETS THE LOGO/.test(kitNoLogo))
+  check('kit·logo: branding block bans invented marks',
+    /never draw it from memory/.test(kitWithLogo))
 }
 
 // ── H. single render: no duplicates, one scene at the given dimensions ──────
