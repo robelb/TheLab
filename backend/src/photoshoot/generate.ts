@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai'
 import OpenAI, { toFile } from 'openai'
 import type { FetchedImage } from '../customizer/fetchImage.js'
 import type { ImageLlmConfig } from '../customizer/llmImageConfig.js'
+import { env } from '../config/env.js'
 import {
   normalizeImageForAi,
   resolveImageMime,
@@ -49,6 +50,14 @@ export interface GenerateOptions {
    * lets the model follow the base (e.g. a style image we want to preserve).
    */
   size?: OpenAiImageSize
+  /**
+   * Aspect ratio for Gemini, as the API names them ("1:1", "3:2", "2:3").
+   *
+   * Gemini takes this as a parameter, not as prose. Without it the chosen
+   * ratio only ever appeared as a sentence in the prompt, which the model was
+   * free to ignore — and did, returning a square every time.
+   */
+  aspectRatio?: string
 }
 
 /**
@@ -69,7 +78,7 @@ export async function generateProductPhoto(
   if (config.provider === 'openai') {
     return generateOpenAI(prompt, images, config, options)
   }
-  return generateGemini(prompt, images, config)
+  return generateGemini(prompt, images, config, options)
 }
 
 async function generateOpenAI(
@@ -93,7 +102,7 @@ async function generateOpenAI(
     image: files,
     prompt,
     n: 1,
-    quality: 'low',
+    quality: openAiQuality(),
     size: options.size ?? '1024x1024',
   })
 
@@ -104,10 +113,25 @@ async function generateOpenAI(
   return Buffer.from(b64, 'base64')
 }
 
+/** Whatever `OPENAI_IMAGE_QUALITY` says, narrowed to what the SDK accepts. */
+function openAiQuality(): 'low' | 'medium' | 'high' | 'auto' {
+  const value = env.OPENAI_IMAGE_QUALITY
+  return value === 'low' || value === 'medium' || value === 'high' || value === 'auto'
+    ? value
+    : 'high'
+}
+
+/** Likewise for Gemini's render resolution. */
+function geminiImageSize(): string {
+  const value = env.GEMINI_IMAGE_SIZE.toUpperCase()
+  return value === '1K' || value === '2K' || value === '4K' ? value : '2K'
+}
+
 async function generateGemini(
   prompt: string,
   images: FetchedImage[],
   config: ImageLlmConfig,
+  options: GenerateOptions,
 ): Promise<Buffer> {
   const ai = new GoogleGenAI({ apiKey: config.apiKey })
 
@@ -121,7 +145,16 @@ async function generateGemini(
   const response = await ai.models.generateContent({
     model: config.model,
     contents: [{ role: 'user', parts }],
-    config: { responseModalities: ['TEXT', 'IMAGE'] },
+    config: {
+      responseModalities: ['TEXT', 'IMAGE'],
+      // Both of these were previously left unset, so the API applied its own
+      // defaults: 1K, square. The prompt asked for more in words and got
+      // neither — resolution and aspect ratio are parameters here, not prose.
+      imageConfig: {
+        imageSize: geminiImageSize(),
+        ...(options.aspectRatio ? { aspectRatio: options.aspectRatio } : {}),
+      },
+    },
   })
 
   const responseParts = response.candidates?.[0]?.content?.parts ?? []

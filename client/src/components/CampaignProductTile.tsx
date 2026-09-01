@@ -1,5 +1,7 @@
-import { Minus, Plus, X } from 'lucide-react'
+import { Minus, Plus, Wand2, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { getProductDisplayImage } from '@/lib/productImage'
+import { cn } from '@/lib/utils'
 import { formatPrice } from '@/utils/format'
 import type { Product } from '@/types/product'
 
@@ -10,6 +12,19 @@ interface CampaignProductTileProps {
   quantity?: number
   /** Enables the stepper; never goes below 1, removal stays on the ✕. */
   onQuantityChange?: (quantity: number) => void
+  /** Opens the design editor for this product. Omit for a plain tile. */
+  onDesign?: () => void
+  /** The design already made for it, shown in place of the catalogue photo. */
+  designImage?: string | null
+  /**
+   * Show the plain catalogue photo rather than the company's branded variant.
+   *
+   * For the box builder, where every product is something you are about to
+   * design: a pre-branded tile looks finished when nothing has been placed yet,
+   * and hides the bare surface you would be designing on. A design the shopper
+   * actually made still wins over both.
+   */
+  plainImage?: boolean
 }
 
 /** Read-only product tile for the campaign bundle (no cart, no navigation). */
@@ -18,6 +33,9 @@ export function CampaignProductTile({
   onRemove,
   quantity,
   onQuantityChange,
+  onDesign,
+  designImage,
+  plainImage,
 }: CampaignProductTileProps) {
   const showStepper = quantity !== undefined && Boolean(onQuantityChange)
 
@@ -33,13 +51,35 @@ export function CampaignProductTile({
           <X className="size-3.5" />
         </button>
       )}
-      <div className="aspect-square overflow-hidden bg-muted/10">
+      <div className="relative aspect-square overflow-hidden bg-muted/10">
         <img
-          src={getProductDisplayImage(product)}
+          src={
+            designImage ?? (plainImage ? product.image : getProductDisplayImage(product))
+          }
           alt={product.name}
           className="h-full w-full object-contain p-2"
           loading="lazy"
         />
+        {onDesign && (
+          <Button
+            type="button"
+            size="sm"
+            variant={designImage ? 'default' : 'secondary'}
+            onClick={onDesign}
+            className={cn(
+              'absolute bottom-1.5 left-1.5 h-7 px-2 text-xs shadow-sm transition-opacity',
+              // A designed product keeps its button visible — that design is
+              // the reason the tile no longer matches the catalogue, and it
+              // should be one click to change rather than one hover away.
+              designImage
+                ? 'opacity-100'
+                : 'opacity-0 focus-visible:opacity-100 group-hover:opacity-100',
+            )}
+          >
+            <Wand2 className="size-3" />
+            {designImage ? 'Edit design' : 'Design'}
+          </Button>
+        )}
       </div>
       <div className="space-y-0.5 p-2">
         <p className="truncate text-xs font-medium">{product.name}</p>

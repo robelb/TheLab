@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { normalizeHex } from '../../lib/color.js'
+import { placementLayoutSchema } from '../../customizer/placementLayout.js'
 
 export const PAGE_SIZE_OPTIONS = [20, 40, 60] as const
 
@@ -211,6 +212,8 @@ export const photoshootSchema = z.object({
   brandingImage: z.string().min(1).optional(),
   brandingImageUrl: z.string().trim().min(1).optional(),
   brandingSvg: z.string().min(1).optional(),
+  /** Where the user dragged the branding. Takes the edit-base slot when set. */
+  layout: placementLayoutSchema.optional(),
 })
 
 export type PhotoshootBody = z.infer<typeof photoshootSchema>
@@ -240,6 +243,11 @@ export const customizeBoxSchema = z
     brandingImage: z.string().min(1).optional(),
     brandingImageUrl: z.string().trim().min(1).optional(),
     brandingSvg: z.string().min(1).optional(),
+    /**
+     * Where the shopper dragged the logo and any wording. Takes the edit-base
+     * slot from `baseImageUrl` when set.
+     */
+    layout: placementLayoutSchema.optional(),
   })
   .refine(
     (v) =>
@@ -248,9 +256,68 @@ export const customizeBoxSchema = z
           v.brandingImage ||
           v.brandingImageUrl ||
           v.brandingSvg ||
-          v.baseImageUrl,
+          v.baseImageUrl ||
+          v.layout?.layers.length,
       ),
     { message: 'Describe what to print, or include your logo' },
   )
 
 export type CustomizeBoxBody = z.infer<typeof customizeBoxSchema>
+
+// ---------------------------------------------------------------------------
+// Customizing any product — the box builder's design editor
+// ---------------------------------------------------------------------------
+
+/**
+ * One request for every subject the design editor can open.
+ *
+ * A box and a mug need genuinely different briefs — a box has stock colours and
+ * printable faces, a mug has a scene and an aspect ratio — so the fields for
+ * both live here and the service dispatches on the product's category. The
+ * alternative, two endpoints the client picks between, pushes that same
+ * dispatch into the browser where it would drift.
+ */
+export const customizeProductSchema = z
+  .object({
+    prompt: z.string().trim().max(2000).optional().default(''),
+    /** A previous render to iterate on, so tweaks build on each other. */
+    baseImageUrl: z.string().trim().min(1).optional(),
+    /** Where the user placed the logo and any wording. */
+    layout: placementLayoutSchema.optional(),
+    brandingImage: z.string().min(1).optional(),
+    brandingImageUrl: z.string().trim().min(1).optional(),
+    brandingSvg: z.string().min(1).optional(),
+    // ── packaging only
+    color: z.string().trim().max(40).optional(),
+    // ── everything else
+    sceneType: z.string().trim().min(1).optional(),
+    aspectRatio: z.string().trim().min(1).optional(),
+    /** Which of the product's images to work from; defaults to its cover. */
+    productImageUrl: z.string().trim().min(1).optional(),
+  })
+  .refine(
+    (v) =>
+      Boolean(
+        v.prompt ||
+          v.brandingImage ||
+          v.brandingImageUrl ||
+          v.brandingSvg ||
+          v.baseImageUrl ||
+          v.layout?.layers.length,
+      ),
+    { message: 'Describe what to print, or include your logo' },
+  )
+
+export type CustomizeProductBody = z.infer<typeof customizeProductSchema>
+
+// ---------------------------------------------------------------------------
+// Company gallery — a confirmed design kept as one of this company's own
+// images for a product.
+// ---------------------------------------------------------------------------
+
+export const productGalleryImageSchema = z.object({
+  imageUrl: z.string().trim().min(1).max(2048),
+  prompt: z.string().trim().max(4000).optional(),
+})
+
+export type ProductGalleryImageBody = z.infer<typeof productGalleryImageSchema>

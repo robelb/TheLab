@@ -24,6 +24,33 @@ export const LOGO_PRIME_RULE =
   'FIRST, THE LOGO RULE — before anything else: use the supplied brand logo exactly AS IT IS, copied from its reference image — never drawn from memory, never approximated, never replaced with a similar-looking or invented mark. You are free to make it SMALLER — shrink it as much as needed to fit a surface — but you may not change its artwork: never redraw, restyle, stretch, crop or re-typeset it, and NEVER turn a single-line logo into two or more lines. Keep its original colours, with ONE exception: where the logo would disappear against a surface of nearly its own colour, swap ONLY its black and white parts for the opposite — black becomes white on dark surfaces, white becomes black on light ones — while every other colour in the logo stays exactly as supplied. If the logo does not fit somewhere, it becomes smaller; its artwork and layout never change.'
 
 /**
+ * The opening contract when the customer set the size themselves.
+ *
+ * `LOGO_PRIME_RULE` grants one freedom — "you are free to make it SMALLER" —
+ * because it was written for renders where the model chose how big the mark
+ * should be. Once a size has been dragged out by hand that freedom is a licence
+ * to overrule it, and the model takes it: the same failure as the house size
+ * caps, in the one block that opens every prompt and is weighted hardest.
+ * Everything else about artwork integrity is identical.
+ */
+export const LOGO_PRIME_RULE_PLACED =
+  'FIRST, THE LOGO RULE — before anything else: use the supplied brand logo exactly AS IT IS, copied from its reference image — never drawn from memory, never approximated, never replaced with a similar-looking or invented mark. Its SIZE has already been chosen by the customer and is fixed: do not enlarge it, do not shrink it, do not adjust it to fit better or read better. You may not change its artwork either: never redraw, restyle, stretch, crop or re-typeset it, and NEVER turn a single-line logo into two or more lines. Keep its original colours, with ONE exception: where the logo would disappear against a surface of nearly its own colour, swap ONLY its black and white parts for the opposite — black becomes white on dark surfaces, white becomes black on light ones — while every other colour in the logo stays exactly as supplied.'
+
+/**
+ * The one-line contract when the size is fixed.
+ *
+ * `LOGO_ONE_LINE_BLOCK` resolves the fit problem by shrinking — correct when
+ * the model owns the size, wrong when the customer does. At a hand-set size the
+ * mark fits by construction, so the rule reduces to: never restack it.
+ */
+export const LOGO_ONE_LINE_PLACED_BLOCK = [
+  'LOGO STAYS ON ONE LINE — this is a hard constraint, on every product, on the box, and on anything else the logo appears on:',
+  '- If the supplied logo is a single line of artwork, the printed logo is a single line of artwork. Never stack it, wrap it, break it across lines, split an icon above its text, or re-typeset it into a square or vertical block.',
+  '- The customer placed it at a size that already fits, so there is nothing to solve here: render it on one line at exactly that size. Do not resize it to make it fit, to make it more readable, or to balance the composition.',
+  '- If it reads small, that is how the customer wanted it. Reproduce it faithfully at that size rather than enlarging it.',
+].join('\n')
+
+/**
  * What to do when the logo's own colours vanish against the surface it sits
  * on — a dark logo on a black product, a white mark on white board. The only
  * permitted change is swapping the logo's black and white parts for each

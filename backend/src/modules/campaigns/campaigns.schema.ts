@@ -59,6 +59,12 @@ export const regenerateHeroImageSchema = z.object({
   fillingId: z.string().uuid().optional(),
   /** The shopper's printed-box design, used in place of the catalog photo. */
   packagingImageUrl: z.string().trim().min(1).optional(),
+  /**
+   * Per-product designs, keyed by product id — the same idea as
+   * `packagingImageUrl` but for the contents. Without these the group shot
+   * shows plain catalogue products next to a box the shopper just branded.
+   */
+  productImages: z.record(z.string().uuid(), z.string().trim().min(1)).optional(),
 })
 
 export type RegenerateHeroImageBody = z.infer<typeof regenerateHeroImageSchema>

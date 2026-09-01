@@ -87,6 +87,12 @@ export interface HeroImageSupplies {
   fillingId?: string
   /** The shopper's printed-box design, used instead of the catalog photo. */
   packagingImageUrl?: string
+  /**
+   * Designs made for the products inside, keyed by product id. Without these
+   * the group shot would show plain catalogue items beside a box the shopper
+   * just branded.
+   */
+  productImages?: Record<string, string>
 }
 
 export async function regenerateCampaignHeroImage(

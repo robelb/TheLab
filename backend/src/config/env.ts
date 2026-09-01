@@ -21,6 +21,22 @@ export const env = {
   GEMINI_IMAGE_MODEL:
     process.env.GEMINI_IMAGE_MODEL?.trim() ||
     'gemini-2.0-flash-preview-image-generation',
+  /**
+   * Resolution Gemini renders at: `1K`, `2K` or `4K`.
+   *
+   * The API defaults to `1K` when unset, which is why every render came back
+   * 1024² however good the prompt was. `2K` is the default here because these
+   * images are product photography people zoom into — a printed logo has to
+   * survive being looked at closely. Raise to `4K` for print artwork; drop to
+   * `1K` if latency or spend matters more than detail.
+   */
+  GEMINI_IMAGE_SIZE: process.env.GEMINI_IMAGE_SIZE?.trim() || 'low',
+  /**
+   * Render quality for OpenAI's `images.edit`: `low`, `medium`, `high` or
+   * `auto`. This was pinned to `low` in code — the cheapest tier, and a
+   * ceiling no prompt could lift.
+   */
+  OPENAI_IMAGE_QUALITY: process.env.OPENAI_IMAGE_QUALITY?.trim() || 'high',
 
   PUBLIC_API_URL:
     process.env.PUBLIC_API_URL?.trim() || 'http://localhost:3001',

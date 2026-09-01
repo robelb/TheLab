@@ -7,6 +7,7 @@ import { Layout } from '@/components/Layout'
 import { RequireAuth } from '@/components/RequireAuth'
 import { HomePage } from '@/pages/HomePage'
 import { BuildBoxPage } from '@/pages/BuildBoxPage'
+import { DesignPage } from '@/pages/DesignPage'
 import { CampaignPage } from '@/pages/CampaignPage'
 import { ProductPage } from '@/pages/ProductPage'
 import { CartPage } from '@/pages/CartPage'
@@ -43,6 +44,16 @@ export default function App() {
                 <Route path="/signup" element={<SignupPage />} />
                 {/* Public branded viewer for shared configurations (no auth). */}
                 <Route path="/share/:slug" element={<SharePage />} />
+                {/* The design editor owns the whole viewport, so it sits
+                    outside the site chrome rather than inside `Layout`. */}
+                <Route
+                  path="/design/:productId"
+                  element={
+                    <RequireAuth>
+                      <DesignPage />
+                    </RequireAuth>
+                  }
+                />
                 <Route
                   element={
                     <RequireAuth>

@@ -13,9 +13,16 @@
  */
 
 import {
+  placementFacts,
+  PLACEMENT_BLOCK,
+  PLACEMENT_SCALE_BLOCK,
+} from './placement.js'
+import {
   LOGO_CONTRAST_BLOCK,
   LOGO_ONE_LINE_BLOCK,
+  LOGO_ONE_LINE_PLACED_BLOCK,
   LOGO_PRIME_RULE,
+  LOGO_PRIME_RULE_PLACED,
   MARK_SCALE_BLOCK,
   SINGLE_RENDER_BLOCK,
 } from './printScale.js'
@@ -27,7 +34,25 @@ export interface SceneType {
   instruction: string
 }
 
+/**
+ * The id that means "don't stage this at all".
+ *
+ * Branding a product and photographing one are different jobs that happened to
+ * share an endpoint. The design editor only ever wants the first: put the mark
+ * on the item and leave the picture alone. Without this, every render also
+ * relocated the product into a studio — which is a second, unasked-for change
+ * on top of the one the user made, and it re-lit and re-framed a catalogue
+ * photo they were happy with.
+ */
+export const KEEP_SCENE_ID = 'as-is'
+
 export const SCENE_TYPES: SceneType[] = [
+  {
+    id: KEEP_SCENE_ID,
+    label: 'Keep the product photo',
+    instruction:
+      'Do not restage this product. The photograph it arrives in is the photograph you return.',
+  },
   {
     id: 'studio-hero',
     label: 'Studio hero',
@@ -69,6 +94,14 @@ export interface AspectRatio {
   label: string
   /** Size string accepted by OpenAI gpt-image-1 `images.edit`. */
   openaiSize: '1024x1024' | '1024x1536' | '1536x1024'
+  /**
+   * Ratio string accepted by Gemini's `imageConfig`.
+   *
+   * Gemini takes the ratio as a parameter. Until it was passed, the choice
+   * existed only as a sentence in the prompt and every Gemini render came back
+   * square regardless of what the user picked.
+   */
+  geminiRatio: '1:1' | '2:3' | '3:2'
   /** Human description woven into the prompt (helps providers without a size param). */
   promptLabel: string
 }
@@ -78,18 +111,21 @@ export const ASPECT_RATIOS: AspectRatio[] = [
     id: 'square',
     label: 'Square 1:1',
     openaiSize: '1024x1024',
+    geminiRatio: '1:1',
     promptLabel: 'a square 1:1',
   },
   {
     id: 'portrait',
     label: 'Portrait 2:3',
     openaiSize: '1024x1536',
+    geminiRatio: '2:3',
     promptLabel: 'a vertical portrait 2:3',
   },
   {
     id: 'landscape',
     label: 'Landscape 3:2',
     openaiSize: '1536x1024',
+    geminiRatio: '3:2',
     promptLabel: 'a horizontal landscape 3:2',
   },
 ]
@@ -108,6 +144,27 @@ export interface BuildPhotoshootPromptInput {
   hasBase?: boolean
   /** Optional extra instructions typed by the user. */
   extra?: string | null
+  /**
+   * The user placed the branding themselves and the FIRST attachment is a
+   * layout mockup rather than the bare product. Wins over both `hasBase` and
+   * `hasStyle` — all three claim the edit-base slot.
+   */
+  hasLayout?: boolean
+  /** Per-layer placement lines from `describePlacement`. */
+  placement?: string[]
+  /** Wording the user typed into placed text layers, from `placedTextLayers`. */
+  placedText?: string[]
+  /** The closed list of what was placed, from `placementInventory`. */
+  inventory?: string
+  /**
+   * The layout places the brand logo itself, so the composite already carries
+   * it and no logo is attached separately.
+   *
+   * Distinct from `hasLayout`: a layout may place only wording while the logo
+   * is still supplied for the model to position. Saying "the logo is already
+   * on the product" in that case would be a lie the model has no way to check.
+   */
+  logoPlaced?: boolean
 }
 
 /**
@@ -132,10 +189,88 @@ export function buildPhotoshootPrompt(input: BuildPhotoshootPromptInput): string
 
   const p: string[] = []
 
-  // The logo contract opens the prompt — models weight the first line most.
-  if (input.hasBranding) p.push(LOGO_PRIME_RULE)
+  // A layout owns the edit-base slot. `hasBase` and `hasStyle` both want it
+  // too, and the service resolves the same precedence before calling here.
+  const hasLayout = Boolean(input.hasLayout && input.placement?.length)
+  // Placed wording is asked-for wording — see the same note in
+  // `boxCustomization.ts`. The avoid list below bans "extra text".
+  const placedText = (hasLayout ? input.placedText : undefined)?.filter(Boolean) ?? []
+  const placedList = placedText.map((t) => `"${t}"`).join(' and ')
 
-  if (input.hasBase) {
+  // The logo contract opens the prompt — models weight the first line most.
+  if (input.logoPlaced) p.push(LOGO_PRIME_RULE_PLACED)
+  else if (input.hasBranding) p.push(LOGO_PRIME_RULE)
+
+  // "Keep the product photo" only means anything on a fresh render — a refine
+  // is already editing an existing image, and a style image IS a new scene.
+  const keepScene = scene.id === KEEP_SCENE_ID && !input.hasBase && !input.hasStyle
+
+  if (keepScene) {
+    // ── Branding only: the product's own photograph survives untouched and the
+    //    single change is the mark going onto the item.
+    p.push(
+      'Act as an expert photo retoucher. You are given a product photograph and must return that SAME photograph with branding applied to the product. This is a retouch, not a new photograph: you are not staging, restyling or re-shooting anything.',
+    )
+
+    const refs: string[] = []
+    if (hasLayout) {
+      refs.push(
+        'LAYOUT MOCKUP (the first image) — the product photograph with the artwork crudely pasted where the customer placed it. It is the base of your output, and the authority on WHERE the artwork goes. Its pasted look is not the finished look.',
+      )
+      refs.push(
+        `PRODUCT reference — the same photograph before anything was pasted on. Use it to check that nothing beyond the artwork has changed: ${subject} keeps its exact shape, proportions, colour, material and details.`,
+      )
+    } else {
+      refs.push(
+        `PRODUCT reference (the first image) — the photograph to edit, and the base of your output. Reproduce ${subject} with complete fidelity: identical shape, proportions, colour, material, texture and details.`,
+      )
+    }
+    if (input.hasBranding) {
+      refs.push(
+        'BRANDING reference — the logo at full quality. The authority on what the mark LOOKS like; take its artwork from here.',
+      )
+    }
+    p.push(
+      `You are given these reference images:\n${refs.map((r) => `- ${r}`).join('\n')}`,
+    )
+
+    p.push(
+      [
+        'KEEP THE PHOTOGRAPH — everything except the branding stays exactly as it arrives:',
+        '- Same background, same surface, same props, same framing and crop, same camera angle and distance, same lighting, shadows and colour grade.',
+        '- Do not move, rotate or rescale the product within the frame. Do not add a pedestal, a table, a backdrop, a gradient, a prop, a reflection or a shadow that is not already in the photograph.',
+        '- Do not clean up, re-light, recolour or "improve" the photograph. If the original is on plain white, the result is on that same plain white.',
+        `- ${subject} itself is unchanged: same shape, proportions, colour, material and texture. The ONLY difference between the input and your output is the branding on the product.`,
+      ].join('\n'),
+    )
+  } else if (hasLayout) {
+    // ── Placement-driven: the mockup is the base; stage it in the chosen scene
+    //    without moving what the user positioned.
+    p.push(
+      'Act as an expert commercial product photographer and retoucher. The FIRST image is a layout mockup — the product with artwork crudely pasted onto it where the customer placed it. Produce ONE single, photorealistic product photograph of that same product, with that same artwork properly applied and the product staged in the scene described below. One product, one scene, one frame — never a grid, collage, contact sheet, sheet of thumbnails, set of angles or variations, or a split/paneled layout.',
+    )
+
+    const refs: string[] = []
+    refs.push(
+      'LAYOUT MOCKUP (the first image) — the base of your output and the authority on WHERE the artwork goes on the product. Its pasted look is not the finished look.',
+    )
+    refs.push(
+      `PRODUCT reference — the same product before anything was pasted on. Reproduce ${subject} with complete fidelity: identical shape, proportions, colour, material, texture and details. Do not redesign, recolour, reshape, or replace it.`,
+    )
+    if (input.hasBranding) {
+      refs.push(
+        'BRANDING reference — the logo at full quality. The authority on what the mark LOOKS like, since the copy in the mockup is small and rough: take its artwork from here and its position from the mockup.',
+      )
+    }
+    p.push(
+      `You are given these reference images:\n${refs.map((r) => `- ${r}`).join('\n')}`,
+    )
+
+    p.push(`Scene: ${scene.instruction}`)
+    p.push(
+      'Restaging the product for the scene does not licence moving the artwork. Wherever the product ends up in the frame, and at whatever angle, the artwork stays on the same part of the product, at the same proportion of that surface, as the mockup shows.',
+    )
+  } else if (input.hasBase) {
     // ── Refine mode: iterate on a previously generated image (chat follow-up).
     p.push(
       'Act as an expert photo retoucher. The FIRST image is the current product photograph. Apply the requested change to it while keeping everything else identical — same product, composition, scene, framing, lighting and colours. Produce ONE single edited photograph, never a grid, collage, or set of variations.',
@@ -168,7 +303,7 @@ export function buildPhotoshootPrompt(input: BuildPhotoshootPromptInput): string
       // The requested change can push the logo onto a tighter surface (when it
       // starts stacking) or a differently coloured one (when it vanishes) —
       // both escape hatches ride along.
-      p.push(LOGO_ONE_LINE_BLOCK)
+      p.push(hasLayout ? LOGO_ONE_LINE_PLACED_BLOCK : LOGO_ONE_LINE_BLOCK)
       p.push(LOGO_CONTRAST_BLOCK)
     }
   } else if (input.hasStyle) {
@@ -214,8 +349,39 @@ export function buildPhotoshootPrompt(input: BuildPhotoshootPromptInput): string
     p.push(`Scene: ${scene.instruction}`)
   }
 
-  // ── Branding application — only for fresh generations (refine keeps existing).
-  if (input.hasBranding && !input.hasBase) {
+  if (hasLayout) {
+    p.push(PLACEMENT_BLOCK)
+    p.push(placementFacts(input.placement ?? []))
+    // The closed list goes straight after the positive instructions: those say
+    // what to draw, this says that the list is finished.
+    if (input.inventory) p.push(input.inventory)
+    if (placedText.length > 0) {
+      p.push(
+        `PLACED WORDING — the user typed ${placedList} and positioned it themselves in the layout mockup. It is asked for and it stays. Print it character for character as given, set as real print in a typeface that suits the product rather than the mockup's placeholder face. Never omit it, reword it or duplicate it, and add no other wording.`,
+      )
+    }
+    // Replaces MARK_SCALE_BLOCK below — see the note in `placement.ts` on why
+    // the two can never both be present.
+    p.push(PLACEMENT_SCALE_BLOCK)
+  }
+
+  // ── Branding. With a layout the mark is already on the product, so this
+  //    becomes a preserve-and-finish instruction rather than an apply one.
+  //    Telling a model to "apply the logo onto the product" while handing it a
+  //    mockup that already carries the logo is how you get two of them.
+  if (input.logoPlaced && !input.hasBase) {
+    p.push(
+      [
+        'BRANDING — the logo is ALREADY on the product. The layout mockup shows it in place, exactly where the customer put it. Your job is to render that one convincingly, never to add one.',
+        '- Do not apply, place, paste or position the logo. That has happened. Work on the copy already in the mockup and make it read as genuinely printed on the material — sharp, undistorted, following the surface, its perspective and its lighting.',
+        '- No separate logo file is supplied, because none is needed: the mockup is the only source for this mark. Copy it faithfully from there — same artwork, same proportions, same colours — and never redraw it from memory or substitute a similar-looking mark.',
+        '- Exactly ONE logo appears in the finished image, in the one place the mockup shows it. Not a second copy lower down, on another face, on the lid, base, cap or side, and not one in the background. If your draft shows the logo more than once, that is wrong: keep the one the mockup placed and remove every other.',
+        "- No other brand appears anywhere. Remove or replace any different, placeholder or invented logo, brand name or wordmark. Never redraw, restyle, mirror, re-stack or add text to the supplied mark, and keep its original colours except where the LOGO CONTRAST rule applies. A horizontal wordmark stays on one line.",
+      ].join('\n'),
+    )
+    p.push(LOGO_ONE_LINE_PLACED_BLOCK)
+    p.push(LOGO_CONTRAST_BLOCK)
+  } else if (input.hasBranding && !input.hasBase) {
     p.push(
       'BRANDING IS CRITICAL — get this exactly right:\n' +
         `- Apply the EXACT logo/mark from the BRANDING reference onto ${subject} where that product is branded in real life — judge from what the product is and what the photo shows (centre chest of apparel, the camera-facing side of a mug or bottle, the front panel of a bag or notebook, the barrel of a pen). It must look genuinely printed, embroidered or embossed — following the surface's perspective, curvature, folds, lighting and material — sharp and undistorted.\n` +
@@ -230,7 +396,9 @@ export function buildPhotoshootPrompt(input: BuildPhotoshootPromptInput): string
   // ── Framing + aspect ratio + single-subject discipline — shared.
   // The output is always rendered at the chosen aspect ratio.
   p.push(
-    `Make ${subject} the single hero of the shot. Keep the entire product inside the frame — its full width and full height — well placed with comfortable margins; never crop or cut off any part of it. The final image must be ${ratio.promptLabel} (${ratio.label}) image. Produce just this one scene.`,
+    keepScene
+      ? `Keep the framing of the original photograph exactly: ${subject} stays at the same size and position in the frame it already occupies, fully visible and never cropped. Do not re-compose the shot. Produce just this one image.`
+      : `Make ${subject} the single hero of the shot. Keep the entire product inside the frame — its full width and full height — well placed with comfortable margins; never crop or cut off any part of it. The final image must be ${ratio.promptLabel} (${ratio.label}) image. Produce just this one scene.`,
   )
 
   p.push(SINGLE_RENDER_BLOCK)
@@ -240,15 +408,27 @@ export function buildPhotoshootPrompt(input: BuildPhotoshootPromptInput): string
   }
 
   p.push(
-    'Render it as high-end commercial photography: realistic materials and textures, accurate colour, and a clean, intentional composition.',
+    keepScene
+      ? 'Render the branding to a high standard — realistic materials, accurate colour, correct perspective on the surface — while leaving the rest of the photograph exactly as supplied.'
+      : 'Render it as high-end commercial photography: realistic materials and textures, accurate colour, and a clean, intentional composition.',
   )
 
   p.push(
-    'Avoid: multiple images, grids, collages, contact sheets, panels or variations; duplicated or extra products; a cropped or distorted product; warped, oversized, edge-to-edge or illegible branding; a wordmark broken onto extra lines; extra logos or text; distorted anatomy or hands; and plastic, cheap, or obvious-mockup looks.',
+    'Avoid: multiple images, grids, collages, contact sheets, panels or variations; duplicated or extra products; a cropped or distorted product; ' +
+      (hasLayout
+        ? 'branding moved, resized or re-centred away from the layout mockup; warped or illegible branding; a pasted-on, unlit or cut-out look; '
+        : 'warped, oversized, edge-to-edge or illegible branding; ') +
+      'a wordmark broken onto extra lines; extra logos' +
+      (placedText.length > 0
+        ? ` or any text beyond the placed wording ${placedList}`
+        : ' or text') +
+      '; distorted anatomy or hands; and plastic, cheap, or obvious-mockup looks.',
   )
 
   p.push(
-    'The final image should feel like premium commercial photography, not a generic AI image or a flat mockup.',
+    keepScene
+      ? 'The result must be recognisable as the SAME photograph that was supplied, with the branding now printed on the product — not a new photograph of the same product.'
+      : 'The final image should feel like premium commercial photography, not a generic AI image or a flat mockup.',
   )
 
   return p.join('\n\n')

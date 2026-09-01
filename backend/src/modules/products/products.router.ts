@@ -4,15 +4,19 @@ import { createShare } from '../share/share.service.js'
 import {
   createProductSchema,
   customizeBoxSchema,
+  customizeProductSchema,
   imageSearchSchema,
   photoshootSchema,
+  productGalleryImageSchema,
   productIdsQuerySchema,
   productsQuerySchema,
   updateProductSchema,
 } from './products.schema.js'
 import {
+  addCompanyProductImage,
   createProduct,
   customizeBox,
+  customizeProduct,
   deleteProduct,
   getProductById,
   getProductsByIds,
@@ -123,6 +127,48 @@ productsRouter.patch('/:id', async (req, res) => {
   }
 })
 
+/**
+ * Keep a confirmed design in this company's own gallery for the product.
+ *
+ * Company-scoped, so it never touches the global catalog row — see
+ * `addCompanyProductImage`. Signing in is what supplies the company, so a guest
+ * gets a 401 and the client falls back to keeping the design locally.
+ */
+productsRouter.post('/:id/images', async (req, res) => {
+  const companyId = req.authUser?.companyId
+  if (!companyId) {
+    // 401 only when nobody is signed in. A signed-in user with no company is
+    // authenticated but cannot own a company image — that is a 403, and the
+    // distinction matters: the client treats 401 as "your token is dead",
+    // clears it and bounces to the sign-in screen. Answering 401 here signed
+    // people out mid-flow over a save they were told was optional.
+    const status = req.authUser ? 403 : 401
+    return res
+      .status(status)
+      .json({ error: 'Sign in with a company account to save designs' })
+  }
+
+  const parsed = productGalleryImageSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: firstZodError(parsed.error) })
+  }
+
+  try {
+    await addCompanyProductImage({
+      companyId,
+      productId: req.params.id,
+      imageUrl: parsed.data.imageUrl,
+      prompt: parsed.data.prompt ?? null,
+    })
+    res.status(201).json({ ok: true })
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Failed to save the design'
+    console.warn('[products] gallery save failed:', message)
+    res.status(500).json({ error: message })
+  }
+})
+
 productsRouter.delete('/:id', async (req, res) => {
   try {
     const ok = await deleteProduct(req.params.id)
@@ -198,6 +244,26 @@ productsRouter.post('/:id/customize-box', async (req, res) => {
           ? 400
           : 502
     console.warn('[products] box customization failed:', message)
+    res.status(status).json({ error: message })
+  }
+})
+
+// Apply a design to any product — what the full-screen design editor calls.
+// `/:id/customize-box` stays as the box-only path it always was; this one also
+// takes mugs, notebooks and the rest, and picks the right brief per category.
+productsRouter.post('/:id/customize', async (req, res) => {
+  const parsed = customizeProductSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: firstZodError(parsed.error) })
+  }
+
+  try {
+    res.json(await customizeProduct(req.params.id, parsed.data))
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Failed to apply the design'
+    const status = message === 'Product not found' ? 404 : 502
+    console.warn('[products] customize failed:', message)
     res.status(status).json({ error: message })
   }
 })

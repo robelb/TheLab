@@ -8,6 +8,8 @@ const uploadSchema = z.object({
     .array(z.string().min(1))
     .min(1, 'At least one image is required')
     .max(10, 'Up to 10 images per upload'),
+  /** Knock a white background out to transparency — for logos and artwork. */
+  transparent: z.boolean().optional(),
 })
 
 const MAX_VIDEO_BYTES = 50 * 1024 * 1024 // 50 MB
@@ -31,7 +33,9 @@ uploadsRouter.post('/', async (req, res) => {
   }
 
   try {
-    const urls = await saveImages(parsed.data.images)
+    const urls = await saveImages(parsed.data.images, {
+      removeWhiteBackground: parsed.data.transparent,
+    })
     res.status(201).json({ urls })
   } catch (err) {
     const message =

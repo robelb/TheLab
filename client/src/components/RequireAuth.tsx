@@ -17,7 +17,16 @@ export function RequireAuth({
   if (isLoading) return null
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+    // Search too, not just the path. The design editor carries where to return
+    // to in its query string, so a sign-in that kept only the pathname would
+    // send someone back to the editor with no way out of it.
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    )
   }
 
   // Authenticated but lacking the required capability → back to the storefront.

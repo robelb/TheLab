@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -17,22 +17,52 @@ import { Loader2, Sparkles } from 'lucide-react'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login, loginWithDefault, isAuthenticated } = useAuth()
+
+  /**
+   * Back to whatever asked for a sign-in, not to the shop.
+   *
+   * `RequireAuth` records the blocked destination in the navigation state, and
+   * it is usually the middle of a job: confirming a design sends you to
+   * `/build-box`, and an expired session there used to land you on the
+   * storefront with the box you just designed nowhere in sight.
+   *
+   * Only same-origin paths are honoured — the value reaches us through router
+   * state, and a bare pathname is the only shape that could ever have been put
+   * there legitimately. Anything else goes to the storefront.
+   */
+  const [searchParams] = useSearchParams()
+  const fromState =
+    typeof location.state === 'object' &&
+    location.state !== null &&
+    'from' in location.state &&
+    typeof (location.state as { from?: unknown }).from === 'string'
+      ? (location.state as { from: string }).from
+      : null
+  // Two ways in, because there are two things that send people here.
+  // `RequireAuth` navigates within the router and can pass state; the API
+  // client's 401 handler is a full page load and can only pass a query string.
+  const requested = fromState ?? searchParams.get('next')
+  const destination =
+    requested && requested.startsWith('/') && !requested.startsWith('//')
+      ? requested
+      : '/'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/', { replace: true })
-  }, [isAuthenticated, navigate])
+    if (isAuthenticated) navigate(destination, { replace: true })
+  }, [isAuthenticated, navigate, destination])
 
   async function handleDefaultLogin() {
     setSubmitError(null)
     setLoading(true)
     try {
       await loginWithDefault()
-      navigate('/', { replace: true })
+      navigate(destination, { replace: true })
     } catch {
       setSubmitError('Could not open the demo. Please try again.')
     } finally {
@@ -46,7 +76,7 @@ export function LoginPage() {
     setLoading(true)
     try {
       await login(email, password)
-      navigate('/', { replace: true })
+      navigate(destination, { replace: true })
     } catch (err) {
       const message =
         err instanceof AxiosError

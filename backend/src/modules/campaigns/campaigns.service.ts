@@ -35,10 +35,11 @@ import {
 } from '../products/products.service.js'
 import {
   buildCampaignKitImagePrompt,
+  isCompositionOnly,
   buildKitTemplateVars,
 } from '../../systemInstruction/campaign.js'
 import { resolveInstruction } from '../system-instructions/system-instructions.service.js'
-import { saveImage } from '../uploads/uploads.service.js'
+import { saveRenderedImage } from '../uploads/uploads.service.js'
 import type { ProductWithCategory } from '../../types/product.js'
 import type {
   CampaignBrandInput,
@@ -205,6 +206,8 @@ export interface KitSupplySelection {
   fillingId?: string
   /** The shopper's printed-box design, preferred over the catalog photo. */
   packagingImageUrl?: string
+  /** Per-product designs, keyed by product id, preferred over catalog photos. */
+  productImages?: Record<string, string>
 }
 
 interface ResolvedSupply {
@@ -248,11 +251,14 @@ async function generateKitImage(
     throw new Error('Add at least one product to the bundle first.')
   }
 
-  // Prefer the company's already-branded product shot when one exists — the
-  // logo is then carried by the reference itself, so placement matches what the
-  // shop shows. Otherwise the base catalog image, branded by the prompt.
+  // Prefer, in order: a design the shopper just made for this product in the
+  // builder, then the company's already-branded shot, then the catalog image.
+  // The first two already carry the logo, so the group shot agrees with the
+  // individual products rather than quietly reverting them to plain stock.
+  const sourceFor = (p: ProductWithCategory) =>
+    supplies?.productImages?.[p.id] ?? p.customizedImage ?? p.image
   const fetched = await Promise.allSettled(
-    products.map((p) => fetchImage(p.customizedImage ?? p.image, 'product')),
+    products.map((p) => fetchImage(sourceFor(p), 'product')),
   )
   // A product whose image can't be fetched is dropped rather than failing the
   // whole render — but the prompt must then match what we actually send.
@@ -276,19 +282,35 @@ async function generateKitImage(
     resolveSupply(supplies?.fillingId),
   ])
 
+  const kitNames = usable.map((e) => e.product.name)
+
+  // A product whose reference is a design the shopper made, or a shot the
+  // company already branded, arrives with the logo on it. Telling the model to
+  // brand it again is telling it to move a mark somebody placed by hand.
+  const preBranded = usable
+    .filter((e) => sourceFor(e.product) !== e.product.image)
+    .map((e) => e.product.name)
+
+  // With every product already carrying its branding there is nothing to
+  // apply, and the logo reference stops being useful and starts being
+  // dangerous: handed a logo, the model treats re-branding as part of the job
+  // and re-renders marks the customer placed by hand. Not attaching it is what
+  // makes the reproduction contract stick — the prompt asking nicely is not.
+  const compositionOnly = isCompositionOnly(kitNames, preBranded)
+  const useLogo = brand && !compositionOnly
+
   // Order is the contract the prompt describes by position: products first
   // (the first image is the edit base), then the box, the filling, logo last.
   const images = usable.map((e) => e.result.value)
   if (packaging) images.push(packaging.image)
   if (filling) images.push(filling.image)
-  if (brand) images.push(brand.logo)
+  if (useLogo) images.push(brand.logo)
 
   // Measured logo facts let the prompt pin layout + colours as ground truth.
-  const logoFacts = brand ? await describeBrandMark(brand.logo) : null
-
-  const kitNames = usable.map((e) => e.product.name)
+  const logoFacts = useLogo ? await describeBrandMark(brand.logo) : null
   const kitOptions = {
-    hasLogo: Boolean(brand),
+    hasLogo: Boolean(useLogo),
+    preBranded,
     companyName: brand?.companyName,
     logoFacts,
     packaging: packaging
@@ -305,8 +327,10 @@ async function generateKitImage(
   const prompt = override ?? buildCampaignKitImagePrompt(kitNames, kitOptions)
   const buffer = await generateProductPhoto(prompt, images, config, {
     size: '1024x1024',
+    // The kit shot is specified as a square flat-lay throughout the brief.
+    aspectRatio: '1:1',
   })
-  return saveImage(buffer.toString('base64'), { prefix: 'campaign' })
+  return saveRenderedImage(buffer.toString('base64'), { prefix: 'campaign' })
 }
 
 /**

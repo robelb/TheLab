@@ -1,6 +1,5 @@
 import { Check } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getProductDisplayImage } from '@/lib/productImage'
 import { cn } from '@/lib/utils'
 import { formatPrice } from '@/utils/format'
 import type { Product } from '@/types/product'
@@ -68,7 +67,11 @@ export function SupplyPicker({
               >
                 <img
                   src={
-                    (selected && previewImage) || getProductDisplayImage(option)
+                    // The shopper's own printed design when they have one,
+                    // otherwise the plain board. Never the catalogue's branded
+                    // variant: a box is designable, so showing it pre-branded
+                    // reads as finished — see `BoxLine.customizedImage`.
+                    (selected && previewImage) || option.image
                   }
                   alt=""
                   className="size-10 shrink-0 rounded-brand bg-muted/20 object-contain"

@@ -31,6 +31,8 @@ export const VIDEOS_DIR = path.join(__dirname, '../../../public/videos')
 const VIDEOS_PUBLIC_PATH = '/api/videos'
 
 const MAX_DIMENSION = 1600
+/** Economy encode for user uploads, where the original is not the deliverable. */
+const UPLOAD_QUALITY = 82
 
 /** Strip an optional `data:<mime>;base64,` prefix and decode to a Buffer. */
 function decodeBase64Image(input: string): Buffer {
@@ -45,21 +47,65 @@ function decodeBase64Image(input: string): Buffer {
  * Oversized images are downscaled; everything is re-encoded through sharp so we
  * never trust the uploaded bytes verbatim.
  */
+export interface SaveImageOptions {
+  prefix?: string
+  /**
+   * Knock a white background out to transparency.
+   *
+   * For logos above all: a mark supplied on white reads as a pasted white
+   * rectangle the moment it lands on a dark product. sharp's `unflatten` makes
+   * pure white transparent and leaves everything else alone — deliberately
+   * used without the `threshold` the sharp docs pair it with, since that
+   * example builds a binary mask and would flatten a colour logo to two
+   * tones. The limit that follows: it clears clean white only, so a JPEG's
+   * near-white compression halo can survive as a faint fringe.
+   */
+  removeWhiteBackground?: boolean
+  /** Longest edge to keep. Defaults to `MAX_DIMENSION`. */
+  maxDimension?: number
+  /** WebP quality. Defaults to `UPLOAD_QUALITY`. */
+  quality?: number
+}
+
+/**
+ * Encoding for an image a model just generated, as opposed to one a user
+ * uploaded.
+ *
+ * A render is the deliverable — someone zooms into it to check their logo — so
+ * it keeps its full resolution and is compressed lightly. Putting a 2K render
+ * through the upload defaults would resize it back to 1600 and re-encode at
+ * quality 82, throwing away most of what asking the model for 2K bought.
+ */
+export const RENDER_IMAGE_OPTIONS = { maxDimension: 2560, quality: 92 } as const
+
+/** Persist a generated image at render quality. See `RENDER_IMAGE_OPTIONS`. */
+export async function saveRenderedImage(
+  input: string,
+  options: SaveImageOptions = {},
+): Promise<string> {
+  return saveImage(input, { ...RENDER_IMAGE_OPTIONS, ...options })
+}
+
 export async function saveImage(
   input: string,
-  options: { prefix?: string } = {},
+  options: SaveImageOptions = {},
 ): Promise<string> {
   const prefix = options.prefix ?? 'productPicture'
   const buffer = decodeBase64Image(input)
-  const webp = await sharp(buffer)
-    .rotate()
+  let pipeline = sharp(buffer).rotate()
+  // Before the resize, so the knockout works on the original pixels rather
+  // than on ones the resampler has already blended toward grey at the edges.
+  if (options.removeWhiteBackground) pipeline = pipeline.unflatten()
+  const longestEdge = options.maxDimension ?? MAX_DIMENSION
+  const webp = await pipeline
     .resize({
-      width: MAX_DIMENSION,
-      height: MAX_DIMENSION,
+      width: longestEdge,
+      height: longestEdge,
       fit: 'inside',
       withoutEnlargement: true,
     })
-    .webp({ quality: 82 })
+    // WebP carries alpha, so a knocked-out background survives the encode.
+    .webp({ quality: options.quality ?? UPLOAD_QUALITY })
     .toBuffer()
 
   if (isSupabaseStorageConfigured()) {
@@ -77,8 +123,11 @@ export async function saveImage(
   return apiPublicImageUrl(`${PUBLIC_PATH}/${filename}`)
 }
 
-export async function saveImages(inputs: string[]): Promise<string[]> {
-  return Promise.all(inputs.map((input) => saveImage(input)))
+export async function saveImages(
+  inputs: string[],
+  options: SaveImageOptions = {},
+): Promise<string[]> {
+  return Promise.all(inputs.map((input) => saveImage(input, options)))
 }
 
 const VIDEO_EXT_BY_MIME: Record<string, string> = {

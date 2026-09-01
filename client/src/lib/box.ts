@@ -90,7 +90,10 @@ export function toBoxLine(product: Product, quantity: number): BoxLine {
     currency: product.currency,
     quantity,
     image: product.image,
-    customizedImage: product.customizedImage,
+    // Never the catalogue's branded variant — see `BoxLine.customizedImage`.
+    // A box line only carries an image the shopper designed themselves, which
+    // the builder fills in from the draft.
+    customizedImage: null,
   }
 }
 

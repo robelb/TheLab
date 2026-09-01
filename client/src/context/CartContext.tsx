@@ -96,13 +96,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (box) {
         let boxChanged = false
         const refresh = (line: BoxLine | null | undefined) => {
-          // A box printed with the shopper's own design keeps it — refreshing
-          // from the catalog would swap their artwork for the plain box.
+          // A line carrying the shopper's own design keeps it — refreshing from
+          // the catalog would swap their artwork for stock.
           if (!line || line.customPrint) return line
           const images = freshImages(line, line.productId)
           if (!images) return line
           boxChanged = true
-          return { ...line, ...images }
+          // Only the base photo is refreshed. Pulling the catalogue's branded
+          // variant in here would re-brand every product in the box behind the
+          // shopper's back — the exact thing `BoxLine.customizedImage` exists
+          // to prevent.
+          return { ...line, image: images.image, customizedImage: null }
         }
 
         const lines = box.lines.map((line) => refresh(line)!)

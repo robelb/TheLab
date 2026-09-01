@@ -2,11 +2,13 @@ import { useMutation, useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import {
   customizeBox,
+  customizeProduct,
   fetchBoxSupplies,
   fetchProducts,
   fetchProductsByIds,
   searchProductsByImage,
   type CustomizeBoxRequest,
+  type CustomizeProductRequest,
   type FetchProductsParams,
   type ImageSearchParams,
 } from '@/api/products'
@@ -75,6 +77,20 @@ export function useCustomizeBox(boxId: string | undefined) {
     mutationFn: (body: CustomizeBoxRequest) => {
       if (!boxId) throw new Error('Pick a box first')
       return customizeBox(boxId, body)
+    },
+  })
+}
+
+/**
+ * Apply a design to any product. Same shape as `useCustomizeBox` — an explicit
+ * click, a ~15s wait, and the caller keeps the result — but it takes mugs and
+ * notebooks as well as boxes.
+ */
+export function useCustomizeProduct(productId: string | undefined) {
+  return useMutation({
+    mutationFn: (body: CustomizeProductRequest) => {
+      if (!productId) throw new Error('Nothing to design')
+      return customizeProduct(productId, body)
     },
   })
 }

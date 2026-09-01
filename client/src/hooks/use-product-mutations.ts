@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   createProduct,
   deleteProduct,
+  saveProductGalleryImage,
   updateProduct,
 } from '@/api/products'
 import {
@@ -33,6 +34,20 @@ export function useUpdateProduct() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Partial<ProductInput> }) =>
       updateProduct(id, input),
+    onSuccess: invalidate,
+  })
+}
+
+/**
+ * Keep a confirmed design among this company's own images for a product, so it
+ * comes back as something to design on. Server-side it is company-scoped; the
+ * global catalog row stays plain.
+ */
+export function useSaveProductGalleryImage(productId: string) {
+  const invalidate = useInvalidateProducts()
+  return useMutation({
+    mutationFn: (body: { imageUrl: string; prompt?: string }) =>
+      saveProductGalleryImage(productId, body),
     onSuccess: invalidate,
   })
 }

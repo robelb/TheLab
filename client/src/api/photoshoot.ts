@@ -1,7 +1,15 @@
 import { apiClient } from '@/lib/api-client'
+import type { PlacementLayout } from '@/types/layout'
 
-/** Scene presets — mirrors backend/src/photoshoot/prompt.ts SCENE_TYPES. */
+/**
+ * The scene id that means "leave the photograph alone" — brand the product and
+ * change nothing else. Mirrors `KEEP_SCENE_ID` on the server.
+ */
+export const KEEP_SCENE_ID = 'as-is'
+
+/** Scene presets — mirrors backend/src/systemInstruction/productPhotoshoot.ts. */
 export const SCENE_TYPES = [
+  { id: KEEP_SCENE_ID, label: 'Keep the product photo' },
   { id: 'studio-hero', label: 'Studio hero' },
   { id: 'editorial-tabletop', label: 'Editorial tabletop' },
   { id: 'work-desk-lifestyle', label: 'Work-desk lifestyle' },
@@ -33,6 +41,11 @@ export interface PhotoshootRequest {
   brandingImage?: string
   brandingImageUrl?: string
   brandingSvg?: string
+  /**
+   * Where the user placed the branding. Takes the edit-base slot — the server
+   * ignores both `baseImageUrl` and `styleImage` when this is set.
+   */
+  layout?: PlacementLayout
 }
 
 export interface PhotoshootResponse {

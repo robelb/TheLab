@@ -256,6 +256,39 @@ async function withCustomizations(
   return applyCustomizations(data, heroes, galleries)
 }
 
+/**
+ * Keep a confirmed design as one of this company's own images for a product.
+ *
+ * Company-scoped on purpose: the shopper who brands a bottle is branding it for
+ * their company, and the global catalog row must stay plain for everybody else.
+ * `withCustomizations` folds these rows back into `images` on every read, so a
+ * design confirmed here shows up as a source to design on next time round.
+ *
+ * Idempotent — confirming the same image twice adds one row, not two.
+ */
+export async function addCompanyProductImage(params: {
+  companyId: string
+  productId: string
+  imageUrl: string
+  prompt?: string | null
+}): Promise<void> {
+  await db
+    .insert(companyProductImages)
+    .values({
+      companyId: params.companyId,
+      productId: params.productId,
+      imageUrl: params.imageUrl,
+      prompt: params.prompt ?? null,
+    })
+    .onConflictDoNothing({
+      target: [
+        companyProductImages.companyId,
+        companyProductImages.productId,
+        companyProductImages.imageUrl,
+      ],
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Semantic search (vector similarity via pgvector)
 // ---------------------------------------------------------------------------
@@ -598,13 +631,22 @@ export async function getProductsByIds(
 // CRUD (dashboard product management)
 // ---------------------------------------------------------------------------
 
+import {
+  composedImage,
+  composeLayout,
+  describePlacement,
+  fetchLayoutAssets,
+  placedTextLayers,
+  placementInventory,
+} from '../../customizer/composeLayout.js'
 import type { FetchedImage } from '../../customizer/fetchImage.js'
-import { fetchImage, fetchImageOptional } from '../../customizer/fetchImage.js'
+import { fetchImage } from '../../customizer/fetchImage.js'
 import {
   missingImageLlmConfigMessage,
   resolveImageLlmConfig,
 } from '../../customizer/llmImageConfig.js'
-import { fetchedImageFromInlineSvg } from '../../customizer/normalizeImageForAi.js'
+import { hasPlacement } from '../../customizer/placementLayout.js'
+import { resolveBrandingImage } from '../../customizer/resolveBranding.js'
 import {
   fetchedImageFromDataUrl,
   generateProductPhoto,
@@ -613,12 +655,14 @@ import { buildBoxPrintPrompt } from '../../systemInstruction/boxCustomization.js
 import {
   buildPhotoshootPrompt,
   isValidSceneType,
+  KEEP_SCENE_ID,
   resolveAspectRatio,
 } from '../../systemInstruction/productPhotoshoot.js'
-import { saveImage } from '../uploads/uploads.service.js'
+import { saveRenderedImage } from '../uploads/uploads.service.js'
 import type {
   CreateProductBody,
   CustomizeBoxBody,
+  CustomizeProductBody,
   PhotoshootBody,
   UpdateProductBody,
 } from './products.schema.js'
@@ -652,63 +696,92 @@ export async function runProductPhotoshoot(
   const ratio = resolveAspectRatio(params.aspectRatio)
 
   // `images.edit` treats the FIRST image as the edit base. Precedence:
-  //   refine (previous result) > style image > the product itself.
+  //   hand-placed layout > refine (previous result) > style image > product.
   const productImage = await fetchImage(params.productImageUrl, 'product')
 
-  const hasBase = Boolean(params.baseImageUrl)
-  const baseImage = params.baseImageUrl
-    ? await fetchImage(params.baseImageUrl, 'product')
+  // Branding — defaults to the company logo. Accept an uploaded data URL,
+  // a remote logo URL, or inline SVG markup (whichever the client provides).
+  const brandingImage = await resolveBrandingImage(params)
+  const hasBranding = Boolean(brandingImage)
+
+  // A hand-placed layout outranks both a refine base and a style image: all
+  // three want to be the edit base, and re-applying moved branding on top of a
+  // render that already carries it produces two copies.
+  const layout = params.layout
+  const hasLayout = hasPlacement(layout)
+  const layoutImage = hasLayout
+    ? composedImage(
+        await composeLayout(
+          productImage,
+          layout,
+          brandingImage,
+          await fetchLayoutAssets(layout),
+        ),
+      )
     : undefined
 
+  // When the layout places the logo, the composite already carries it — and
+  // now carries it legibly, since the compositor swaps black/white where the
+  // mark would vanish into the surface. Attaching the logo a second time hands
+  // the model a loose mark plus a strong prior to put one on the product, and
+  // it obliges: a duplicate copy elsewhere on the same item. The prompt can ask
+  // it not to and still lose. Not attaching it is what settles the matter —
+  // the same conclusion the bundle render reached in composition mode.
+  const layoutPlacesLogo =
+    hasLayout && layout.layers.some((l) => l.kind === 'logo')
+
+  const hasBase = !hasLayout && Boolean(params.baseImageUrl)
+  const baseImage =
+    hasBase && params.baseImageUrl
+      ? await fetchImage(params.baseImageUrl, 'product')
+      : undefined
+
   // Style only applies to fresh generations, not when refining a prior result.
-  const hasStyle = !hasBase && Boolean(params.styleImage)
+  const hasStyle = !hasBase && !hasLayout && Boolean(params.styleImage)
   const styleImage =
     hasStyle && params.styleImage
       ? await fetchedImageFromDataUrl(params.styleImage, 'product')
       : undefined
 
-  // Branding — defaults to the company logo. Accept an uploaded data URL,
-  // a remote logo URL, or inline SVG markup (whichever the client provides).
-  let brandingImage: FetchedImage | undefined
-  if (params.brandingImage) {
-    brandingImage = await fetchedImageFromDataUrl(params.brandingImage, 'logo')
-  } else if (params.brandingImageUrl) {
-    brandingImage =
-      (await fetchImageOptional(params.brandingImageUrl, 'logo')) ?? undefined
-  } else if (params.brandingSvg) {
-    brandingImage = await fetchedImageFromInlineSvg(params.brandingSvg)
-  }
-  const hasBranding = Boolean(brandingImage)
-
-  // Order is the edit base first: style (scene) → product → branding when a
-  // Edit base goes first: refine target → style scene → product. Then product
-  // reference (kept when not already the base) and branding.
+  // Edit base goes first: layout mockup → refine target → style scene →
+  // product. Then the product reference (kept when not already the base) and
+  // branding. The logo rides along even though the composite already contains
+  // it — that copy is downscaled and rough, and the model needs a clean source
+  // for the artwork itself.
   const images: FetchedImage[] = []
-  if (baseImage) {
+  if (layoutImage) {
+    images.push(layoutImage, productImage)
+  } else if (baseImage) {
     images.push(baseImage, productImage)
   } else if (styleImage) {
     images.push(styleImage, productImage)
   } else {
     images.push(productImage)
   }
-  if (brandingImage) images.push(brandingImage)
+  if (brandingImage && !hasLayout) images.push(brandingImage)
 
   const prompt = buildPhotoshootPrompt({
     sceneType,
     aspectRatio: ratio.id,
     productName: product.name,
     hasStyle,
-    hasBranding,
+    hasBranding: hasBranding && !hasLayout,
     hasBase,
     extra: params.prompt,
+    hasLayout,
+    placement: hasLayout ? describePlacement(layout) : undefined,
+    placedText: hasLayout ? placedTextLayers(layout) : undefined,
+    inventory: hasLayout ? placementInventory(layout) : undefined,
+    logoPlaced: layoutPlacesLogo,
   })
 
   // Always honour the chosen aspect ratio — it defines a single, well-framed
   // canvas (this is also what stops the model laying out a grid of variations).
   const buffer = await generateProductPhoto(prompt, images, config, {
     size: ratio.openaiSize,
+    aspectRatio: ratio.geminiRatio,
   })
-  const url = await saveImage(buffer.toString('base64'))
+  const url = await saveRenderedImage(buffer.toString('base64'))
 
   return { url, prompt }
 }
@@ -747,32 +820,51 @@ export async function customizeBox(
     params.boxImageUrl ?? product.image,
     'product',
   )
-  const baseImage = params.baseImageUrl
-    ? await fetchImage(params.baseImageUrl, 'product')
+  // The shopper asked for their logo — rendering without it would silently
+  // produce an unbranded (or model-invented) box, so a failed fetch fails the
+  // request instead.
+  const brandingImage = await resolveBrandingImage(params, { required: true })
+
+  // A hand-placed layout takes the edit-base slot from a refine base. Both want
+  // to be the first attachment, and applying a moved logo on top of a render
+  // that already carries it is how you end up with two.
+  const layout = params.layout
+  const hasLayout = hasPlacement(layout)
+  const layoutImage = hasLayout
+    ? composedImage(
+        await composeLayout(
+          boxImage,
+          layout,
+          brandingImage,
+          await fetchLayoutAssets(layout),
+        ),
+      )
     : undefined
 
-  let brandingImage: FetchedImage | undefined
-  if (params.brandingImage) {
-    brandingImage = await fetchedImageFromDataUrl(params.brandingImage, 'logo')
-  } else if (params.brandingImageUrl) {
-    // The shopper asked for their logo — rendering without it would silently
-    // produce an unbranded (or model-invented) box, so a failed fetch fails
-    // the request instead.
-    const fetched = await fetchImageOptional(params.brandingImageUrl, 'logo')
-    if (!fetched) {
-      throw new Error(
-        'Could not load your logo. Check the brand logo and try again.',
-      )
-    }
-    brandingImage = fetched
-  } else if (params.brandingSvg) {
-    brandingImage = await fetchedImageFromInlineSvg(params.brandingSvg)
-  }
+  // When the layout places the logo, the composite already carries it — and
+  // now carries it legibly, since the compositor swaps black/white where the
+  // mark would vanish into the surface. Attaching the logo a second time hands
+  // the model a loose mark plus a strong prior to put one on the product, and
+  // it obliges: a duplicate copy elsewhere on the same item. The prompt can ask
+  // it not to and still lose. Not attaching it is what settles the matter —
+  // the same conclusion the bundle render reached in composition mode.
+  const layoutPlacesLogo =
+    hasLayout && layout.layers.some((l) => l.kind === 'logo')
 
-  const images: FetchedImage[] = baseImage
-    ? [baseImage, boxImage]
-    : [boxImage]
-  if (brandingImage) images.push(brandingImage)
+  const baseImage =
+    !hasLayout && params.baseImageUrl
+      ? await fetchImage(params.baseImageUrl, 'product')
+      : undefined
+
+  // The plain box photo stays attached in every multi-image case — it is the
+  // ground truth for construction, proportions and stock colour that neither a
+  // composite nor a prior render can be trusted for.
+  const images: FetchedImage[] = layoutImage
+    ? [layoutImage, boxImage]
+    : baseImage
+      ? [baseImage, boxImage]
+      : [boxImage]
+  if (brandingImage && !hasLayout) images.push(brandingImage)
 
   const prompt = buildBoxPrintPrompt({
     boxName: product.name,
@@ -780,16 +872,78 @@ export async function customizeBox(
     boxDetails: product.details,
     color: params.color,
     request: params.prompt,
-    hasBranding: Boolean(brandingImage),
+    hasBranding: Boolean(brandingImage) && !hasLayout,
     hasBase: Boolean(baseImage),
+    hasLayout,
+    placement: hasLayout ? describePlacement(layout) : undefined,
+    placedText: hasLayout ? placedTextLayers(layout) : undefined,
+    inventory: hasLayout ? placementInventory(layout) : undefined,
+    logoPlaced: layoutPlacesLogo,
   })
 
   const buffer = await generateProductPhoto(prompt, images, config, {
     size: '1024x1024',
+    aspectRatio: '1:1',
   })
-  const url = await saveImage(buffer.toString('base64'))
+  const url = await saveRenderedImage(buffer.toString('base64'))
 
   return { url, prompt }
+}
+
+// ---------------------------------------------------------------------------
+// Customizing any product — what the design editor calls
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply a design to whatever the user opened in the editor.
+ *
+ * A gift box and a notebook are the same gesture to the user — drag the logo
+ * on, render it — but two different jobs for the model. A box is *printed*: its
+ * construction is fixed, its board has a stock colour, and the supplier only
+ * prints certain faces. A notebook is *photographed*: it gets branded and then
+ * staged in a scene at a chosen aspect ratio.
+ *
+ * So this dispatches on the category rather than trying to merge the two
+ * briefs, and delegates to the two paths that already exist. Keeping the
+ * dispatch here rather than in the client means the browser never has to know
+ * which prompt system a product belongs to.
+ */
+export async function customizeProduct(
+  productId: string,
+  params: CustomizeProductBody,
+): Promise<CustomizeBoxResult> {
+  const product = await getProductById(productId)
+  if (!product) throw new Error('Product not found')
+
+  const branding = {
+    brandingImage: params.brandingImage,
+    brandingImageUrl: params.brandingImageUrl,
+    brandingSvg: params.brandingSvg,
+  }
+
+  if (product.categorySlug === PACKAGING_SLUG) {
+    return customizeBox(productId, {
+      prompt: params.prompt,
+      color: params.color,
+      baseImageUrl: params.baseImageUrl,
+      boxImageUrl: params.productImageUrl,
+      layout: params.layout,
+      ...branding,
+    })
+  }
+
+  return runProductPhotoshoot(productId, {
+    // Branding a product is not the same as photographing one. Left to itself
+    // the editor should change exactly what the user changed — the mark on the
+    // item — and leave the picture alone. A scene is opt-in.
+    sceneType: params.sceneType ?? KEEP_SCENE_ID,
+    aspectRatio: params.aspectRatio ?? 'square',
+    productImageUrl: params.productImageUrl ?? product.image,
+    prompt: params.prompt || undefined,
+    baseImageUrl: params.baseImageUrl,
+    layout: params.layout,
+    ...branding,
+  })
 }
 
 /** Build the text we embed for semantic search from a product's key fields. */

@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client'
+import type { PlacementLayout } from '@/types/layout'
 import type { Product, ProductsResponse, PageSize } from '@/types/product'
 import type { ProductInput } from '@/types/dashboard'
 
@@ -146,6 +147,11 @@ export interface CustomizeBoxRequest {
   brandingImage?: string
   brandingImageUrl?: string
   brandingSvg?: string
+  /**
+   * Where the shopper placed the logo and any wording. Takes the edit-base slot
+   * from `baseImageUrl` — the server ignores a refine base when this is set.
+   */
+  layout?: PlacementLayout
 }
 
 export interface CustomizeBoxResponse {
@@ -160,6 +166,43 @@ export async function customizeBox(
 ): Promise<CustomizeBoxResponse> {
   const { data } = await apiClient.post<CustomizeBoxResponse>(
     `/products/${encodeURIComponent(id)}/customize-box`,
+    body,
+  )
+  return data
+}
+
+export interface CustomizeProductRequest {
+  /** What the user wants, in their own words. */
+  prompt?: string
+  /** A previous render to iterate on. Ignored by the server when a layout is set. */
+  baseImageUrl?: string
+  /** Where the user placed the logo and any wording. */
+  layout?: PlacementLayout
+  brandingImage?: string
+  brandingImageUrl?: string
+  brandingSvg?: string
+  /** Packaging only — which stock board colour. */
+  color?: string
+  /** Everything else — how the product is staged. */
+  sceneType?: string
+  aspectRatio?: string
+  /** Which of the product's images to work from; defaults to its cover. */
+  productImageUrl?: string
+}
+
+/**
+ * Apply a design to any product — a box, a mug, a notebook.
+ *
+ * One endpoint for every subject: the server dispatches on the product's
+ * category, so the editor never has to know that a box is printed and a mug is
+ * photographed.
+ */
+export async function customizeProduct(
+  id: string,
+  body: CustomizeProductRequest,
+): Promise<CustomizeBoxResponse> {
+  const { data } = await apiClient.post<CustomizeBoxResponse>(
+    `/products/${encodeURIComponent(id)}/customize`,
     body,
   )
   return data
@@ -194,4 +237,18 @@ export async function fetchRelatedProducts(
     { params: { limit } },
   )
   return data.data
+}
+
+/**
+ * Keep a confirmed design in the company's own gallery for this product.
+ *
+ * Company-scoped server-side, so it shows up as a source image for this
+ * company's people and nobody else's. Requires a signed-in company; callers
+ * treat a failure as non-fatal, since the design is already saved locally.
+ */
+export async function saveProductGalleryImage(
+  productId: string,
+  body: { imageUrl: string; prompt?: string },
+): Promise<void> {
+  await apiClient.post(`/products/${productId}/images`, body)
 }

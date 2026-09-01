@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Pencil, Share2, Star, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, Maximize2, Pencil, Share2, Star, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { createShare, shareUrl, type ShareBrand } from '@/api/share'
@@ -350,8 +350,20 @@ export function ProductDetailPage() {
 
         {/* Right: AI photoshoot */}
         <Card className="lg:sticky lg:top-24 h-fit">
-          <CardHeader>
+          <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
             <CardTitle className="text-base">AI photoshoot</CardTitle>
+            {/* The panel can place branding inline, but the editor has room to
+                work in — same canvas, same result, more space. */}
+            <Button asChild size="sm" variant="outline">
+              <Link
+                to={`/design/${encodeURIComponent(product.id)}?to=product&return=${encodeURIComponent(
+                  `/dashboard/products/${product.id}`,
+                )}`}
+              >
+                <Maximize2 className="size-3.5" />
+                Open design editor
+              </Link>
+            </Button>
           </CardHeader>
           <CardContent className="flex flex-col">
             <PhotoshootPanel product={product} />

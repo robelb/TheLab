@@ -1,9 +1,10 @@
-import { Check, ImageUp, Plus, Share2, Sparkles, X } from 'lucide-react'
+import { Check, ImageUp, MousePointerSquareDashed, Plus, Share2, Sparkles, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { usePostHog } from '@posthog/react'
 import { ASPECT_RATIOS, SCENE_TYPES, type PhotoshootRequest } from '@/api/photoshoot'
 import { createShare, shareUrl, type ShareBrand } from '@/api/share'
 import { fileToDataUrl } from '@/api/uploads'
+import { PlacementCanvas, type CanvasLogo } from '@/components/canvas/PlacementCanvas'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -25,8 +26,19 @@ import {
   useProductPhotoshoot,
   useUpdateProduct,
 } from '@/hooks/use-product-mutations'
+import {
+  addLayer,
+  defaultLogoLayer,
+  defaultTextLayer,
+  EMPTY_LAYOUT,
+  findLogoLayer,
+  hasPlacement,
+  MAX_LAYERS,
+} from '@/lib/layout'
 import { resolveLogoKind, sanitizeSvgMarkup } from '@/lib/logo'
 import { cn } from '@/lib/utils'
+
+import type { PlacementLayout } from '@/types/layout'
 import type { Product } from '@/types/product'
 
 interface PhotoshootPanelProps {
@@ -205,7 +217,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
       ? product.images
       : [product.image]
 
-  const [sceneType, setSceneType] = useState<string>(SCENE_TYPES[0].id)
+  const [sceneType, setSceneType] = useState<string>('studio-hero')
   const [aspectRatio, setAspectRatio] = useState<string>(ASPECT_RATIOS[0].id)
   const [productImage, setProductImage] = useState<string>(gallery[0])
   const [styleImage, setStyleImage] = useState<string | null>(null)
@@ -218,6 +230,10 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
   const [sharingKey, setSharingKey] = useState<string | null>(null)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [buildOnLast, setBuildOnLast] = useState(true)
+  // Where the user dragged the branding, and whether the editor is open.
+  // Session-scoped like `styleImage` — the dashboard has no draft to persist to.
+  const [layout, setLayout] = useState<PlacementLayout>(EMPTY_LAYOUT)
+  const [placing, setPlacing] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -228,7 +244,16 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
   const updateProduct = useUpdateProduct()
 
   const lastResultUrl = results[0]?.url ?? null
-  const isRefining = buildOnLast && Boolean(lastResultUrl)
+  const placed = hasPlacement(layout)
+  // A layout, a refine base and a style image all want to be the edit base, and
+  // the server resolves that in the layout's favour. Reflect it here rather
+  // than leaving controls that quietly do nothing.
+  const isRefining = buildOnLast && Boolean(lastResultUrl) && !placed
+  const canvasLogo: CanvasLogo | null = brandingOverride
+    ? { kind: 'data-uri', value: brandingOverride }
+    : logo && logoKind !== 'none'
+      ? { kind: logoKind, value: logo }
+      : null
 
   /** Branding defaults to the company logo unless the user uploads an override. */
   const brandingFields = (): Pick<
@@ -259,7 +284,8 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
         // When refining, carry the previous result as the edit base and drop the
         // style image (the prior image already defines the scene).
         baseImageUrl: refine ? lastResultUrl ?? undefined : undefined,
-        styleImage: refine ? undefined : styleImage ?? undefined,
+        styleImage: refine || placed ? undefined : styleImage ?? undefined,
+        ...(placed ? { layout } : {}),
         ...brandingFields(),
       })
       const sceneLabel =
@@ -278,6 +304,8 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
         has_style_image: Boolean(styleImage),
         has_custom_branding: Boolean(brandingOverride),
         has_prompt: Boolean(promptText.trim()),
+        has_layout: placed,
+        layer_count: placed ? layout.layers.length : 0,
       })
     } catch (err) {
       setError(
@@ -532,7 +560,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
         <div className="flex items-start gap-3">
           <ReferenceSlot
             label="Style (A)"
-            value={styleImage}
+            value={placed ? null : styleImage}
             onChange={setStyleImage}
           />
           <BrandingSlot
@@ -567,6 +595,78 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
           </div>
         </div>
 
+        <div className="space-y-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={placing ? 'default' : 'outline'}
+            className="h-8 w-full text-xs"
+            onClick={() => setPlacing((open) => !open)}
+            disabled={!productImage}
+          >
+            <MousePointerSquareDashed className="size-3.5" />
+            {placing
+              ? 'Done placing'
+              : placed
+                ? 'Edit branding placement'
+                : 'Place branding by hand'}
+          </Button>
+
+          {placing && (
+            <>
+              <PlacementCanvas
+                baseImage={productImage}
+                logo={canvasLogo}
+                layout={layout}
+                onChange={setLayout}
+                disabled={generating}
+              />
+              <div className="flex flex-wrap gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setLayout(addLayer(layout, defaultLogoLayer()))}
+                  disabled={!canvasLogo || Boolean(findLogoLayer(layout))}
+                >
+                  Add logo
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs"
+                  onClick={() =>
+                    setLayout(addLayer(layout, defaultTextLayer('Your text')))
+                  }
+                  disabled={layout.layers.length >= MAX_LAYERS}
+                >
+                  Add wording
+                </Button>
+                {placed && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs text-muted-foreground"
+                    onClick={() => setLayout(EMPTY_LAYOUT)}
+                  >
+                    Clear placement
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+
+          {placed && !placing && (
+            <p className="text-[11px] text-muted-foreground">
+              Branding is placed by hand — the render keeps it exactly there,
+              and the style image and refine option are set aside for it.
+            </p>
+          )}
+        </div>
+
         <Textarea
           value={promptText}
           onChange={(e) => setPromptText(e.target.value)}
@@ -579,12 +679,22 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
         />
 
         {results.length > 0 && (
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <label
+            className={cn(
+              'flex items-center gap-2 text-xs text-muted-foreground',
+              placed && 'opacity-60',
+            )}
+          >
             <Checkbox
-              checked={buildOnLast}
+              checked={buildOnLast && !placed}
+              disabled={placed}
               onCheckedChange={(c) => setBuildOnLast(c === true)}
             />
-            <span>Build on last result (refine it instead of starting fresh)</span>
+            <span>
+              {placed
+                ? 'Build on last result — unavailable while branding is placed by hand'
+                : 'Build on last result (refine it instead of starting fresh)'}
+            </span>
           </label>
         )}
 

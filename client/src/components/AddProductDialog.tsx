@@ -20,6 +20,12 @@ interface AddProductDialogProps {
   existingIds: string[]
   onAdd: (product: Product) => void
   title?: string
+  /**
+   * Show plain catalogue photos rather than the company's branded variants —
+   * for the box builder, where these products are about to be designed. See
+   * `CampaignProductTile`.
+   */
+  plainImages?: boolean
 }
 
 /**
@@ -32,6 +38,7 @@ export function AddProductDialog({
   existingIds,
   onAdd,
   title = 'Add a product',
+  plainImages,
 }: AddProductDialogProps) {
   const [search, setSearch] = useState('')
   const q = useDebounce(search, 400)
@@ -66,7 +73,7 @@ export function AddProductDialog({
               className="flex w-full items-center gap-3 rounded-brand p-2 text-left transition-colors hover:bg-muted/40"
             >
               <img
-                src={getProductDisplayImage(p)}
+                src={plainImages ? p.image : getProductDisplayImage(p)}
                 alt=""
                 className="size-10 shrink-0 rounded-brand border border-border/40 object-cover"
               />

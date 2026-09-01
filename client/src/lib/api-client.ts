@@ -27,6 +27,15 @@ apiClient.interceptors.request.use((config) => {
 
 // On 401 the token is stale/invalid: drop it and bounce to login (unless we're
 // already there — e.g. a failed login attempt should just surface its error).
+//
+// Only 401. A 403 means the account is real but may not do this particular
+// thing, and signing someone out over it throws away a working session in the
+// middle of whatever they were doing.
+//
+// This is a full page load rather than a router navigation — the interceptor
+// sits below React and has no router to call — so where the person was has to
+// travel in the URL. `RequireAuth` puts the same thing in router state; both
+// end up at the same place, and both are read back by the sign-in page.
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -36,7 +45,8 @@ apiClient.interceptors.response.use(
       window.location.pathname !== '/login'
     ) {
       clearToken()
-      window.location.assign('/login')
+      const here = `${window.location.pathname}${window.location.search}`
+      window.location.assign(`/login?next=${encodeURIComponent(here)}`)
     }
     return Promise.reject(error)
   },

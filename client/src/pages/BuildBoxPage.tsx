@@ -16,7 +16,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePostHog } from '@posthog/react'
 import { AddProductDialog } from '@/components/AddProductDialog'
-import { BoxCustomizerDialog } from '@/components/BoxCustomizerDialog'
 import { CampaignProductTile } from '@/components/CampaignProductTile'
 import { SupplyPicker } from '@/components/SupplyPicker'
 import { Button } from '@/components/ui/button'
@@ -47,107 +46,47 @@ import {
   sameBoxLines,
   toBoxLine,
 } from '@/lib/box'
-import { getProductDisplayImage } from '@/lib/productImage'
+import {
+  designFor,
+  EMPTY_BOX_DRAFT,
+  loadBoxDraft,
+  parseDesign,
+  saveBoxDraft,
+  supplySignature,
+  type BoxDraft,
+  type ProductDesign,
+} from '@/lib/boxDraft'
 import { cn } from '@/lib/utils'
 import { formatPrice } from '@/utils/format'
 import type { BoxDetails, BoxLine } from '@/types/box'
 import type { Product } from '@/types/product'
 
-const STORAGE_KEY = 'atelier-box-draft'
-
 /** How many products the AI puts in a box when it picks for you. */
 const AI_BOX_SIZE = 6
 
 /**
- * The shopper's in-progress box. The bundle image can only be rendered for a
- * persisted campaign, so `campaignId` is filled in lazily — the first time the
- * shopper asks for an image — and the picked products live here until then.
+ * The designs inside a box that is already in the cart.
+ *
+ * Boxes saved before per-product designs existed carry only the printed box, on
+ * the packaging line — so fall back to reconstructing that one rather than
+ * dropping a design somebody paid a render for.
  */
-interface BoxDraft {
-  campaignId: string | null
-  title: string
-  productIds: string[]
-  /** How many of each product the box holds; a missing entry means one. */
-  quantities: Record<string, number>
-  /** The chosen box and filling material — both are charged for. */
-  packagingId: string | null
-  fillingId: string | null
-  /** A design printed onto the chosen box, and the words that produced it. */
-  packagingImage: string | null
-  packagingPrompt: string | null
-  /**
-   * The box + filling the bundle photo was last rendered with. The campaign
-   * doesn't persist them, so this is what tells us the photo has gone stale
-   * because the shopper swapped the packaging.
-   */
-  heroSupplies: string | null
-  /**
-   * Which image represents the box: the photographed bundle, or one of the
-   * printed-box designs. Null follows the default (the bundle photo).
-   */
-  mainImage: string | null
-  /**
-   * Set while the shopper is editing a box they already put in the cart — the
-   * id of that cart line, so saving writes back to it instead of adding a
-   * second box.
-   */
-  editingItemId: string | null
-}
+function designsFromBox(box: BoxDetails): Record<string, ProductDesign> {
+  const out: Record<string, ProductDesign> = {}
+  for (const [id, raw] of Object.entries(box.designs ?? {})) {
+    const design = parseDesign(raw)
+    if (design) out[id] = design
+  }
 
-const EMPTY_DRAFT: BoxDraft = {
-  campaignId: null,
-  title: '',
-  productIds: [],
-  quantities: {},
-  packagingId: null,
-  fillingId: null,
-  packagingImage: null,
-  packagingPrompt: null,
-  heroSupplies: null,
-  mainImage: null,
-  editingItemId: null,
-}
-
-/** Quantities come back from storage as untrusted JSON — keep whole, sane ones. */
-function parseQuantities(raw: unknown): Record<string, number> {
-  if (!raw || typeof raw !== 'object') return {}
-  const out: Record<string, number> = {}
-  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (typeof value === 'number' && Number.isFinite(value) && value >= 1) {
-      out[id] = Math.floor(value)
+  const packaging = box.packaging
+  if (packaging?.customPrint && packaging.customizedImage && !out[packaging.productId]) {
+    out[packaging.productId] = {
+      image: packaging.customizedImage,
+      prompt: box.packagingPrompt ?? null,
+      layout: box.packagingLayout ?? null,
     }
   }
   return out
-}
-
-function loadDraft(): BoxDraft {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return EMPTY_DRAFT
-    const parsed = JSON.parse(raw) as Partial<BoxDraft>
-    return {
-      campaignId: parsed.campaignId ?? null,
-      title: typeof parsed.title === 'string' ? parsed.title : '',
-      productIds: Array.isArray(parsed.productIds) ? parsed.productIds : [],
-      quantities: parseQuantities(parsed.quantities),
-      packagingId:
-        typeof parsed.packagingId === 'string' ? parsed.packagingId : null,
-      fillingId: typeof parsed.fillingId === 'string' ? parsed.fillingId : null,
-      packagingImage:
-        typeof parsed.packagingImage === 'string' ? parsed.packagingImage : null,
-      packagingPrompt:
-        typeof parsed.packagingPrompt === 'string'
-          ? parsed.packagingPrompt
-          : null,
-      heroSupplies:
-        typeof parsed.heroSupplies === 'string' ? parsed.heroSupplies : null,
-      mainImage: typeof parsed.mainImage === 'string' ? parsed.mainImage : null,
-      editingItemId:
-        typeof parsed.editingItemId === 'string' ? parsed.editingItemId : null,
-    }
-  } catch {
-    return EMPTY_DRAFT
-  }
 }
 
 function errorMessage(err: unknown, fallback: string): string {
@@ -167,15 +106,14 @@ export function BuildBoxPage() {
   const { items: cartItems, addItem, updateBoxItem } = useCart()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const [draft, setDraft] = useState<BoxDraft>(loadDraft)
+  const [draft, setDraft] = useState<BoxDraft>(loadBoxDraft)
   const [brief, setBrief] = useState('')
   const [addOpen, setAddOpen] = useState(false)
-  const [customizeOpen, setCustomizeOpen] = useState(false)
   const [preview, setPreview] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(draft))
+    saveBoxDraft(draft)
   }, [draft])
 
   // Only ids are persisted, so the box is rehydrated from the API on load. The
@@ -270,19 +208,15 @@ export function BuildBoxPage() {
         // effect then picks the cheapest of each.
         packagingId: item.box.packaging?.productId ?? null,
         fillingId: item.box.filling?.productId ?? null,
-        packagingImage: item.box.packaging?.customPrint
-          ? (item.box.packaging.customizedImage ?? null)
-          : null,
-        packagingPrompt: item.box.packagingPrompt ?? null,
+        designs: designsFromBox(item.box),
         // The saved photo was rendered with whatever this box already holds, so
         // it only reads as stale once the shopper changes something.
-        heroSupplies: `${item.box.packaging?.productId ?? ''}|${
-          item.box.filling?.productId ?? ''
-        }|${
-          item.box.packaging?.customPrint
-            ? (item.box.packaging.customizedImage ?? '')
-            : ''
-        }`,
+        heroSupplies: supplySignature({
+          ...EMPTY_BOX_DRAFT,
+          packagingId: item.box.packaging?.productId ?? null,
+          fillingId: item.box.filling?.productId ?? null,
+          designs: designsFromBox(item.box),
+        }),
         // Only restore the printed box as the main image when it actually was.
         mainImage:
           item.box.packaging?.customPrint &&
@@ -330,26 +264,39 @@ export function BuildBoxPage() {
     campaign.heroImageProductIds.every((id, i) => id === draft.productIds[i])
   // The campaign snapshots the products it rendered, but knows nothing about
   // the box and filling — so swapping those is tracked here instead.
-  const supplySignature = `${draft.packagingId ?? ''}|${draft.fillingId ?? ''}|${draft.packagingImage ?? ''}`
+  const signature = supplySignature(draft)
   const suppliesChanged =
-    draft.heroSupplies !== null && draft.heroSupplies !== supplySignature
+    draft.heroSupplies !== null && draft.heroSupplies !== signature
   const imageStale =
     Boolean(imageUrl) && (!imageMatchesBox || suppliesChanged) && !generating
   const failed =
     !generating && (campaign?.heroImageStatus === 'failed' || Boolean(error))
 
+  // Every product can carry its own design now, not just the box — so a line's
+  // customized image comes from the draft when the shopper made one, and the
+  // `customPrint` flag stops the cart's catalog refresh from reverting it.
   const lines: BoxLine[] = useMemo(
-    () => products.map((p) => toBoxLine(p, quantityOf(p.id))),
-    [products, quantityOf],
+    () =>
+      products.map((p) => {
+        const design = designFor(draft, p.id)
+        const line = toBoxLine(p, quantityOf(p.id))
+        return design
+          ? { ...line, customizedImage: design.image, customPrint: true }
+          : line
+      }),
+    [products, quantityOf, draft],
   )
   // One box, one lot of filling — the supplies don't scale with the contents.
   // A printed design rides on the line as its customized image, so the cart
   // and the order show the box the shopper actually designed.
+  const packagingDesign = designFor(draft, draft.packagingId)
   const packagingLine = packaging
     ? {
         ...toBoxLine(packaging, 1),
-        customizedImage: draft.packagingImage ?? packaging.customizedImage,
-        customPrint: Boolean(draft.packagingImage),
+        // Only the shopper's own print, never the catalogue's branded box —
+        // the box is designable too, so a pre-branded one reads as finished.
+        customizedImage: packagingDesign?.image ?? null,
+        customPrint: Boolean(packagingDesign),
       }
     : null
   const fillingLine = filling ? toBoxLine(filling, 1) : null
@@ -365,11 +312,15 @@ export function BuildBoxPage() {
   const imageOptions = useMemo(() => {
     const options: { url: string; label: string }[] = []
     if (imageUrl) options.push({ url: imageUrl, label: 'Bundle photo' })
-    if (draft.packagingImage) {
-      options.push({ url: draft.packagingImage, label: 'Printed box' })
+    if (packagingDesign) {
+      options.push({ url: packagingDesign.image, label: 'Printed box' })
+    }
+    for (const product of products) {
+      const design = designFor(draft, product.id)
+      if (design) options.push({ url: design.image, label: product.name })
     }
     return options
-  }, [imageUrl, draft.packagingImage])
+  }, [imageUrl, packagingDesign, products, draft])
 
   const mainImage =
     (draft.mainImage &&
@@ -387,6 +338,14 @@ export function BuildBoxPage() {
   const pieceCount = lines.reduce((sum, l) => sum + l.quantity, 0)
   const currency = products[0]?.currency ?? packaging?.currency
   const fallbackTitle = `${brand.companyName} box`
+
+  /**
+   * Hand off to the design editor. The draft is already on disk — the editor
+   * reads it there and writes the result straight back, so nothing has to be
+   * threaded through the URL beyond where to return to.
+   */
+  const openDesigner = (id: string) =>
+    navigate(`/design/${encodeURIComponent(id)}?return=/build-box`)
 
   const addProduct = (product: Product) => {
     setKnown((prev) => ({ ...prev, [product.id]: product }))
@@ -411,7 +370,7 @@ export function BuildBoxPage() {
   // Emptying the box keeps the shopper in edit mode — they're still working on
   // the same cart line, just from scratch.
   const startOver = () => {
-    setDraft((d) => ({ ...EMPTY_DRAFT, editingItemId: d.editingItemId }))
+    setDraft((d) => ({ ...EMPTY_BOX_DRAFT, editingItemId: d.editingItemId }))
     setError(null)
   }
 
@@ -469,12 +428,20 @@ export function BuildBoxPage() {
     try {
       // Photograph the bundle in the box and filling the shopper actually
       // chose, printed design included, rather than a generic kraft box.
+      // Every design the shopper made rides along, so the group shot shows the
+      // branded products and the printed box rather than plain catalogue stock.
+      const productImages: Record<string, string> = {}
+      for (const product of products) {
+        const design = designFor(draft, product.id)
+        if (design) productImages[product.id] = design.image
+      }
       const supplies = {
         ...(draft.packagingId ? { packagingId: draft.packagingId } : {}),
         ...(draft.fillingId ? { fillingId: draft.fillingId } : {}),
-        ...(draft.packagingImage
-          ? { packagingImageUrl: draft.packagingImage }
+        ...(packagingDesign
+          ? { packagingImageUrl: packagingDesign.image }
           : {}),
+        ...(Object.keys(productImages).length > 0 ? { productImages } : {}),
       }
 
       if (!campaignId) {
@@ -498,7 +465,7 @@ export function BuildBoxPage() {
       // Asking for a new bundle photo means wanting to see it — fall back to
       // the default so the render that lands becomes the main image. Record
       // what it's being rendered with, so a later swap reads as stale.
-      setDraft((d) => ({ ...d, mainImage: null, heroSupplies: supplySignature }))
+      setDraft((d) => ({ ...d, mainImage: null, heroSupplies: signature }))
       posthog?.capture('box image generated', {
         campaign_id: campaignId,
         product_count: products.length,
@@ -525,7 +492,7 @@ export function BuildBoxPage() {
     price: subtotal,
     currency,
     category: 'Gift box',
-    image: mainImage ?? getProductDisplayImage(products[0]),
+    image: mainImage ?? products[0].image,
     customizedImage: null,
     description: `Gift box with: ${lines
       .map((l) => (l.quantity > 1 ? `${l.name} × ${l.quantity}` : l.name))
@@ -547,7 +514,9 @@ export function BuildBoxPage() {
       lines,
       packaging: packagingLine,
       filling: fillingLine,
-      packagingPrompt: draft.packagingImage ? draft.packagingPrompt : null,
+      packagingPrompt: packagingDesign?.prompt ?? null,
+      packagingLayout: packagingDesign?.layout ?? null,
+      designs: draft.designs,
     }
 
     // Editing writes back to the line the shopper came from, keeping its id and
@@ -559,7 +528,7 @@ export function BuildBoxPage() {
         box,
       )
       // The box now lives in the cart — the builder starts fresh next time.
-      setDraft(EMPTY_DRAFT)
+      setDraft(EMPTY_BOX_DRAFT)
       posthog?.capture('box updated in cart', {
         campaign_id: campaignId,
         product_count: products.length,
@@ -589,7 +558,7 @@ export function BuildBoxPage() {
     addItem(boxProduct(id, title), 1, box)
     // Once it's in the cart it belongs to the cart. Coming back to the builder
     // means starting another box — the saved one is reachable via "Edit box".
-    setDraft(EMPTY_DRAFT)
+    setDraft(EMPTY_BOX_DRAFT)
     posthog?.capture('box added to cart', {
       campaign_id: campaignId,
       product_count: products.length,
@@ -950,6 +919,9 @@ export function BuildBoxPage() {
                     onRemove={() => removeProduct(p.id)}
                     quantity={quantityOf(p.id)}
                     onQuantityChange={(qty) => setQuantity(p.id, qty)}
+                    onDesign={() => openDesigner(p.id)}
+                    designImage={designFor(draft, p.id)?.image}
+                    plainImage
                   />
                 ))}
               </div>
@@ -978,18 +950,18 @@ export function BuildBoxPage() {
               // real time to render, and only confirming a new one replaces it.
               onSelect={(p) => setDraft((d) => ({ ...d, packagingId: p.id }))}
               loading={suppliesLoading}
-              previewImage={draft.packagingImage}
+              previewImage={packagingDesign?.image ?? null}
             />
 
             {packaging && (
               <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border/40 bg-background/60 px-3 py-2">
                 <Wand2 className="size-4 shrink-0 text-primary" />
                 <p className="min-w-0 flex-1 text-xs text-muted-foreground">
-                  {draft.packagingImage ? (
+                  {packagingDesign ? (
                     <>
                       Printed with{' '}
                       <span className="text-foreground">
-                        “{draft.packagingPrompt || 'your design'}”
+                        “{packagingDesign.prompt || 'your design'}”
                       </span>
                     </>
                   ) : (
@@ -998,11 +970,11 @@ export function BuildBoxPage() {
                 </p>
                 <Button
                   type="button"
-                  variant={draft.packagingImage ? 'ghost' : 'outline'}
+                  variant={packagingDesign ? 'ghost' : 'outline'}
                   size="sm"
-                  onClick={() => setCustomizeOpen(true)}
+                  onClick={() => openDesigner(packaging.id)}
                 >
-                  {draft.packagingImage ? 'Change design' : 'Customise box'}
+                  {packagingDesign ? 'Change design' : 'Customise box'}
                 </Button>
               </div>
             )}
@@ -1025,32 +997,9 @@ export function BuildBoxPage() {
         existingIds={draft.productIds}
         onAdd={addProduct}
         title="Add to your box"
+        plainImages
       />
 
-      <BoxCustomizerDialog
-        box={packaging}
-        open={customizeOpen}
-        onOpenChange={setCustomizeOpen}
-        currentImage={draft.packagingImage}
-        onApply={(image, prompt) =>
-          setDraft((d) => ({
-            ...d,
-            // A box carries one design — using a new one replaces the last
-            // rather than leaving the old box in the strip.
-            packagingImage: image,
-            packagingPrompt: prompt || d.packagingPrompt,
-            mainImage: image,
-          }))
-        }
-        onClear={() =>
-          setDraft((d) => ({
-            ...d,
-            packagingImage: null,
-            packagingPrompt: null,
-            mainImage: d.mainImage === d.packagingImage ? null : d.mainImage,
-          }))
-        }
-      />
 
       {mainImage && (
         <Dialog open={preview} onOpenChange={setPreview}>

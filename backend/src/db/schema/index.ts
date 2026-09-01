@@ -21,6 +21,11 @@ export {
   type CompanyBrand,
   type CompanyBrandStatus,
 } from './companies.js'
+export {
+  designVersions,
+  type DesignVersion,
+  type NewDesignVersion,
+} from './design-versions.js'
 export { users, type User, type NewUser } from './users.js'
 export {
   campaignVideos,
