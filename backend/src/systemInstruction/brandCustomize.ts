@@ -1,6 +1,5 @@
 import type { BrandMarkFacts } from '../customizer/brandMarkFacts.js'
 import {
-  LOGO_CONTRAST_BLOCK,
   LOGO_ONE_LINE_BLOCK,
   LOGO_PRIME_RULE,
   MARK_SCALE_BLOCK,
@@ -109,7 +108,7 @@ const MARK_FIDELITY_BLOCK = [
   '- Same line count: the mark keeps the same number of lines as the supplied image, and a horizontal wordmark is one line unless the artwork visibly shows otherwise. Never stack, wrap, break or re-flow it, and never introduce a line break the artwork does not have.',
   '- Same lockup: icon and text keep their relative positions (an icon left of the text stays left of it, never above).',
   '- Same letterforms: exact spelling, capitalisation, letter spacing and weight. Never re-type it in another font and never add or remove any element.',
-  '- Same colours by default: print the mark in its original colours, exactly — never darkened, lightened, tinted or given gradients or outlines. The ONE permitted change is the LOGO CONTRAST rule: on a surface that matches the mark\u2019s own colour, only its black and white parts swap for the opposite — every other colour stays exactly as supplied.',
+  '- Same colours by default: print the mark in its original colours, exactly — never darkened, lightened, tinted or given gradients or outlines. This holds even on a surface close to the mark\u2019s own colour: print it as supplied rather than recolouring it to stand out.',
   '- Uniform scale only: never stretch, squash, crop, rotate, mirror or change its aspect ratio.',
 ].join('\n')
 
@@ -220,8 +219,7 @@ export function buildCustomizePrompt(ctx: CustomizePromptContext): string {
     measuredFactsBlock(ctx),
     MARK_SCALE_BLOCK,
     LOGO_ONE_LINE_BLOCK,
-    LOGO_CONTRAST_BLOCK,
-    PRINT_TEXT_BLOCK,
+      PRINT_TEXT_BLOCK,
     productFactsBlock(ctx),
     PLACEMENT_BLOCK,
     companyNameBlock(name),
@@ -272,7 +270,6 @@ export const CUSTOMIZE_DEFAULT_TEMPLATE = [
   '{{measuredMarkFacts}}',
   MARK_SCALE_BLOCK,
   LOGO_ONE_LINE_BLOCK,
-  LOGO_CONTRAST_BLOCK,
   PRINT_TEXT_BLOCK,
   '{{productFacts}}',
   PLACEMENT_BLOCK,

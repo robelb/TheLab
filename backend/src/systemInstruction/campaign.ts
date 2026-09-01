@@ -1,7 +1,6 @@
 import type { BrandMarkFacts } from '../customizer/brandMarkFacts.js'
 import { lineCountClaim } from './brandCustomize.js'
 import {
-  LOGO_CONTRAST_BLOCK,
   LOGO_ONE_LINE_BLOCK,
   LOGO_PRIME_RULE,
   MARK_SCALE_BLOCK,
@@ -346,7 +345,7 @@ function kitBrandingBlock(factsLines: string, allPreBranded = false): string {
     '- When a one-line logo will not fit an item at a comfortable size, PRINT IT SMALLER until it does. Size is what you adjust to make it fit; the layout is not. A small, correct, one-line logo is right — a large stacked one is wrong. If it would become too small to read on a narrow item, move it to a wider face of that same item rather than changing its layout.',
     '- Same lockup on every product: icon and text keep their relative positions (an icon left of the text stays left of it, never above).',
     '- Same letterforms: exact spelling, capitalisation, letter spacing and weight. Never re-type it in another font and never add taglines or extra wording.',
-    '- Same colours on every product by default: the original logo colours, exactly — never darkened, lightened, tinted or adapted per item. The ONE permitted change is the LOGO CONTRAST rule: on an item whose surface matches the logo\u2019s own colour, only that mark\u2019s black and white parts swap for the opposite — its other colours, and every other item\u2019s mark, stay exactly as supplied.',
+    '- Same colours on every product by default: the original logo colours, exactly — never darkened, lightened, tinted or adapted per item. This holds even where the item\u2019s surface is close to the logo\u2019s own colour: print it as supplied and let it sit quietly rather than recolouring it.',
     '- Uniform scale only: never stretch, squash, crop, rotate or mirror it. If the logo does not fit a surface, print it SMALLER or use a wider face of that product — never reshape or re-stack it.',
     ...(allPreBranded
       ? [
@@ -462,7 +461,6 @@ export function buildCampaignKitImagePrompt(
       : '',
     hasLogo ? MARK_SCALE_BLOCK : '',
     hasLogo ? LOGO_ONE_LINE_BLOCK : '',
-    hasLogo ? LOGO_CONTRAST_BLOCK : '',
     hasLogo ? PRINT_TEXT_BLOCK : '',
     kitTextPolicyBlock(hasLogo, compositionOnly),
     KIT_OUTPUT_BLOCK,
@@ -521,7 +519,6 @@ export const KIT_IMAGE_DEFAULT_TEMPLATE = [
   kitBrandingBlock('{{measuredLogoFacts}}'),
   MARK_SCALE_BLOCK,
   LOGO_ONE_LINE_BLOCK,
-  LOGO_CONTRAST_BLOCK,
   PRINT_TEXT_BLOCK,
   kitTextPolicyBlock(true),
   KIT_OUTPUT_BLOCK,

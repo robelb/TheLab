@@ -207,134 +207,10 @@ export async function fetchLayoutAssets(
   return assets
 }
 
-/** Rec. 601 luma, which is close enough to how dark something looks. */
-function luma(r: number, g: number, b: number): number {
-  return 0.299 * r + 0.587 * g + 0.114 * b
-}
-
-/**
- * When a mark and its surface count as "the same kind of tone".
- *
- * A single contrast-gap threshold turned out to be a coin flip in practice —
- * the real case measured 59.8 against a cut-off of 60. What actually matters is
- * the condition `LOGO_CONTRAST_BLOCK` already describes: dark ink on a dark
- * surface, or light ink on a light one. Testing that directly is both steadier
- * and the same rule the prompt states, so the composite and the render agree
- * about when a swap is warranted.
- */
-const DARK = 115
-const LIGHT = 150
-
-/**
- * Swap a mark's black and white parts when it would vanish into the surface.
- *
- * The prompts already tell the model to do this in its output. What they could
- * not do was make the MOCKUP readable, and that turns out to be what matters:
- * a navy wordmark pasted on a black bottle is invisible in the composite, so
- * the model cannot trace it, falls back to the full-quality branding reference
- * and picks its own size — measured at 1.70x the size the customer set, drifting
- * across the product. The identical layout with a mark that reads against the
- * surface came back at 0.94x, in place. Legibility in the mockup, not prompt
- * wording, is what holds a placement.
- *
- * Only black and white invert, exactly as `LOGO_CONTRAST_BLOCK` specifies —
- * accent colours are part of the brand and are never touched.
- */
-async function contrastSwap(
-  sharp: Sharp,
-  logo: Buffer,
-  base: Buffer,
-  region: { left: number; top: number; width: number; height: number },
-): Promise<{ buffer: Buffer; swapped: boolean }> {
-  const { data, info } = await sharp(logo)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true })
-
-  const unchanged = { buffer: logo, swapped: false }
-
-  // How dark is the mark's own ink, ignoring anything transparent?
-  let inkSum = 0
-  let inkCount = 0
-  for (let i = 0; i < data.length; i += info.channels) {
-    if (data[i + 3] < 128) continue
-    inkSum += luma(data[i], data[i + 1], data[i + 2])
-    inkCount += 1
-  }
-  if (inkCount === 0) return unchanged
-
-  // How dark is the surface the ink actually lands on?
-  //
-  // Sampling the mark's whole bounding box is not the same question: a mark
-  // placed near a product's edge overhangs onto the backdrop, and averaging
-  // that in makes a black bottle look mid-grey — the swap is skipped, the mark
-  // stays invisible in the mockup, and the model re-invents it. So the sample
-  // is weighted by the mark's own alpha: only pixels under actual ink count.
-  const patch = await sharp(base)
-    .extract(region)
-    .resize(info.width, info.height, { fit: 'fill' })
-    .removeAlpha()
-    .raw()
-    .toBuffer()
-
-  let surfaceSum = 0
-  let surfaceCount = 0
-  for (let i = 0, j = 0; i < data.length; i += info.channels, j += 3) {
-    if (data[i + 3] < 128) continue
-    surfaceSum += luma(patch[j], patch[j + 1], patch[j + 2])
-    surfaceCount += 1
-  }
-  if (surfaceCount === 0) return unchanged
-
-  const ink = inkSum / inkCount
-  const surface = surfaceSum / surfaceCount
-  const darkOnDark = ink < DARK && surface < DARK
-  const lightOnLight = ink > LIGHT && surface > LIGHT
-  if (!darkOnDark && !lightOnLight) return unchanged
-
-  const out = Buffer.from(data)
-  for (let i = 0; i < out.length; i += info.channels) {
-    if (out[i + 3] < 8) continue
-    const l = luma(out[i], out[i + 1], out[i + 2])
-    // Near-black becomes near-white and the reverse. A saturated accent sits
-    // in neither band and passes through untouched.
-    if (l < 70) {
-      out[i] = 255
-      out[i + 1] = 255
-      out[i + 2] = 255
-    } else if (l > 200) {
-      out[i] = 20
-      out[i + 1] = 20
-      out[i + 2] = 20
-    }
-  }
-  const swapped = await sharp(out, {
-    raw: { width: info.width, height: info.height, channels: info.channels as 4 },
-  })
-    .png()
-    .toBuffer()
-  return { buffer: swapped, swapped: true }
-}
-
 interface Overlay {
   input: Buffer
   left: number
   top: number
-}
-
-/**
- * What the compositor did that the browser canvas could not have predicted.
- *
- * The editor draws the layout itself, so canvas and composite agree about
- * position, size and type. `contrastSwap` is the one place they cannot: it
- * samples the base photo, and the canvas is plain DOM precisely because reading
- * those pixels taints on a cross-origin logo. Rather than let a black mark turn
- * white with no explanation, the compositor says when it happened and the
- * confirmation step passes that on.
- */
-export interface ComposeNotes {
-  /** A logo layer's black/white was inverted so it stays readable. */
-  contrastSwapped: boolean
 }
 
 async function renderLayer(
@@ -344,8 +220,6 @@ async function renderLayer(
   baseHeight: number,
   logo: FetchedImage | undefined,
   assets: LayerAssets,
-  base: Buffer,
-  notes?: ComposeNotes,
 ): Promise<Overlay | null> {
   if (layer.width < MIN_LAYER_WIDTH) return null
   const targetWidth = Math.round(layer.width * baseWidth)
@@ -363,26 +237,6 @@ async function renderLayer(
       .resize({ width: targetWidth, withoutEnlargement: false })
       .png()
       .toBuffer()
-
-    // Only the brand logo gets this. Uploaded artwork and text carry colours
-    // the customer chose deliberately, and inverting those would be overruling
-    // them — the very thing the placement contract exists to prevent.
-    if (layer.kind === 'logo') {
-      const meta = await sharp(buffer).metadata()
-      const w = meta.width ?? targetWidth
-      const h = meta.height ?? targetWidth
-      const left = Math.round(layer.x * baseWidth - w / 2)
-      const top = Math.round(layer.y * baseHeight - h / 2)
-      const region = {
-        left: Math.max(0, Math.min(left, baseWidth - 1)),
-        top: Math.max(0, Math.min(top, baseHeight - 1)),
-        width: Math.max(1, Math.min(w, baseWidth - Math.max(0, left))),
-        height: Math.max(1, Math.min(h, baseHeight - Math.max(0, top))),
-      }
-      const contrast = await contrastSwap(sharp, buffer, base, region)
-      buffer = contrast.buffer
-      if (contrast.swapped && notes) notes.contrastSwapped = true
-    }
   }
   if (!buffer) return null
 
@@ -450,7 +304,6 @@ export async function composeLayout(
   layout: PlacementLayout,
   logo?: FetchedImage,
   assets: LayerAssets = {},
-  notes?: ComposeNotes,
 ): Promise<Buffer> {
   const { default: sharp } = await import('sharp')
 
@@ -476,8 +329,6 @@ export async function composeLayout(
       baseHeight,
       logo,
       assets,
-      flat,
-      notes,
     )
     if (overlay) overlays.push(overlay)
   }

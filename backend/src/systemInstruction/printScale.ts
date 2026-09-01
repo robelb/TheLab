@@ -21,7 +21,7 @@
  * only permitted change.
  */
 export const LOGO_PRIME_RULE =
-  'FIRST, THE LOGO RULE — before anything else: use the supplied brand logo exactly AS IT IS, copied from its reference image — never drawn from memory, never approximated, never replaced with a similar-looking or invented mark. You are free to make it SMALLER — shrink it as much as needed to fit a surface — but you may not change its artwork: never redraw, restyle, stretch, crop or re-typeset it, and NEVER turn a single-line logo into two or more lines. Keep its original colours, with ONE exception: where the logo would disappear against a surface of nearly its own colour, swap ONLY its black and white parts for the opposite — black becomes white on dark surfaces, white becomes black on light ones — while every other colour in the logo stays exactly as supplied. If the logo does not fit somewhere, it becomes smaller; its artwork and layout never change.'
+  'FIRST, THE LOGO RULE — before anything else: use the supplied brand logo exactly AS IT IS, copied from its reference image — never drawn from memory, never approximated, never replaced with a similar-looking or invented mark. You are free to make it SMALLER — shrink it as much as needed to fit a surface — but you may not change its artwork: never redraw, restyle, stretch, crop or re-typeset it, and NEVER turn a single-line logo into two or more lines. Keep its original colours exactly as supplied: never recolour, invert or swap any part of it, not even where the logo sits on a surface of nearly its own colour. If the logo does not fit somewhere, it becomes smaller; its artwork and layout never change.'
 
 /**
  * The opening contract when the customer set the size themselves.
@@ -34,7 +34,7 @@ export const LOGO_PRIME_RULE =
  * Everything else about artwork integrity is identical.
  */
 export const LOGO_PRIME_RULE_PLACED =
-  'FIRST, THE LOGO RULE — before anything else: use the supplied brand logo exactly AS IT IS, copied from its reference image — never drawn from memory, never approximated, never replaced with a similar-looking or invented mark. Its SIZE has already been chosen by the customer and is fixed: do not enlarge it, do not shrink it, do not adjust it to fit better or read better. You may not change its artwork either: never redraw, restyle, stretch, crop or re-typeset it, and NEVER turn a single-line logo into two or more lines. Keep its original colours, with ONE exception: where the logo would disappear against a surface of nearly its own colour, swap ONLY its black and white parts for the opposite — black becomes white on dark surfaces, white becomes black on light ones — while every other colour in the logo stays exactly as supplied.'
+  'FIRST, THE LOGO RULE — before anything else: use the supplied brand logo exactly AS IT IS, copied from its reference image — never drawn from memory, never approximated, never replaced with a similar-looking or invented mark. Its SIZE has already been chosen by the customer and is fixed: do not enlarge it, do not shrink it, do not adjust it to fit better or read better. You may not change its artwork either: never redraw, restyle, stretch, crop or re-typeset it, and NEVER turn a single-line logo into two or more lines. Keep its original colours exactly as supplied: never recolour, invert or swap any part of it, not even where the logo sits on a surface of nearly its own colour.'
 
 /**
  * The one-line contract when the size is fixed.
@@ -48,20 +48,6 @@ export const LOGO_ONE_LINE_PLACED_BLOCK = [
   '- If the supplied logo is a single line of artwork, the printed logo is a single line of artwork. Never stack it, wrap it, break it across lines, split an icon above its text, or re-typeset it into a square or vertical block.',
   '- The customer placed it at a size that already fits, so there is nothing to solve here: render it on one line at exactly that size. Do not resize it to make it fit, to make it more readable, or to balance the composition.',
   '- If it reads small, that is how the customer wanted it. Reproduce it faithfully at that size rather than enlarging it.',
-].join('\n')
-
-/**
- * What to do when the logo's own colours vanish against the surface it sits
- * on — a dark logo on a black product, a white mark on white board. The only
- * permitted change is swapping the logo's black and white parts for each
- * other; any accent colours in the mark are untouchable.
- */
-export const LOGO_CONTRAST_BLOCK = [
-  'LOGO CONTRAST — the logo must stay clearly visible against whatever it sits on:',
-  '- Default: print the logo in its original colours, exactly as supplied. Use them whenever they read clearly against the chosen surface.',
-  '- If the surface is the same or nearly the same colour as part of the logo — a black wordmark on a dark product, white lettering on white material — do what a real print shop does: swap ONLY the logo\u2019s black and white parts for the opposite, so black becomes white on a dark surface and white becomes black on a light one.',
-  '- Every OTHER colour in the logo stays exactly as supplied. Accent colours, coloured icons and coloured lettering never change, never invert and never disappear. A logo that is entirely black or entirely white simply flips whole to the other.',
-  '- Nothing else changes: never introduce a new colour, never force contrast with outlines, glows, drop shadows or a backing panel, and never alter the logo\u2019s shape, layout or line count — only the black/white fills swap.',
 ].join('\n')
 
 /**

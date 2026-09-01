@@ -13,13 +13,6 @@ export interface ComposeRequest {
 
 export interface ComposeResponse {
   url: string
-  /**
-   * The mark's black and white were inverted so it stays readable on this
-   * surface. The editor's canvas cannot predict this — it would have to sample
-   * the base photo, and reading those pixels taints on a cross-origin logo — so
-   * the server reports it and the confirmation step says so in words.
-   */
-  contrastSwapped: boolean
 }
 
 /**

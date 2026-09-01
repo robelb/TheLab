@@ -23,7 +23,6 @@ import {
 import {
   BOX_FULL_BLEED_SCALE_BLOCK,
   BOX_PRINT_SCALE_BLOCK,
-  LOGO_CONTRAST_BLOCK,
   LOGO_ONE_LINE_BLOCK,
   LOGO_ONE_LINE_PLACED_BLOCK,
   LOGO_PRIME_RULE,
@@ -411,17 +410,15 @@ export function buildBoxPrintPrompt(input: BuildBoxPrintPromptInput): string {
         '- Do not apply, place or position the logo — that has happened. Work on the copy already in the mockup so it reads as genuinely printed on the board: sharp, undistorted, following the surface and its lighting.',
         '- No separate logo file is supplied, because none is needed: the mockup is the only source for this mark. Copy it faithfully from there — same artwork, same proportions, same colours — and never draw it from memory, never approximate it, never substitute a similar-looking or invented mark.',
         '- Exactly ONE logo appears on the finished box, in the one place the mockup shows it. Not a second copy on the lid, the front, a side, an edge or the background. If your draft shows the logo more than once, keep the one the mockup placed and remove every other.',
-        '- It is the only brand allowed in the image; remove or replace any other, different, placeholder or made-up logo, brand name or wordmark. Never redraw, restyle or add text to it, and keep its original colours except where the LOGO CONTRAST rule applies.',
+        '- It is the only brand allowed in the image; remove or replace any other, different, placeholder or made-up logo, brand name or wordmark. Never redraw, restyle or add text to it, and keep its original colours exactly as supplied.',
       ].join('\n'),
     )
     p.push(LOGO_ONE_LINE_PLACED_BLOCK)
-    p.push(LOGO_CONTRAST_BLOCK)
   } else if (input.hasBranding) {
     p.push(
-      "BRANDING — the FINAL reference image is the brand's logo, and it MUST appear on the box: applying it is part of the task, never optional, never skipped, and never postponed. Copy it from that reference image exactly — never draw it from memory, never approximate it, and never substitute a similar-looking or invented mark; the reference is the only source of what this logo looks like. Apply it sharp and undistorted, and keep it small — roughly a quarter of the width of the face, clearly separated from the requested design and never competing with it. It is the only brand allowed in the image; remove or replace any other, different, placeholder or made-up logo, brand name or wordmark. Never redraw, restyle or add text to it, and keep its original colours except where the LOGO CONTRAST rule applies.",
+      "BRANDING — the FINAL reference image is the brand's logo, and it MUST appear on the box: applying it is part of the task, never optional, never skipped, and never postponed. Copy it from that reference image exactly — never draw it from memory, never approximate it, and never substitute a similar-looking or invented mark; the reference is the only source of what this logo looks like. Apply it sharp and undistorted, and keep it small — roughly a quarter of the width of the face, clearly separated from the requested design and never competing with it. It is the only brand allowed in the image; remove or replace any other, different, placeholder or made-up logo, brand name or wordmark. Never redraw, restyle or add text to it, and keep its original colours exactly as supplied.",
     )
     p.push(LOGO_ONE_LINE_BLOCK)
-    p.push(LOGO_CONTRAST_BLOCK)
   }
 
   p.push(

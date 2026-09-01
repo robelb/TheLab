@@ -185,18 +185,9 @@ export function DesignPage() {
    * The flat one carries the signature of what produced it, so confirming can
    * tell a current mockup from one built before the last three nudges.
    */
-  const [flat, setFlat] = useState<{
-    url: string
-    signature: string
-    /**
-     * The compositor inverted the mark's black and white so it reads against
-     * the surface. Carried because the canvas cannot know — it would have to
-     * sample the base photo, and reading those pixels taints on a cross-origin
-     * logo. Said out loud at confirmation rather than left as a silent
-     * difference between what was placed and what prints.
-     */
-    contrastSwapped?: boolean
-  } | null>(saved?.flat ? { url: saved.flat, signature: '' } : null)
+  const [flat, setFlat] = useState<{ url: string; signature: string } | null>(
+    saved?.flat ? { url: saved.flat, signature: '' } : null,
+  )
   const [photoreal, setPhotoreal] = useState<string | null>(
     // Designs saved before the two were told apart carry one image and no
     // record of its kind. Treat it as a render: the mockup is rebuilt from the
@@ -479,11 +470,7 @@ export function DesignPage() {
       layout,
       ...brandingFields(),
     })
-    setFlat({
-      url: res.url,
-      signature: layoutSignature,
-      contrastSwapped: res.contrastSwapped,
-    })
+    setFlat({ url: res.url, signature: layoutSignature })
     return res.url
   }
 
@@ -1506,17 +1493,6 @@ export function DesignPage() {
                 className="max-h-[52vh] w-auto max-w-full object-contain"
               />
             </div>
-          )}
-
-          {/* The one thing the canvas could not have shown. Said plainly here
-              rather than left as an unexplained difference between the mark
-              someone placed and the mark that prints. */}
-          {placed && flat?.contrastSwapped && (
-            <p className="rounded-brand border border-border/40 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-              Your logo prints in reverse here — black parts come out white and
-              white parts black — so it stays readable against this surface. The
-              mockup above is the accurate one.
-            </p>
           )}
 
           {/* Only a question when there are genuinely two pictures of one

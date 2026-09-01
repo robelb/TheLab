@@ -199,11 +199,16 @@ for (const [name, p] of variants) {
     p.startsWith('FIRST, THE LOGO RULE'),
     'the as-is / shrink-only / never-multi-line contract must be the first line of every logo-bearing prompt',
   )
+  // The logo's colours are the customer's, full stop. The prompts used to carry
+  // a black/white swap for marks that vanished into their surface; it was
+  // removed because it changed a design people had already approved. This check
+  // is what stops it drifting back in.
   check(
-    `${name}: contrast rule (black/white swap, other colours untouched)`,
-    /LOGO CONTRAST/.test(p) &&
-      /black and white parts/.test(p) &&
-      /Every OTHER colour in the logo stays exactly as supplied/.test(p),
+    `${name}: never recolours or inverts the logo`,
+    /never recolour, invert or swap/.test(p) &&
+      !/LOGO CONTRAST/.test(p) &&
+      !/black becomes white/.test(p),
+    'a colour-swap instruction is back in the prompt — the logo must print in its supplied colours',
   )
   check(
     `${name}: logo copied from reference, never from memory`,
@@ -485,7 +490,6 @@ console.log('\n── J. layout overrides house geometry ──')
       [/^BRANDING —/m, 'the branding application block'],
       [/MARK SCALE/, 'the logo size rules'],
       [/LOGO STAYS ON ONE LINE/, 'the logo typesetting rules'],
-      [/LOGO CONTRAST/, 'the logo recolouring rules'],
       [/^TEXT LAYOUT:/m, 'the lettering rules'],
       [/the FINAL image is the company logo/i, 'a logo attachment that is no longer sent'],
     ]
