@@ -208,6 +208,23 @@ export interface KitSupplySelection {
   packagingImageUrl?: string
   /** Per-product designs, keyed by product id, preferred over catalog photos. */
   productImages?: Record<string, string>
+  /**
+   * Photograph anything the shopper has not designed from its PLAIN catalogue
+   * photo, ignoring the company's own branded shot of it.
+   *
+   * Set by the box builder, and the reason is what the builder puts on screen.
+   * Its product tiles deliberately show the plain photo — a tile wearing a logo
+   * reads as designed — so the shopper picks two unbranded items, presses
+   * build, and gets back a box whose contents are branded. The logo in that
+   * render came from `customizedImage`, the shot onboarding made for the
+   * company, and no amount of prompt work removes it: it is baked into the
+   * reference the model was handed. The picture simply has to be built from the
+   * same image the shopper was looking at.
+   *
+   * Not set by the dashboard's campaign builder, where the branded shot IS the
+   * product's picture and the storefront shows it that way too.
+   */
+  plainUnlessDesigned?: boolean
 }
 
 interface ResolvedSupply {
@@ -220,13 +237,15 @@ interface ResolvedSupply {
 async function resolveSupply(
   id: string | undefined,
   imageOverride?: string,
+  plainUnlessDesigned = false,
 ): Promise<ResolvedSupply | null> {
   if (!id) return null
   try {
     const product = await getProductById(id)
     if (!product) return null
     const image = await fetchImage(
-      imageOverride ?? product.customizedImage ?? product.image,
+      imageOverride ??
+        (plainUnlessDesigned ? product.image : product.customizedImage ?? product.image),
       'product',
     )
     return { name: product.name, description: product.description, image }
@@ -251,12 +270,19 @@ async function generateKitImage(
     throw new Error('Add at least one product to the bundle first.')
   }
 
-  // Prefer, in order: a design the shopper just made for this product in the
-  // builder, then the company's already-branded shot, then the catalog image.
-  // The first two already carry the logo, so the group shot agrees with the
-  // individual products rather than quietly reverting them to plain stock.
+  /**
+   * Which photograph of a product the render is built from.
+   *
+   * A design the shopper made always wins. What stands in behind it is the
+   * question: the company's own branded shot, so the group photo agrees with a
+   * storefront that shows branded tiles — or the plain catalogue photo, so it
+   * agrees with a builder that shows plain ones. Both are "agreeing with the
+   * products"; they just disagree about which products the shopper is looking
+   * at. The caller knows, and says — see `plainUnlessDesigned`.
+   */
   const sourceFor = (p: ProductWithCategory) =>
-    supplies?.productImages?.[p.id] ?? p.customizedImage ?? p.image
+    supplies?.productImages?.[p.id] ??
+    (supplies?.plainUnlessDesigned ? p.image : p.customizedImage ?? p.image)
   const fetched = await Promise.allSettled(
     products.map((p) => fetchImage(sourceFor(p), 'product')),
   )
@@ -278,8 +304,12 @@ async function generateKitImage(
   }
 
   const [packaging, filling] = await Promise.all([
-    resolveSupply(supplies?.packagingId, supplies?.packagingImageUrl),
-    resolveSupply(supplies?.fillingId),
+    resolveSupply(
+      supplies?.packagingId,
+      supplies?.packagingImageUrl,
+      supplies?.plainUnlessDesigned,
+    ),
+    resolveSupply(supplies?.fillingId, undefined, supplies?.plainUnlessDesigned),
   ])
 
   const kitNames = usable.map((e) => e.product.name)
@@ -291,12 +321,32 @@ async function generateKitImage(
     .filter((e) => sourceFor(e.product) !== e.product.image)
     .map((e) => e.product.name)
 
-  // With every product already carrying its branding there is nothing to
-  // apply, and the logo reference stops being useful and starts being
-  // dangerous: handed a logo, the model treats re-branding as part of the job
-  // and re-renders marks the customer placed by hand. Not attaching it is what
-  // makes the reproduction contract stick — the prompt asking nicely is not.
-  const compositionOnly = isCompositionOnly(kitNames, preBranded)
+  /**
+   * Nothing in this box is branded, so nothing in the render will be.
+   *
+   * The prompt cannot decide this for itself: an empty `preBranded` list is
+   * equally the shape of a kit somebody wants branded from scratch, which is
+   * what the dashboard's campaign builder asks for. So it hangs off the same
+   * flag as the source images, because it is the same intent — show what the
+   * shopper made, and nothing else. A caller that wants plain products
+   * photographed plain does not want a logo invented onto them either.
+   *
+   * Before this, the box builder got one anyway: a logo on every item, placed
+   * and sized by the model. It read as a design the shopper had made, and the
+   * ones who then opened the editor found a blank canvas that disagreed with
+   * the picture they were looking at.
+   */
+  const noBranding =
+    Boolean(supplies?.plainUnlessDesigned) && preBranded.length === 0
+
+  // Two ways there is nothing to apply: every product already carries its
+  // branding, or none of them does and none is meant to. Either way the logo
+  // reference stops being useful and starts being dangerous: handed a logo, the
+  // model treats branding as part of the job and either re-renders marks the
+  // customer placed by hand or invents marks they never asked for. Not
+  // attaching it is what makes the prompt's contract stick — asking nicely is
+  // not.
+  const compositionOnly = isCompositionOnly(kitNames, preBranded, noBranding)
   const useLogo = brand && !compositionOnly
 
   // Order is the contract the prompt describes by position: products first
@@ -311,6 +361,7 @@ async function generateKitImage(
   const kitOptions = {
     hasLogo: Boolean(useLogo),
     preBranded,
+    noBranding,
     companyName: brand?.companyName,
     logoFacts,
     packaging: packaging
@@ -560,6 +611,7 @@ export async function generateCampaign(
   brand: CampaignBrandInput,
   bundleSize = DEFAULT_BUNDLE_SIZE,
   brief?: string | null,
+  plainUnlessDesigned = false,
 ): Promise<HydratedCampaign> {
   const query = buildSemanticQuery(brand, brief)
 
@@ -605,7 +657,7 @@ export async function generateCampaign(
   // the user can regenerate it from the dashboard.
   const heroImageUrl = products.length
     ? await withTimeout(
-        generateKitImage(products, bundleBrand),
+        generateKitImage(products, bundleBrand, { plainUnlessDesigned }),
         KIT_IMAGE_TIMEOUT_MS,
         'kit image',
       ).catch((err) => {
@@ -732,8 +784,9 @@ export async function updateCampaign(
     .returning()
   if (!row) return null
 
-  // `input.brand` is a render hint only — it is deliberately not in `values`.
-  if (regenerate) startHeroImageJob(id, input.brand)
+  // `input.brand` and `input.supplies` are render hints only — deliberately
+  // not in `values`.
+  if (regenerate) startHeroImageJob(id, input.brand, input.supplies)
   return hydrate(row)
 }
 

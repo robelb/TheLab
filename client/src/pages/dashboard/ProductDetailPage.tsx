@@ -356,7 +356,7 @@ export function ProductDetailPage() {
                 work in — same canvas, same result, more space. */}
             <Button asChild size="sm" variant="outline">
               <Link
-                to={`/design/${encodeURIComponent(product.id)}?to=product&return=${encodeURIComponent(
+                to={`/design/${encodeURIComponent(product.id)}?to=catalogue&return=${encodeURIComponent(
                   `/dashboard/products/${product.id}`,
                 )}`}
               >

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useBrand } from '@/context/BrandContext'
 import { useDebounce } from '@/hooks/use-debounce'
+import { formatPrice } from '@/utils/format'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useImageSearch, useProducts } from '@/hooks/use-products'
 import { isPriceRangeFiltered } from '@/components/PriceRangeFilter'
@@ -16,8 +17,8 @@ import { Button } from '@/components/ui/button'
 import type { PageSize, PriceRange } from '@/types/product'
 import { ChevronLeft, ChevronRight, Gift } from 'lucide-react'
 
-const SEARCH_DEBOUNCE_MS = 2000
-const PRICE_DEBOUNCE_MS = 2000
+const SEARCH_DEBOUNCE_MS = 300
+const PRICE_DEBOUNCE_MS = 300
 
 /** Coerce a brand color to `#rrggbb`, falling back to a sensible default. */
 function toHexColor(value: string | null | undefined): string {
@@ -84,6 +85,21 @@ export function HomePage() {
     pinFeatured: colorSort ? !colorIsCustom : undefined,
   })
 
+  /**
+   * Seed the price slider from whatever the catalogue actually spans, once.
+   *
+   * This used to run as two bare `setState` calls in the render body, which
+   * React tolerates by re-rendering immediately but which misbehaves under
+   * StrictMode and concurrent rendering. `priceBounds` staying in the condition
+   * keeps it a one-time seed rather than something that fights the user's
+   * selection every time the query refetches.
+   */
+  useEffect(() => {
+    if (!data?.priceRange || priceBounds) return
+    setPriceBounds(data.priceRange)
+    setPriceSelection([data.priceRange.min, data.priceRange.max])
+  }, [data?.priceRange, priceBounds])
+
   const categories = data?.categories ?? []
   const products = imageActive
     ? (imageSearch.data?.data ?? [])
@@ -97,10 +113,6 @@ export function HomePage() {
   const hasNextPage = imageActive ? false : (pagination?.hasNextPage ?? false)
   const hasPrevPage = imageActive ? false : (pagination?.hasPrevPage ?? false)
 
-  if (data?.priceRange && !priceBounds) {
-    setPriceBounds(data.priceRange)
-    setPriceSelection([data.priceRange.min, data.priceRange.max])
-  }
 
   function changeCategory(cat: string) {
     setCategory(cat)
@@ -181,12 +193,15 @@ export function HomePage() {
   const interpretedChips: string[] = []
   if (interpreted) {
     const { minPrice, maxPrice } = interpreted
+    // Through `formatPrice` like every other price on the page — these were
+    // hand-built `€…` strings, so they were the one place that stayed
+    // American-looking after the locale fix.
     if (minPrice !== undefined && maxPrice !== undefined) {
-      interpretedChips.push(`€${minPrice} – €${maxPrice}`)
+      interpretedChips.push(`${formatPrice(minPrice)} – ${formatPrice(maxPrice)}`)
     } else if (maxPrice !== undefined) {
-      interpretedChips.push(`≤ €${maxPrice}`)
+      interpretedChips.push(`≤ ${formatPrice(maxPrice)}`)
     } else if (minPrice !== undefined) {
-      interpretedChips.push(`≥ €${minPrice}`)
+      interpretedChips.push(`≥ ${formatPrice(minPrice)}`)
     }
   }
 

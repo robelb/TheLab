@@ -116,6 +116,9 @@ export function duplicateLayer(
 ): PlacementLayout {
   const source = layout.layers.find((l) => l.id === id)
   if (!source || layout.layers.length >= MAX_LAYERS) return layout
+  // One logo, always. Adding a second is refused everywhere else, and copying
+  // one was the way around that — two marks that both print.
+  if (source.kind === 'logo') return layout
   return {
     layers: [
       ...layout.layers,

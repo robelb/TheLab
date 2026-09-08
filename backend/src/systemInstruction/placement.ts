@@ -58,3 +58,29 @@ export const PLACEMENT_FACTS_HEADING =
 export function placementFacts(lines: string[]): string {
   return [PLACEMENT_FACTS_HEADING, ...lines].join('\n')
 }
+
+/**
+ * The typeface contract for placed wording.
+ *
+ * Everything else about a layout is carried by the mockup: the model can see
+ * where the wording sits and how wide it runs, and is told to reproduce that.
+ * The typeface is the one placed attribute the mockup CANNOT carry, because the
+ * mockup is deliberately set in whatever face the render host happens to have
+ * and the model is told, correctly, to re-typeset the wording as real print.
+ * So the choice only survives if the prompt states it — and it has to state it
+ * as a constraint, because the surrounding brief hands the model a great deal
+ * of typographic latitude everywhere else.
+ *
+ * This block is what closes that gap. `placedTypefaces` supplies the per-line
+ * facts; these rules say the class is fixed and the shopper picked it.
+ */
+export function placedTypefaceFacts(lines: string[]): string {
+  return [
+    'TYPEFACE IS THE CUSTOMER’S CHOICE — they picked a style of lettering in the editor, one per piece of wording, and it is as much part of their design as the position and the colour:',
+    ...lines,
+    '- Set each one in a real, well-drawn face of the class named for it. The class is fixed: never substitute a face from a different class because it suits the product, the occasion, the palette or the composition better, and never fall back to a default sans because it is safer or reads more cleanly.',
+    '- Within the named class you choose the specific face, and you should choose a good one — refine the letterforms, spacing and print quality as much as you like. What you may not do is change which class it belongs to.',
+    '- The mockup’s own lettering is a placeholder standing in for that class, so match the class named here rather than copying the mockup’s exact letterforms.',
+    '- Before returning the image, read the wording back: if any of it is set in a class other than the one named above, re-set it and return the corrected image.',
+  ].join('\n')
+}

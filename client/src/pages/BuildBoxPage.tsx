@@ -16,6 +16,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { usePostHog } from '@posthog/react'
 import { AddProductDialog } from '@/components/AddProductDialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { CampaignProductTile } from '@/components/CampaignProductTile'
 import { SupplyPicker } from '@/components/SupplyPicker'
 import { Button } from '@/components/ui/button'
@@ -286,6 +296,24 @@ export function BuildBoxPage() {
       }),
     [products, quantityOf, draft],
   )
+  /**
+   * Whether anything in this box has actually been designed.
+   *
+   * The render only brands what already carries branding — a box of plain
+   * products comes back plain, which is the honest picture of what was
+   * ordered. It is also not what someone expects the first time, having seen
+   * earlier boxes come back with a logo on every item, so it is worth saying
+   * out loud before the render rather than leaving them to wonder whether it
+   * went wrong.
+   */
+  const designedProducts = useMemo(
+    () => products.filter((p) => Boolean(designFor(draft, p.id))),
+    [products, draft],
+  )
+  const nothingDesigned = products.length > 0 && designedProducts.length === 0
+  /** Open while confirming a box that will be photographed unbranded. */
+  const [confirmingPlain, setConfirmingPlain] = useState(false)
+
   // One box, one lot of filling — the supplies don't scale with the contents.
   // A printed design rides on the line as its customized image, so the cart
   // and the order show the box the shopper actually designed.
@@ -391,6 +419,10 @@ export function BuildBoxPage() {
         brand: brandSignals,
         bundleSize: AI_BOX_SIZE,
         brief: brief.trim() || undefined,
+        // Assembly renders a box photo too, and nothing it has just picked
+        // has been designed — so it is photographed plain, like the tiles it
+        // lands in. See `HeroImageSupplies.plainUnlessDesigned`.
+        plainUnlessDesigned: true,
       })
       setKnown((prev) => {
         const next = { ...prev }
@@ -413,6 +445,19 @@ export function BuildBoxPage() {
     } catch (err) {
       setError(errorMessage(err, 'Could not put a box together.'))
     }
+  }
+
+  /**
+   * Ask first if the box has nothing designed in it, then render.
+   *
+   * One prompt, and only while nothing is designed — a shopper who has made a
+   * design has already answered the question. Confirming goes straight to the
+   * render rather than remembering the answer: the state that would need
+   * remembering is the one that disappears the moment they design something.
+   */
+  const startBuildImage = () => {
+    if (nothingDesigned) return setConfirmingPlain(true)
+    void buildImage()
   }
 
   /**
@@ -442,6 +487,11 @@ export function BuildBoxPage() {
           ? { packagingImageUrl: packagingDesign.image }
           : {}),
         ...(Object.keys(productImages).length > 0 ? { productImages } : {}),
+        // Anything absent from `productImages` above has not been designed, and
+        // is photographed exactly as its tile shows it: plain. Without this the
+        // render reached past the tile for the company's branded shot, so a box
+        // of two bare products came back with a logo on both.
+        plainUnlessDesigned: true,
       }
 
       if (!campaignId) {
@@ -455,7 +505,11 @@ export function BuildBoxPage() {
       } else {
         const saved = await update.mutateAsync({
           id: campaignId,
-          input: { title, productIds: draft.productIds },
+          // The supplies ride along: changing the bundle re-renders by itself,
+          // and that render is the one the explicit call below deliberately
+          // skips. Sent unsteered, it fell back to the catalogue's branded
+          // shots — the exact thing the flag exists to prevent.
+          input: { title, productIds: draft.productIds, supplies },
         })
         // An unchanged bundle doesn't auto-regenerate — ask for it directly.
         if (saved.heroImageStatus !== 'pending') {
@@ -719,7 +773,7 @@ export function BuildBoxPage() {
             type="button"
             size="lg"
             className="w-full uppercase tracking-wider"
-            onClick={() => void buildImage()}
+            onClick={startBuildImage}
             disabled={products.length === 0 || generating}
           >
             {generating ? (
@@ -1000,6 +1054,56 @@ export function BuildBoxPage() {
         plainImages
       />
 
+
+      {/* ── Nothing designed ──────────────────────────────────────────
+          Said before the render, not after, because after is a picture the
+          shopper has to interpret. The two ways out are the two real answers:
+          go and design something, or take the box as it is. */}
+      <AlertDialog
+        open={confirmingPlain}
+        onOpenChange={(open) => {
+          if (!open) setConfirmingPlain(false)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              You haven’t designed any of these products
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {products.length === 1
+                ? `The ${products[0].name} will be photographed exactly as it is — plain, with no logo or artwork on it.`
+                : `All ${products.length} products will be photographed exactly as they are — plain, with no logo or artwork on them.`}
+              {packagingDesign
+                ? ' The design you made for the box itself still prints.'
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {/* What to do instead, with the products actually named — "design a
+              product" is advice; "design the Mug" is a next step. */}
+          <p className="rounded-brand border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            To put your branding on one, go back and press{' '}
+            <span className="font-medium text-foreground">Design</span> on it —
+            {products.length === 1
+              ? ` the ${products[0].name}.`
+              : ` ${products
+                  .slice(0, 3)
+                  .map((p) => p.name)
+                  .join(', ')}${products.length > 3 ? ' and the rest' : ''}.`}
+          </p>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Back to edit</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmingPlain(false)
+                void buildImage()
+              }}
+            >
+              Approve and build
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {mainImage && (
         <Dialog open={preview} onOpenChange={setPreview}>

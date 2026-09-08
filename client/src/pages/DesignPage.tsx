@@ -50,6 +50,16 @@ import {
   SelectedLayerControls,
   type CanvasLogo,
 } from '@/components/canvas/PlacementCanvas'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -69,6 +79,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useBrand } from '@/context/BrandContext'
+import { useCart } from '@/context/CartContext'
 import { useComposeMockup } from '@/hooks/use-compose'
 import {
   useCreateDesignVersion,
@@ -77,13 +88,11 @@ import {
   useRenameDesignVersion,
 } from '@/hooks/use-design-versions'
 import { useHistory } from '@/hooks/use-history'
-import {
-  useSaveProductGalleryImage,
-  useUpdateProduct,
-} from '@/hooks/use-product-mutations'
+import { useUpdateProduct } from '@/hooks/use-product-mutations'
 import { useCustomizeProduct, useProductsByIds } from '@/hooks/use-products'
 import { boxColorOptions, isFullColourBox, PACKAGING_SLUG } from '@/lib/box'
 import { designFor, loadBoxDraft, writeDesign } from '@/lib/boxDraft'
+import { readProductDesign, writeProductDesign } from '@/lib/productDesign'
 import { takeLegacyVersions, versionStamps } from '@/lib/designVersions'
 import {
   addLayer,
@@ -149,22 +158,49 @@ export function DesignPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { brand } = useBrand()
+  const { setItemDesign } = useCart()
 
-  // Where to go back to, and what confirming should do with the design.
-  // `box` folds it into the box draft; `product` adds it to the product's own
-  // gallery, which is what the dashboard wants.
+  /**
+   * Where to go back to, and what confirming does with the design.
+   *
+   * Three subjects, because a design belongs to whatever asked for it:
+   *
+   *   - `box` (the default) folds it into the box draft — the builder's design
+   *     is part of a box being assembled.
+   *   - `product` is one product branded on its own, from its own page. It has
+   *     no box to belong to, so it is kept against the product for this shopper
+   *     and travels with it into the cart and then onto the request.
+   *   - `catalogue` is the dashboard branding a product it sells: the approved
+   *     picture joins the product's own images, for everyone who sees it.
+   *
+   * The distinction between the last two is not cosmetic. A shopper must not be
+   * able to rewrite the catalogue's photographs, and the dashboard has no cart
+   * to carry a design into — folding them together would have done both.
+   */
   const returnTo = searchParams.get('return') || '/build-box'
-  const target = searchParams.get('to') === 'product' ? 'product' : 'box'
+  const to = searchParams.get('to')
+  const target =
+    to === 'catalogue' ? 'catalogue' : to === 'product' ? 'product' : 'box'
 
   const { data: loaded, isLoading } = useProductsByIds(
     productId ? [productId] : [],
   )
   const product = loaded?.[0] ?? null
 
-  // The draft is read once on the way in — routing is what syncs the two pages,
-  // so there is nothing live to subscribe to.
+  /**
+   * Whatever design this subject already has, read once on the way in —
+   * routing is what syncs the pages, so there is nothing live to subscribe to.
+   *
+   * The catalogue target reads nothing: its designs land in the product's
+   * images, which the picker already offers as sources, so there is no single
+   * "current" one to resume.
+   */
   const [saved] = useState(() =>
-    target === 'box' ? designFor(loadBoxDraft(), productId) : null,
+    target === 'box'
+      ? designFor(loadBoxDraft(), productId)
+      : target === 'product'
+        ? readProductDesign(productId)
+        : null,
   )
 
   // The layout is the only undoable thing in the editor — see `use-history`.
@@ -197,6 +233,8 @@ export function DesignPage() {
   const [view, setView] = useState<'layout' | 'flat' | 'photoreal'>('layout')
   /** Open while the shopper is looking at what they are about to approve. */
   const [confirming, setConfirming] = useState(false)
+  /** Open while confirming they want to throw the design away. */
+  const [discarding, setDiscarding] = useState(false)
   const [preparing, setPreparing] = useState(false)
   /**
    * Which of the two stands in for the design elsewhere in the shop. Off by
@@ -207,6 +245,15 @@ export function DesignPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   /** Open while a new version is being named. Naming is the point of a save. */
   const [namingVersion, setNamingVersion] = useState(false)
+  /**
+   * One save per naming session.
+   *
+   * Enter starts the save, which disables the field — and disabling a focused
+   * input fires `blur`, so the blur handler ran straight after and wrote the
+   * version a second time. A ref rather than state because both handlers run
+   * in the same tick, before any re-render could tell them apart.
+   */
+  const namingSubmitted = useRef(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [color, setColor] = useState<string | null>(null)
   // Default to leaving the photograph alone. The editor's job is the mark on
@@ -234,7 +281,6 @@ export function DesignPage() {
   const renameVersionMutation = useRenameDesignVersion(productId)
   const deleteVersionMutation = useDeleteDesignVersion(productId)
   const updateProduct = useUpdateProduct()
-  const saveToGallery = useSaveProductGalleryImage(productId)
   const busy = customize.isPending || compose.isPending
 
   const isBox = product?.categorySlug === PACKAGING_SLUG
@@ -304,6 +350,15 @@ export function DesignPage() {
   }
 
   const placed = hasPlacement(layout)
+  /**
+   * Re-photographing the product is a dashboard job.
+   *
+   * A shopper branding a product, or building a box, wants their mark on the
+   * photograph in front of them — being asked to pick a scene first suggests
+   * the photo is up for grabs, which it is not. Only the dashboard's own
+   * entry point (`?to=catalogue`) offers it.
+   */
+  const canRestage = !isBox && target === 'catalogue'
   const keepScene = sceneType === KEEP_SCENE_ID
 
   // The company's own palette, offered before the colour picker — wording on a
@@ -505,6 +560,9 @@ export function DesignPage() {
       // there is nothing to composite and the render is the design.
       if (placed) await ensureFlat()
       else if (!photoreal) await generate()
+      // Approve what they were looking at. Confirming from the photoreal tab
+      // used to open on the flat mockup, which reads as a different design.
+      setUseRenderForImage(view === 'photoreal' && Boolean(photoreal))
       setConfirming(true)
     } catch {
       // The mutation's error is already on screen in the rail — don't open a
@@ -514,19 +572,55 @@ export function DesignPage() {
     }
   }
 
-  /** The picture being signed off: the mockup, or the render when nothing is placed. */
+  /** Take a typed name once, from whichever handler reaches it first. */
+  const commitVersionName = (raw: string) => {
+    if (namingSubmitted.current) return
+    namingSubmitted.current = true
+    void saveVersion(raw)
+  }
+
+  /** The exact artwork: the mockup, or the render when nothing is placed. */
   const confirmImage = placed ? (flat?.url ?? null) : (photoreal ?? flat?.url ?? null)
 
+  /**
+   * The one picture the dialog shows and the one that gets saved.
+   *
+   * Shown and approved have to be the same image. They were not: the dialog
+   * always showed the composite while this could save the render, so a shopper
+   * arriving from the photoreal tab signed off on a picture they had not seen.
+   */
+  const chosenImage = useRenderForImage && photoreal ? photoreal : confirmImage
+
+  /**
+   * Whether the render is standing in for a composite. With nothing placed
+   * there is no composite to stand in for — the render is the design — so the
+   * dialog's usual "this is what prints" wording still holds there.
+   */
+  const showingRender = placed && useRenderForImage && Boolean(photoreal)
+
+  /**
+   * What the sign-off says is about to happen.
+   *
+   * Three subjects means three outcomes, and one label for all of them told
+   * two thirds of the people using it something untrue: a shopper branding a
+   * mug was invited to "approve and add" it to a box they had not started.
+   */
+  const approveLabel =
+    target === 'box'
+      ? 'Approve and use'
+      : target === 'product'
+        ? 'Approve design'
+        : 'Approve and add'
+  const subjectPhrase = target === 'box' ? 'in your box.' : 'on your product.'
+
   const approve = async () => {
-    if (!confirmImage || !source) return
-    // Default to the exact one. The photoreal render is a presentation of the
-    // design; the composite is the design.
-    const chosen = useRenderForImage && photoreal ? photoreal : confirmImage
+    if (!chosenImage || !confirmImage || !source) return
+    const chosen = chosenImage
 
     // Confirming deliberately does NOT write a version. Approving is what puts
     // a design into an order; keeping a named checkpoint is a separate decision,
     // and folding the two together produced a history nobody asked for.
-    if (target === 'product' && product) {
+    if (target === 'catalogue' && product) {
       const existing = product.images?.length ? product.images : [product.image]
       const next = Array.from(new Set([...existing, chosen]))
       await updateProduct.mutateAsync({ id: product.id, input: { images: next } })
@@ -540,13 +634,43 @@ export function DesignPage() {
       return
     }
 
-    // The draft first, and only then the network.
+    // One product, branded on its own.
     //
-    // This is local and instant, and it is what the box is actually built
-    // from. The gallery save below can fail — an expired token bounces the
-    // whole page to the sign-in screen from an interceptor — and anything
-    // written after that call is simply never reached. Saving the design last
-    // meant an auth failure at the final step lost the design outright.
+    // Keep the placement, not just the picture: a product branded from its own
+    // page has no box draft to live in, so without this the request that
+    // follows carries artwork nobody can reproduce or adjust.
+    //
+    // Nothing here reaches the server. A design a shopper made is theirs and
+    // travels on their order; it is deliberately NOT added to the product's
+    // images, because those are the photographs the editor offers as things to
+    // design ON. Every confirmed design used to land there, so the source
+    // picker filled up with other people's finished work — and the next person
+    // to open the editor was invited to start from it. Only the dashboard,
+    // which is choosing what the product looks like for everyone, writes
+    // there — see the branch above.
+    if (target === 'product') {
+      const design = {
+        image: chosen,
+        flat: confirmImage,
+        photoreal,
+        prompt: prompt.trim() || null,
+        layout: placed ? layout : null,
+        logoUrl: logoOverride,
+      }
+      writeProductDesign(productId, design)
+      // And into the basket, if this product is already in it. Someone who
+      // adds a product, then goes back and brands it, means the one they are
+      // buying — not a design filed away for next time.
+      setItemDesign(productId, design)
+      setConfirming(false)
+      navigate(returnTo)
+      return
+    }
+
+    // Into the box draft, which is what the box is actually built from. Local
+    // and instant, and — like the single-product branch above — it goes no
+    // further: a shopper's box design is not one of the product's source
+    // photographs.
     writeDesign(productId, {
       image: chosen,
       flat: confirmImage,
@@ -555,18 +679,6 @@ export function DesignPage() {
       layout: placed ? layout : null,
       logoUrl: logoOverride,
     })
-
-    // Keep it among this company's own images for the product too, so it comes
-    // back as something to design on. Best-effort: a shopper with no company
-    // still gets their box.
-    try {
-      await saveToGallery.mutateAsync({
-        imageUrl: chosen,
-        prompt: prompt.trim() || undefined,
-      })
-    } catch {
-      // Not fatal — the draft above is what the box is built from.
-    }
 
     navigate(returnTo)
   }
@@ -603,7 +715,7 @@ export function DesignPage() {
    * from the person rather than a counter.
    */
   const saveVersion = async (label: string) => {
-    if (!source || !canSave) return
+    if (!source || !canSave || createVersion.isPending) return
     setPreparing(true)
     try {
       const flatUrl = placed ? await ensureFlat() : (flat?.url ?? null)
@@ -619,7 +731,8 @@ export function DesignPage() {
       setNamingVersion(false)
     } catch {
       // The mutation's error surfaces in the rail; keep the name field open so
-      // the work is not lost to a failed request.
+      // the work is not lost to a failed request — and let it be tried again.
+      namingSubmitted.current = false
     } finally {
       setPreparing(false)
     }
@@ -650,9 +763,46 @@ export function DesignPage() {
   const shownImage =
     view === 'flat' ? (flat?.url ?? null) : view === 'photoreal' ? photoreal : null
 
-  const clearDesign = () => {
+  /**
+   * Anything on the canvas that came from a person.
+   *
+   * Drives whether discarding is offered at all. It used to appear only for a
+   * box that already had a saved design, which meant the way out of a design
+   * you had just made was to leave the page and hope.
+   */
+  const hasDesign =
+    placed || Boolean(prompt.trim()) || Boolean(flat) || Boolean(photoreal)
+
+  /**
+   * Back to the bare product photo.
+   *
+   * Discarding used to navigate away, which read as "leave" rather than "clear"
+   * — so the button did something different from what it said. Now it empties
+   * the canvas and leaves you looking at the source image, which is where you
+   * would start a new design from anyway.
+   *
+   * The draft goes too. Leaving it behind meant pressing Back brought the
+   * discarded design straight back into the box.
+   */
+  const discardDesign = () => {
+    commitLayout(EMPTY_LAYOUT)
+    setPrompt('')
+    setFlat(null)
+    setPhotoreal(null)
+    setSelectedId(null)
+    // The box's printed colour is part of the design, not a view setting.
+    setColor(null)
+    setView('layout')
+    // Forget where it was kept, too. Leaving it behind meant pressing Back
+    // brought the discarded design straight back. The catalogue keeps nothing
+    // of its own — its designs are the product's images, and dropping one of
+    // those is a deliberate edit, not a side effect of clearing a canvas.
     if (target === 'box') writeDesign(productId, null)
-    navigate(returnTo)
+    else if (target === 'product') {
+      writeProductDesign(productId, null)
+      setItemDesign(productId, null)
+    }
+    setDiscarding(false)
   }
 
   const mutationError = customize.error ?? compose.error
@@ -727,13 +877,14 @@ export function DesignPage() {
             {isBox ? 'Printed gift box' : 'Branded product'}
           </p>
         </div>
-        {saved && target === 'box' && (
+        {hasDesign && (
           <Button
             variant="ghost"
             size="sm"
             className="text-muted-foreground"
-            onClick={clearDesign}
+            onClick={() => setDiscarding(true)}
             disabled={busy}
+            title="Clear the canvas and start from the product photo"
           >
             <Trash2 className="size-4" />
             Discard design
@@ -976,7 +1127,7 @@ export function DesignPage() {
           {sources.length > 1 && (
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-muted-foreground">
-                Source image
+                Templates
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {sources.map((src, i) => (
@@ -1019,7 +1170,10 @@ export function DesignPage() {
                   size="sm"
                   variant="outline"
                   className="h-6 px-1.5 text-[11px]"
-                  onClick={() => setNamingVersion(true)}
+                  onClick={() => {
+                    namingSubmitted.current = false
+                    setNamingVersion(true)
+                  }}
                   disabled={busy || preparing || !canSaveVersion || namingVersion}
                   title={
                     canSaveVersion
@@ -1039,16 +1193,19 @@ export function DesignPage() {
                   className="h-7 text-xs"
                   disabled={preparing || createVersion.isPending}
                   onKeyDown={(e) => {
-                    if (e.key === 'Escape') return setNamingVersion(false)
+                    if (e.key === 'Escape') {
+                      namingSubmitted.current = true
+                      return setNamingVersion(false)
+                    }
                     if (e.key !== 'Enter') return
                     const value = e.currentTarget.value.trim()
-                    void saveVersion(value || `Version ${versions.length + 1}`)
+                    commitVersionName(value || `Version ${versions.length + 1}`)
                   }}
                   onBlur={(e) => {
                     // Clicking away without typing is a change of mind, not a
                     // save — an unnamed version is the thing we just moved off.
                     const value = e.target.value.trim()
-                    if (value) void saveVersion(value)
+                    if (value) commitVersionName(value)
                     else setNamingVersion(false)
                   }}
                 />
@@ -1347,7 +1504,7 @@ export function DesignPage() {
                 </div>
               </div>
             )
-          ) : (
+          ) : canRestage ? (
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <span className="text-xs font-medium text-muted-foreground">
@@ -1397,6 +1554,14 @@ export function DesignPage() {
                 </div>
               )}
             </div>
+          ) : (
+            /* No scene picker here — see `canRestage`. The reassurance it
+               carried is still worth saying, though: a shopper placing a mark
+               on a photograph wants to know the photograph is staying. */
+            <p className="text-xs text-muted-foreground">
+              The product photo stays as it is — same background, framing and
+              lighting. Only your branding is added.
+            </p>
           )}
 
           {error && (
@@ -1466,6 +1631,30 @@ export function DesignPage() {
         </aside>
       </div>
 
+      {/* ── Throwing it away ──────────────────────────────────────────
+          Discarding now happens in place, so there is no navigation to signal
+          that anything went. A placement is real work and only the layout part
+          is undoable, so this asks once. */}
+      <AlertDialog open={discarding} onOpenChange={setDiscarding}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard this design?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The canvas goes back to the plain {product.name} photo. Anything
+              you placed, the wording, and both renders are removed.
+              {versions.length > 0 &&
+                ' Your saved versions are kept — you can open one to bring a design back.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction onClick={discardDesign}>
+              Discard design
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ── The sign-off ──────────────────────────────────────────────
           One deliberate look at the real thing before it becomes an order.
           The picture is the point: the canvas shows a design, this shows the
@@ -1480,15 +1669,16 @@ export function DesignPage() {
           <DialogHeader>
             <DialogTitle>Confirm your design</DialogTitle>
             <DialogDescription>
-              This is exactly what gets printed on the {product.name}. Check the
-              placement and the spelling.
+              {showingRender
+                ? `The photoreal render of your design on the ${product.name}. Untick below to check the exact print artwork.`
+                : `This is exactly what gets printed on the ${product.name}. Check the placement and the spelling.`}
             </DialogDescription>
           </DialogHeader>
 
-          {confirmImage && (
+          {chosenImage && (
             <div className="flex items-center justify-center overflow-hidden rounded-brand border border-border/40 bg-muted/20 p-2">
               <img
-                src={confirmImage}
+                src={chosenImage}
                 alt="The design you are about to confirm"
                 className="max-h-[52vh] w-auto max-w-full object-contain"
               />
@@ -1496,7 +1686,7 @@ export function DesignPage() {
           )}
 
           {/* Only a question when there are genuinely two pictures of one
-              design. Pre-answered with the exact one. */}
+              design. Pre-answered with whichever tab they came from. */}
           {placed && photoreal && (
             <label className="flex items-start gap-2 rounded-brand border border-border/40 p-3 text-xs">
               <input
@@ -1507,15 +1697,16 @@ export function DesignPage() {
               />
               <span className="space-y-1">
                 <span className="block font-medium">
-                  Show the photoreal render instead
+                  Use the photoreal render
                 </span>
                 <span className="block text-muted-foreground">
-                  Both are saved either way. This only changes which one
-                  represents the design in your box.
+                  Both are saved either way. This changes which one you are
+                  looking at, and which one represents the design{' '}
+                  {subjectPhrase}
                 </span>
               </span>
               <img
-                src={photoreal}
+                src={showingRender ? (confirmImage ?? photoreal) : photoreal}
                 alt=""
                 className="size-12 shrink-0 rounded-brand border border-border/40 object-cover"
               />
@@ -1527,20 +1718,16 @@ export function DesignPage() {
               type="button"
               variant="ghost"
               onClick={() => setConfirming(false)}
-              disabled={updateProduct.isPending || saveToGallery.isPending}
+              disabled={updateProduct.isPending}
             >
               Keep editing
             </Button>
             <Button
               type="button"
               onClick={() => void approve()}
-              disabled={
-                !confirmImage ||
-                updateProduct.isPending ||
-                saveToGallery.isPending
-              }
+              disabled={!chosenImage || updateProduct.isPending}
             >
-              {updateProduct.isPending || saveToGallery.isPending ? (
+              {updateProduct.isPending ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
                   Saving…
@@ -1548,7 +1735,7 @@ export function DesignPage() {
               ) : (
                 <>
                   <Check className="size-4" />
-                  {target === 'product' ? 'Approve and add' : 'Approve and use'}
+                  {approveLabel}
                 </>
               )}
             </Button>

@@ -1,11 +1,16 @@
 import { Router } from 'express'
+import { optionalAuth } from '../../middleware/auth.js'
 import { getDashboardStats } from './dashboard.service.js'
 
 export const dashboardRouter = Router()
 
-dashboardRouter.get('/stats', async (_req, res) => {
+// Needed to know whose requests to count. The catalogue figures on this page are
+// the shared house catalogue and are the same for everyone.
+dashboardRouter.use(optionalAuth)
+
+dashboardRouter.get('/stats', async (req, res) => {
   try {
-    const stats = await getDashboardStats()
+    const stats = await getDashboardStats(req.authUser?.companyId ?? null)
     res.json(stats)
   } catch (err) {
     const message =

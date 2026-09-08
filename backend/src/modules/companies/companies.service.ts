@@ -146,9 +146,22 @@ export async function updateCompanyBrand(
   brandPartial: Record<string, unknown>,
 ): Promise<PublicCompany> {
   const company = await loadCompanyForActor(actor, id)
+  const existing = (company.brand ?? {}) as Record<string, unknown>
+  // `colors` is merged rather than replaced. A caller sending the handful of
+  // colours it knows about would otherwise drop the rest of the extraction's
+  // palette — border, success, warning — which nothing would notice until
+  // something went looking for them.
+  const colors =
+    brandPartial.colors && typeof brandPartial.colors === 'object'
+      ? {
+          ...((existing.colors as Record<string, unknown>) ?? {}),
+          ...(brandPartial.colors as Record<string, unknown>),
+        }
+      : existing.colors
   const merged = {
-    ...(company.brand ?? {}),
+    ...existing,
     ...brandPartial,
+    ...(colors ? { colors } : {}),
   } as CompanyBrand
   const [row] = await db
     .update(companies)

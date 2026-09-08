@@ -13,6 +13,12 @@ const PAGE_TITLES: { match: (path: string) => boolean; title: string }[] = [
   { match: (p) => p.startsWith('/dashboard/products'), title: 'Products' },
   { match: (p) => p.startsWith('/dashboard/campaign'), title: 'Campaign' },
   { match: (p) => p.startsWith('/dashboard/branding'), title: 'Branding' },
+  { match: (p) => p.startsWith('/dashboard/orders'), title: 'Requests' },
+  { match: (p) => p.startsWith('/dashboard/team'), title: 'Team' },
+  { match: (p) => p.startsWith('/dashboard/company'), title: 'Company' },
+  { match: (p) => p.startsWith('/dashboard/admin/users'), title: 'All users' },
+  { match: (p) => p.startsWith('/dashboard/admin/companies'), title: 'All companies' },
+  { match: (p) => p.startsWith('/dashboard/admin/instructions'), title: 'AI instructions' },
 ]
 
 export function DashboardLayout() {
@@ -22,15 +28,18 @@ export function DashboardLayout() {
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      {/* The sidebar is app chrome, not part of a printed request. */}
+      <div className="print:hidden">
+        <AppSidebar />
+      </div>
       <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-border/40 bg-background/90 px-4 backdrop-blur-md">
+        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-border/40 bg-background/90 px-4 backdrop-blur-md print:hidden">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="font-display text-base font-semibold">{title}</h1>
           <VersionBadge />
         </header>
-        <div className="flex-1 p-4 sm:p-6">
+        <div className="flex-1 p-4 sm:p-6 print:p-0">
           <Outlet />
         </div>
       </SidebarInset>

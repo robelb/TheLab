@@ -6,7 +6,32 @@ export interface Category {
   isSupply?: boolean
 }
 
+/**
+ * Requests this company has sent — the only per-company figures on the
+ * dashboard. Everything else describes the shared house catalogue.
+ */
+export interface RequestStats {
+  total: number
+  new: number
+  quoted: number
+  confirmed: number
+  /** Value of everything not cancelled. */
+  openValue: number
+  currency: string
+  recent: {
+    id: string
+    reference: string
+    status: string
+    contactName: string
+    total: number
+    currency: string
+    neededBy: string | null
+    createdAt: string
+  }[]
+}
+
 export interface DashboardStats {
+  requests: RequestStats
   totals: {
     products: number
     categories: number

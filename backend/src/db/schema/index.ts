@@ -26,6 +26,14 @@ export {
   type DesignVersion,
   type NewDesignVersion,
 } from './design-versions.js'
+export {
+  orders,
+  type Order,
+  type NewOrder,
+  type OrderContact,
+  type OrderDelivery,
+  type OrderItem,
+} from './orders.js'
 export { users, type User, type NewUser } from './users.js'
 export {
   campaignVideos,

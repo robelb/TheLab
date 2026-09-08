@@ -36,7 +36,11 @@ import {
 } from '../src/systemInstruction/campaign.js'
 import { buildPhotoshootPrompt } from '../src/systemInstruction/productPhotoshoot.js'
 import { buildBoxPrintPrompt } from '../src/systemInstruction/boxCustomization.js'
-import { placementInventory } from '../src/customizer/composeLayout.js'
+import {
+  describePlacement,
+  placedTypefaces,
+  placementInventory,
+} from '../src/customizer/composeLayout.js'
 import { renderInstructionTemplate } from '../src/modules/system-instructions/system-instructions.service.js'
 import { INSTRUCTION_DEFINITIONS } from '../src/systemInstruction/registry.js'
 
@@ -61,14 +65,46 @@ function firstDiff(a: string, b: string): string {
 const placedLogo = [
   '- The brand logo sits in the upper centre, its centre 50% across and 28% down the image, spanning 46% of the image width. It is upright — do not tilt it.',
 ]
-const placedLogoAndText = [
-  ...placedLogo,
-  '- The wording "THANK YOU" sits in the centre, its centre 50% across and 58% down the image, spanning 60% of the image width. It is upright — do not tilt it. The mockup sets it in a plain placeholder face: keep its position, size and tilt, but set it properly as real print in a sans-style typeface that suits the design.',
-]
+/**
+ * The wording line comes from `describePlacement` itself rather than a copy of
+ * its output. A hand-written copy is what let the typeface clause drift: the
+ * fixture still asserted the old sentence while the builder had moved on.
+ */
+const textLayout = {
+  layers: [
+    {
+      id: 't',
+      kind: 'text' as const,
+      x: 0.5,
+      y: 0.58,
+      width: 0.6,
+      text: 'THANK YOU',
+    },
+  ],
+}
+const placedLogoAndText = [...placedLogo, ...describePlacement(textLayout)]
 /** A layout that also carries uploaded artwork, which has no attachment of its own. */
 const placedWithArtwork = [
   ...placedLogoAndText,
   '- A piece of supplied artwork sits in the lower right, its centre 78% across and 80% down the image, spanning 18% of the image width. It is upright — do not tilt it. It is already correct in the mockup: reproduce that artwork exactly as shown — same shapes, colours and detail — printed onto the surface. Never redraw it, replace it, restyle it or leave it out.',
+]
+
+/**
+ * Every instruction that tells the model to render a mark.
+ *
+ * Shared by the two modes that must contain none of them — a set already
+ * designed, and a box designed not at all. One list because the two are the
+ * same removal: a rule added to the photoshoot brief has to be caught in both,
+ * and two copies of this is how one of them would quietly stop checking.
+ */
+const BRANDING_INSTRUCTIONS: [RegExp, string][] = [
+  [/FIRST, THE LOGO RULE/, 'the apply-the-logo opener'],
+  [/EVERY PRODUCT GETS THE LOGO/, 'the per-product logo recap'],
+  [/^BRANDING —/m, 'the branding application block'],
+  [/MARK SCALE/, 'the logo size rules'],
+  [/LOGO STAYS ON ONE LINE/, 'the logo typesetting rules'],
+  [/^TEXT LAYOUT:/m, 'the lettering rules'],
+  [/the FINAL image is the company logo/i, 'a logo attachment that is no longer sent'],
 ]
 
 const wideLogo = {
@@ -431,10 +467,10 @@ console.log('\n── J. layout overrides house geometry ──')
   {
     const cases: [string, string][] = [
       // No brief at all: the wording exists only as a placed layer.
-      ['box·placed-only', buildBoxPrintPrompt({ boxName: 'Eco Box white', boxDescription: 'natural or white', request: '', hasBranding: false, logoPlaced: true, hasLayout: true, placement: placedLogoAndText, placedText: ['THANK YOU'] })],
+      ['box·placed-only', buildBoxPrintPrompt({ boxName: 'Eco Box white', boxDescription: 'natural or white', request: '', hasBranding: false, logoPlaced: true, hasLayout: true, placement: placedLogoAndText, placedText: ['THANK YOU'], placedFonts: placedTypefaces(textLayout) })],
       // A brief that names no wording of its own.
-      ['box·placed+vague-brief', buildBoxPrintPrompt({ boxName: 'Eco Box white', boxDescription: 'natural or white', request: 'something festive', hasBranding: false, hasLayout: true, placement: placedLogoAndText, placedText: ['THANK YOU'] })],
-      ['shoot·placed', buildPhotoshootPrompt({ sceneType: 'studio-hero', aspectRatio: 'square', productName: 'Mug', hasStyle: false, hasBranding: false, logoPlaced: true, hasLayout: true, placement: placedLogoAndText, placedText: ['THANK YOU'] })],
+      ['box·placed+vague-brief', buildBoxPrintPrompt({ boxName: 'Eco Box white', boxDescription: 'natural or white', request: 'something festive', hasBranding: false, hasLayout: true, placement: placedLogoAndText, placedText: ['THANK YOU'], placedFonts: placedTypefaces(textLayout) })],
+      ['shoot·placed', buildPhotoshootPrompt({ sceneType: 'studio-hero', aspectRatio: 'square', productName: 'Mug', hasStyle: false, hasBranding: false, logoPlaced: true, hasLayout: true, placement: placedLogoAndText, placedText: ['THANK YOU'], placedFonts: placedTypefaces(textLayout) })],
     ]
     for (const [name, p] of cases) {
       check(
@@ -448,6 +484,15 @@ console.log('\n── J. layout overrides house geometry ──')
           !/no artwork, wording or decoration added/.test(p) &&
           !/extra logos or text;/.test(p),
         'a standing no-wording rule contradicts the text layer the user placed',
+      )
+      // Same shape of contradiction, one attribute over: a vague brief invites
+      // the model to pick a typeface, and the shopper already picked one.
+      check(
+        `${name}: nothing invites a typeface of the model's own`,
+        /TYPEFACE IS THE CUSTOMER/.test(p) &&
+          !/pick a typeface/.test(p) &&
+          !/typeface that suits the (design|product|occasion)/.test(p),
+        'a free typeface choice contradicts the face the user chose in the editor',
       )
     }
     const boxPlaced = cases[0][1]
@@ -484,15 +529,6 @@ console.log('\n── J. layout overrides house geometry ──')
         /redesign, restyle, recolour or re-texture a product/.test(compose))
 
     // The heart of it: nothing may instruct the model to render a mark.
-    const BRANDING_INSTRUCTIONS: [RegExp, string][] = [
-      [/FIRST, THE LOGO RULE/, 'the apply-the-logo opener'],
-      [/EVERY PRODUCT GETS THE LOGO/, 'the per-product logo recap'],
-      [/^BRANDING —/m, 'the branding application block'],
-      [/MARK SCALE/, 'the logo size rules'],
-      [/LOGO STAYS ON ONE LINE/, 'the logo typesetting rules'],
-      [/^TEXT LAYOUT:/m, 'the lettering rules'],
-      [/the FINAL image is the company logo/i, 'a logo attachment that is no longer sent'],
-    ]
     const hits = BRANDING_INSTRUCTIONS.filter(([r]) => r.test(compose)).map(([, l]) => l)
     check('kit·compose: nothing instructs it to render branding', hits.length === 0,
       `${hits.join(', ')} survives and invites the model to redesign products it should only be placing`)
@@ -519,6 +555,48 @@ console.log('\n── J. layout overrides house geometry ──')
       !/ALREADY BRANDED/.test(plain) && !/REPRODUCE EACH PRODUCT EXACTLY/.test(plain) &&
         /EVERY PRODUCT GETS THE LOGO/.test(plain) && /MARK SCALE/.test(plain) &&
         plain.startsWith('FIRST, THE LOGO RULE'))
+  }
+
+  // ── a box nobody has designed is photographed UNBRANDED.
+  // `noBranding` is the caller saying so. An empty pre-branded list cannot say
+  // it on its own: it is equally the shape of the kit above, which wants
+  // branding from scratch. Asked for, every instruction to render a mark has
+  // to go — the same removal as composition mode, for a different reason.
+  {
+    const names = ['Mug', 'Pen']
+    const bare = buildCampaignKitImagePrompt(names, { hasLogo: true, companyName: 'BLT', logoFacts: wideLogo, noBranding: true })
+
+    check('kit·unbranded: framed as composing unbranded goods',
+      /photographs of PLAIN, UNBRANDED items/.test(bare) &&
+        /you place the products, you do not decorate them/.test(bare) &&
+        !/expert commercial product photographer/.test(bare))
+    check('kit·unbranded: says plain is the intended result',
+      /NO BRANDING IN THIS BOX/.test(bare) &&
+        /An unbranded product in the output is the correct result, not an unfinished one/.test(bare))
+    check('kit·unbranded: bans inventing a mark from anything in the frame',
+      /none is to be invented, drawn from memory, or inferred from the product names/.test(bare))
+    check('kit·unbranded: checks its own output for picked-up branding',
+      /not one of them carries a logo/.test(bare) &&
+        /If any product has picked one up, remove it/.test(bare))
+
+    const hits = BRANDING_INSTRUCTIONS.filter(([r]) => r.test(bare)).map(([, l]) => l)
+    check('kit·unbranded: nothing instructs it to render branding', hits.length === 0,
+      `${hits.join(', ')} survives and invites the model to brand products nobody designed`)
+
+    // It must NOT claim the products are already branded — the complaint that
+    // produced this mode was a box wearing marks its owner had never made, and
+    // a brief that says the marks are already there is how a model concludes
+    // it should put them there.
+    check('kit·unbranded: never claims the products are already designed',
+      !/already been designed, branded and shot/.test(bare) &&
+        !/ALREADY BRANDED/.test(bare))
+
+    // A set that IS fully designed says something stronger; `noBranding` must
+    // not talk over it.
+    const bothWays = buildCampaignKitImagePrompt(names, { hasLogo: true, companyName: 'BLT', preBranded: names, noBranding: true })
+    check('kit·unbranded: an already-branded set still composes rather than going bare',
+      /already been designed, branded and shot/.test(bothWays) &&
+        !/NO BRANDING IN THIS BOX/.test(bothWays))
   }
 
   // ── uploaded artwork is baked into the mockup, not attached separately.
@@ -549,12 +627,41 @@ console.log('\n── J. layout overrides house geometry ──')
     }
 
     // Bold wording asks for a weight, not a different contract.
+    const boldLayout = { layers: [
+      { id: 't', kind: 'text' as const, x: 0.5, y: 0.5, width: 0.4, text: 'SALE', fontWeight: 'bold' as const },
+    ] }
     const bold = buildBoxPrintPrompt({ boxName: 'Eco Box white', boxDescription: 'natural or white', request: '', hasBranding: false, hasLayout: true,
-      placement: ['- The wording "SALE" sits in the centre, its centre 50% across and 50% down the image, spanning 40% of the image width. It is upright — do not tilt it. The mockup sets it in a plain placeholder face: keep its position, size and tilt, but set it properly as real print in a bold sans-style typeface that suits the design.'],
-      placedText: ['SALE'] })
+      placement: describePlacement(boldLayout), placedText: ['SALE'], placedFonts: placedTypefaces(boldLayout) })
     check('box·bold-wording: the weight reaches the brief',
-      /real print in a bold sans-style typeface/.test(bold) &&
-        /PLACED WORDING/.test(bold))
+      /sans-serif typeface[^\n]*set bold/.test(bold) && /PLACED WORDING/.test(bold))
+
+    // The face the shopper picked has to survive into the brief, and the brief
+    // must not hand it back. Both prompts once said "a typeface that suits the
+    // design", which the model read as permission to set everything in sans.
+    for (const style of ['sans', 'serif', 'script', 'mono'] as const) {
+      const layout = { layers: [
+        { id: 't', kind: 'text' as const, x: 0.5, y: 0.5, width: 0.4, text: 'HELLO', fontStyle: style },
+      ] }
+      const args = { hasLayout: true, placement: describePlacement(layout), placedText: ['HELLO'], placedFonts: placedTypefaces(layout) }
+      const prompts: [string, string][] = [
+        [`box·font·${style}`, buildBoxPrintPrompt({ boxName: 'Eco Box white', boxDescription: 'natural or white', request: '', hasBranding: false, ...args })],
+        [`shoot·font·${style}`, buildPhotoshootPrompt({ sceneType: 'as-is', aspectRatio: 'square', productName: 'Mug', hasStyle: false, hasBranding: false, ...args })],
+      ]
+      const expected: Record<typeof style, RegExp> = {
+        sans: /sans-serif typeface/,
+        serif: /serif typeface — every stem visibly bracketed/,
+        script: /flowing script typeface/,
+        mono: /monospaced typewriter typeface/,
+      }
+      for (const [name, p] of prompts) {
+        check(`${name}: the chosen face is named`,
+          expected[style].test(p) && /TYPEFACE IS THE CUSTOMER/.test(p),
+          'the font the shopper picked never reaches the prompt')
+        check(`${name}: no licence to pick a different face`,
+          !/typeface that suits the (design|product|occasion)/.test(p),
+          'the brief hands the typeface choice back to the model')
+      }
+    }
   }
 
   // ── a hand-set size is fixed, and the list of elements is closed.

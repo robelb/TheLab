@@ -13,6 +13,7 @@
  */
 
 import {
+  placedTypefaceFacts,
   placementFacts,
   PLACEMENT_BLOCK,
   PLACEMENT_SCALE_BLOCK,
@@ -153,6 +154,13 @@ export interface BuildPhotoshootPromptInput {
   placement?: string[]
   /** Wording the user typed into placed text layers, from `placedTextLayers`. */
   placedText?: string[]
+  /**
+   * The typeface each piece of placed wording must be set in, from
+   * `placedTypefaces`. Separate from `placedText` because the wording contract
+   * and the typeface contract fail in different ways: wording gets dropped or
+   * reworded, a typeface gets quietly swapped for a generic sans.
+   */
+  placedFonts?: string[]
   /** The closed list of what was placed, from `placementInventory`. */
   inventory?: string
   /**
@@ -355,8 +363,15 @@ export function buildPhotoshootPrompt(input: BuildPhotoshootPromptInput): string
     if (input.inventory) p.push(input.inventory)
     if (placedText.length > 0) {
       p.push(
-        `PLACED WORDING — the user typed ${placedList} and positioned it themselves in the layout mockup. It is asked for and it stays. Print it character for character as given, set as real print in a typeface that suits the product rather than the mockup's placeholder face. Never omit it, reword it or duplicate it, and add no other wording.`,
+        `PLACED WORDING — the user typed ${placedList} and positioned it themselves in the layout mockup. It is asked for and it stays. Print it character for character as given, set as real print rather than as a copy of the mockup's placeholder lettering — in the typeface class named for it below, which the user chose. Never omit it, reword it or duplicate it, and add no other wording.`,
       )
+    }
+    // The typeface the user chose, under its own heading. It belongs with the
+    // other placement facts rather than up beside the wording, because it is
+    // the same kind of statement: something the customer decided that the
+    // render has to honour.
+    if (input.placedFonts && input.placedFonts.length > 0) {
+      p.push(placedTypefaceFacts(input.placedFonts))
     }
     // Replaces MARK_SCALE_BLOCK below — see the note in `placement.ts` on why
     // the two can never both be present.

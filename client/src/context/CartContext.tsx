@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { useProductsByIds } from '@/hooks/use-products'
 import { boxAllLines } from '@/lib/box'
+import type { ProductDesign } from '@/lib/boxDraft'
 import type { BoxDetails, BoxLine } from '@/types/box'
 import type { Product } from '@/types/product'
 
@@ -17,13 +18,34 @@ export interface CartItem {
   quantity: number
   /** Present when the line is a built gift box — the products inside it. */
   box?: BoxDetails
+  /**
+   * Present when this single product was branded in the editor — the placement
+   * and brief behind its artwork, so a request says what to print rather than
+   * only showing a picture of it.
+   */
+  design?: ProductDesign
 }
 
 interface CartContextValue {
   items: CartItem[]
-  addItem: (product: Product, quantity?: number, box?: BoxDetails) => void
+  addItem: (
+    product: Product,
+    quantity?: number,
+    box?: BoxDetails,
+    design?: ProductDesign,
+  ) => void
   removeItem: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
+  /**
+   * Point an existing line at the product's current design, or at none.
+   *
+   * There is only ever one design per product per shopper — the editor keeps
+   * exactly one, and `addItem` merges by product id, so a cart cannot hold two
+   * versions of the same product to disagree about. Editing or removing a
+   * design therefore has to reach the line already in the basket, or the
+   * shopper would approve new artwork and still be sent the old.
+   */
+  setItemDesign: (productId: string, design: ProductDesign | null) => void
   /** Re-open a box from the cart, edit it, and write it back to the same line. */
   updateBoxItem: (itemId: string, product: Product, box: BoxDetails) => void
   clearCart: () => void
@@ -31,7 +53,9 @@ interface CartContextValue {
   subtotal: number
 }
 
-const STORAGE_KEY = 'atelier-cart'
+/** Exported so signing out can forget it — see `AuthContext.logout`. */
+export const CART_STORAGE_KEY = 'atelier-cart'
+const STORAGE_KEY = CART_STORAGE_KEY
 
 const CartContext = createContext<CartContextValue | null>(null)
 
@@ -134,7 +158,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items, liveProducts])
 
   const addItem = useCallback(
-    (product: Product, quantity = 1, box?: BoxDetails) => {
+    (product: Product, quantity = 1, box?: BoxDetails, design?: ProductDesign) => {
       setItems((prev) => {
         const existing = prev.find((i) => i.product.id === product.id)
         if (existing) {
@@ -144,7 +168,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
               : i,
           )
         }
-        return [...prev, { product, quantity, box }]
+        return [...prev, { product, quantity, box, design }]
+      })
+    },
+    [],
+  )
+
+  const setItemDesign = useCallback(
+    (productId: string, design: ProductDesign | null) => {
+      setItems((prev) => {
+        // A box line's artwork lives in the box, not here — leave it alone.
+        if (!prev.some((i) => i.product.id === productId && !i.box)) return prev
+        return prev.map((i) =>
+          i.product.id === productId && !i.box
+            ? { ...i, design: design ?? undefined }
+            : i,
+        )
       })
     },
     [],
@@ -197,6 +236,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       addItem,
       removeItem,
       updateQuantity,
+      setItemDesign,
       updateBoxItem,
       clearCart,
       itemCount,
@@ -207,6 +247,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       addItem,
       removeItem,
       updateQuantity,
+      setItemDesign,
       updateBoxItem,
       clearCart,
       itemCount,

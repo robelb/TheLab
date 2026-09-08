@@ -21,6 +21,8 @@ import {
   type Role,
 } from '@/lib/roles'
 import { useBrand } from '@/context/BrandContext'
+import { CART_STORAGE_KEY } from '@/context/CartContext'
+import { PRODUCT_DESIGNS_STORAGE_KEY } from '@/lib/productDesign'
 import type { AuthAccount, AuthBundle, AuthCompany } from '@/types/auth'
 
 const DEFAULT_BRAND_ID = 'airbnb'
@@ -250,6 +252,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsGuest(false)
     clearExtractedBrand()
     queryClient.removeQueries({ queryKey: ['products'] })
+    // The cart holds the last person's box, their designs and their company's
+    // pricing. Leaving it behind hands all of that to whoever signs in next on
+    // a shared machine. The designs kept against single products are the same
+    // person's work and go with it — otherwise the next shopper opens a product
+    // and finds someone else's logo already on it.
+    try {
+      localStorage.removeItem(CART_STORAGE_KEY)
+      localStorage.removeItem(PRODUCT_DESIGNS_STORAGE_KEY)
+    } catch {
+      // A blocked or full store is no reason to fail the sign-out.
+    }
   }, [clearExtractedBrand, queryClient, posthog])
 
   const can = useCallback(

@@ -10,6 +10,7 @@ import { composeRouter } from './modules/compose/compose.router.js'
 import { dashboardRouter } from './modules/dashboard/dashboard.router.js'
 import { designsRouter } from './modules/designs/designs.router.js'
 import { extractRouter } from './modules/extract/extract.router.js'
+import { ordersRouter } from './modules/orders/orders.router.js'
 import { productsRouter } from './modules/products/products.router.js'
 import { shareRouter } from './modules/share/share.router.js'
 import { systemInstructionsRouter } from './modules/system-instructions/system-instructions.router.js'
@@ -43,6 +44,7 @@ export function createApp() {
   app.use('/api/products', productsRouter)
   app.use('/api/categories', categoriesRouter)
   app.use('/api/compose', composeRouter)
+  app.use('/api/orders', ordersRouter)
   // Nested under products for listing, addressed by id once saved — so it owns
   // the `/api` prefix rather than a segment of its own.
   app.use('/api', designsRouter)

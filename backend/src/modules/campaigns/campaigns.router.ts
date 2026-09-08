@@ -43,6 +43,7 @@ campaignsRouter.post('/generate', async (req, res) => {
       parsed.data.brand,
       parsed.data.bundleSize,
       parsed.data.brief,
+      parsed.data.plainUnlessDesigned,
     )
     res.status(201).json(campaign)
   } catch (err) {

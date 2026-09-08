@@ -15,6 +15,8 @@
  */
 
 import {
+  AlignHorizontalJustifyCenter,
+  AlignVerticalJustifyCenter,
   Copy,
   Lock,
   LockOpen,
@@ -38,6 +40,9 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   clamp,
   duplicateLayer,
+  MAX_LAYER_WIDTH,
+  MAX_LAYERS,
+  MIN_LAYER_WIDTH,
   MAX_TEXT_LENGTH,
   removeLayer,
   snap,
@@ -116,11 +121,28 @@ const FONT_LABELS: Record<FontStyle, string> = {
   mono: 'Mono',
 }
 
+/**
+ * The colour a text layer prints in when nobody has picked one.
+ *
+ * Must match `safeColor`'s fallback in the server's `composeLayout`, or a layer
+ * with no colour of its own previews in one near-black and prints in another.
+ */
+export const DEFAULT_TEXT_COLOR = '#1f2933'
+
 /** Text is measured once at this size, then scaled — see `textMetrics`. */
 const MEASURE_FONT_PX = 100
 
 /** Line spacing for multi-line wording. Mirrors `LINE_HEIGHT_EM` on the server. */
 const LINE_HEIGHT = 1.2
+
+/**
+ * How far a press may wander and still count as a click.
+ *
+ * A press on empty canvas means two things at once: deselect, and start panning
+ * when zoomed. Which one it turns out to be is only knowable at pointer-up, so
+ * the gesture is measured rather than guessed.
+ */
+const CLICK_SLOP_PX = 4
 
 /** How close to a guide a drag has to come, in pixels, before it snaps. */
 const SNAP_PX = 6
@@ -130,6 +152,17 @@ const LOGO_ASPECT_KEY = '__logo__'
 
 /** A run of arrow-key nudges settles into one undo step after this long. */
 const NUDGE_COMMIT_MS = 400
+
+/**
+ * Two presses on the same wording this close together open it for editing.
+ *
+ * Measured here rather than left to `dblclick`, which never arrives: starting
+ * a drag calls `preventDefault()` on `pointerdown`, and that suppresses the
+ * compatibility mouse events — `mousedown`, `click` and `dblclick` with them.
+ * Every double-click on a layer was therefore swallowed by the drag it also
+ * began, so the gesture is timed from the pointer events we already handle.
+ */
+const DOUBLE_PRESS_MS = 350
 
 const NUDGE = 0.004
 const NUDGE_COARSE = 0.02
@@ -142,9 +175,12 @@ function layerLabel(layer: PlacementLayer): string {
       : layer.kind === 'image'
         ? 'Artwork'
         : `Text “${layer.text}”`
-  return layer.locked
-    ? `${what} — locked`
-    : `${what} — drag to move, arrow keys to nudge`
+  if (layer.locked) return `${what} — locked`
+  const how =
+    layer.kind === 'text'
+      ? 'drag to move, arrow keys to nudge, Enter or double-click to edit the wording'
+      : 'drag to move, arrow keys to nudge'
+  return `${what} — ${how}`
 }
 
 /** The image's content box inside the frame, once `object-contain` has letterboxed it. */
@@ -214,7 +250,48 @@ export function PlacementCanvas({
   // calculation below untouched.
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
-  const panRef = useRef<{ x: number; y: number; startX: number; startY: number } | null>(null)
+  const panRef = useRef<{
+    x: number
+    y: number
+    startX: number
+    startY: number
+    /** Has this press travelled far enough to be a pan rather than a click? */
+    moved: boolean
+    /** Whether panning is even on the table — a click still deselects if not. */
+    canPan: boolean
+  } | null>(null)
+  /**
+   * The wording being typed straight onto the product, if any.
+   *
+   * Editing in place rather than only in the side panel, because the wording is
+   * the one layer whose content is its shape: you cannot judge a line of text
+   * against the photograph by looking at a field somewhere else and watching
+   * something move in the corner of your eye. The panel's field stays — it is
+   * still the way to work on a long line, and the only way that works without
+   * a pointer.
+   */
+  const [editingId, setEditingId] = useState<string | null>(null)
+  /**
+   * How the caret got there, which decides where it lands.
+   *
+   * Opened by pointer, the browser puts the caret where the press was, and that
+   * is the whole point of typing on the wording itself — you click into the
+   * middle of a word and fix that word. Opened from the keyboard there is no
+   * such point, so it goes to the end.
+   */
+  const editOpenedBy = useRef<'pointer' | 'keyboard'>('pointer')
+  const editRef = useRef<HTMLSpanElement | null>(null)
+  /** The last press, so a second one on the same wording can open it. */
+  const lastPressRef = useRef<{ id: string; time: number } | null>(null)
+  /**
+   * The scale each piece of wording was last drawn at.
+   *
+   * Deleting the last character leaves nothing to measure, so the computed
+   * scale drops to zero and the caret would vanish with the glyphs — exactly
+   * when the person is mid-edit and needs to see where they are typing. The
+   * last good scale holds the empty box open at the size the wording just had.
+   */
+  const lastScaleRef = useRef<Record<string, number>>({})
   const [uncontrolledId, setUncontrolledId] = useState<string | null>(null)
   const controlled = controlledId !== undefined
   const selectedId = controlled ? controlledId : uncontrolledId
@@ -229,6 +306,16 @@ export function PlacementCanvas({
     x: null,
     y: null,
   })
+  /**
+   * Which layer is being dragged, so the readout can be shown.
+   *
+   * `dragRef` cannot drive this — it is a ref precisely so a gesture does not
+   * re-render, and the readout has to appear. One state flip per gesture, not
+   * per frame.
+   */
+  const [dragging, setDragging] = useState<{ id: string; mode: DragMode } | null>(
+    null,
+  )
   // Natural size of each text layer at MEASURE_FONT_PX, keyed by layer id.
   const [textMetrics, setTextMetrics] = useState<
     Record<string, { width: number; height: number }>
@@ -339,6 +426,134 @@ export function PlacementCanvas({
     }
   }, [layout.layers, selectedId, setSelectedId])
 
+  // ── Editing wording in place ──────────────────────────────────────────────
+
+  /**
+   * Open a piece of wording for typing.
+   *
+   * The layer is selected first and deliberately: the properties strip follows
+   * selection, so the font, colour and size controls for the wording being
+   * typed are on screen the whole time it is being typed.
+   */
+  const beginEdit = useCallback(
+    (layer: PlacementLayer, via: 'pointer' | 'keyboard') => {
+      if (disabled || layer.locked || layer.kind !== 'text') return
+      editOpenedBy.current = via
+      setSelectedId(layer.id)
+      setEditingId(layer.id)
+    },
+    [disabled, setSelectedId],
+  )
+
+  /**
+   * Stop typing — and throw the layer away if nothing is left of it.
+   *
+   * Emptying the wording is how someone deletes it from here, and the result
+   * has to be no layer rather than an invisible one: a text layer with nothing
+   * in it measures zero, so it cannot be seen, clicked or selected again, and
+   * it would go on to describe itself to the image model as wording to print.
+   */
+  const finishEdit = useCallback(
+    (id: string) => {
+      setEditingId(null)
+      const layer = layout.layers.find((l) => l.id === id)
+      if (!layer) return
+      if (!layer.text?.trim()) onChange(removeLayer(layout, id))
+      onCommit?.()
+    },
+    [layout, onChange, onCommit],
+  )
+
+  const endEdit = useCallback(() => {
+    if (editingId) finishEdit(editingId)
+  }, [editingId, finishEdit])
+
+  /**
+   * Put the caret in, once, when editing starts.
+   *
+   * The content is written imperatively and the editable node is rendered with
+   * no React children, which is what keeps typing possible at all: React
+   * re-renders on every keystroke, and a node whose text it manages would have
+   * its children patched and the caret thrown back to the start each time.
+   *
+   * Never selecting everything, so the first keystroke adds to the wording
+   * instead of replacing it — and Backspace still does what someone who came
+   * here to delete a word expects.
+   */
+  useEffect(() => {
+    const node = editRef.current
+    if (!editingId || !node) return
+    const layer = layout.layers.find((l) => l.id === editingId)
+    node.textContent = layer?.text ?? ''
+    node.focus({ preventScroll: true })
+    // Opened by pointer, the caret is left alone: the press that opened this
+    // is still to have its say, and where it fell is where the person meant to
+    // type. Forcing it to the end here fought that and won, which made
+    // clicking into the middle of a word impossible.
+    const selection = window.getSelection()
+    if (selection && editOpenedBy.current === 'keyboard') {
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      range.collapse(false)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    }
+    // Only when editing opens. Re-running on `layout` would rewrite the node
+    // from state mid-word and undo the very thing this exists to prevent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId])
+
+  /**
+   * Nothing stays open that cannot be typed into: a layer deleted from the
+   * rail, a render starting, or the selection moving to something else.
+   *
+   * It goes through `finishEdit` rather than just closing, because leaving
+   * this way is as likely as any other. Clicking straight from emptied wording
+   * onto a different layer never blurs the editable — the press that moves the
+   * selection is `preventDefault`ed to start a drag — so closing without
+   * finishing left exactly the invisible empty layer `finishEdit` exists to
+   * clear.
+   */
+  useEffect(() => {
+    if (!editingId) return
+    const layer = layout.layers.find((l) => l.id === editingId)
+    if (!layer) return setEditingId(null)
+    if (layer.locked || disabled || selectedId !== editingId) {
+      finishEdit(editingId)
+    }
+  }, [editingId, layout.layers, disabled, selectedId, finishEdit])
+
+  /**
+   * Read the node back into the layout.
+   *
+   * `innerText` is what turns the browser's own line breaks — a `<br>`, or a
+   * wrapping div — into `\n`, which is the one form both renderers lay out on.
+   *
+   * The length cap is enforced here rather than only on the way in, because
+   * `onBeforeInput` can only refuse the next keystroke: one paste or dictated
+   * phrase arrives as a single insertion and sails past a limit it was under
+   * when it started. The server's schema does not truncate an over-long line,
+   * it rejects the whole layout — so wording typed here has to be incapable of
+   * exceeding it. When the cap bites, the node is put back in step with what
+   * was actually kept, or the two would disagree about the wording from then on.
+   */
+  const onEditInput = (layer: PlacementLayer, node: HTMLElement) => {
+    const typed = node.innerText.replace(/\n$/, '')
+    const text = typed.slice(0, MAX_TEXT_LENGTH)
+    if (text !== typed) {
+      node.textContent = text
+      const selection = window.getSelection()
+      if (selection) {
+        const range = document.createRange()
+        range.selectNodeContents(node)
+        range.collapse(false)
+        selection.removeAllRanges()
+        selection.addRange(range)
+      }
+    }
+    onChange(updateLayer(layout, layer.id, { text }))
+  }
+
   /** On-screen size of a layer, in frame pixels. */
   const layerSize = (layer: PlacementLayer, content: ContentBox) => {
     const width = layer.width * content.width
@@ -369,6 +584,23 @@ export function PlacementCanvas({
       setSelectedId(layer.id)
       return
     }
+
+    // A second press on the same wording opens it for typing instead of
+    // starting another drag. `stopPropagation` so the frame does not treat it
+    // as a press on empty canvas and deselect on release — but NOT
+    // `preventDefault`, because the caret has to be allowed to land.
+    if (mode === 'move' && layer.kind === 'text') {
+      const last = lastPressRef.current
+      const now = Date.now()
+      lastPressRef.current = { id: layer.id, time: now }
+      if (last?.id === layer.id && now - last.time < DOUBLE_PRESS_MS) {
+        lastPressRef.current = null
+        event.stopPropagation()
+        beginEdit(layer, 'pointer')
+        return
+      }
+    }
+
     const frame = frameRef.current?.getBoundingClientRect()
     if (!frame) return
 
@@ -376,6 +608,7 @@ export function PlacementCanvas({
     event.stopPropagation()
     ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
     setSelectedId(layer.id)
+    setDragging({ id: layer.id, mode })
 
     const centre = {
       x: frame.left + box.left + layer.x * box.width,
@@ -421,7 +654,11 @@ export function PlacementCanvas({
     if (drag.mode === 'scale') {
       const distance = Math.hypot(event.clientX - centre.x, event.clientY - centre.y)
       if (drag.startDistance < 1) return
-      const width = clamp((layer.width * distance) / drag.startDistance, 0.02, 2)
+      const width = clamp(
+        (layer.width * distance) / drag.startDistance,
+        MIN_LAYER_WIDTH,
+        MAX_LAYER_WIDTH,
+      )
       onChange(updateLayer(layout, layer.id, { width }))
       return
     }
@@ -436,16 +673,40 @@ export function PlacementCanvas({
   }
 
   const endDrag = (event: React.PointerEvent) => {
-    if (!dragRef.current) return
+    const drag = dragRef.current
+    if (!drag) return
     const target = event.currentTarget as HTMLElement
     if (target.hasPointerCapture(event.pointerId)) {
       target.releasePointerCapture(event.pointerId)
     }
+    const before = drag.layer
+    const after = layout.layers.find((l) => l.id === drag.id)
     dragRef.current = null
+    setDragging(null)
     setGuides({ x: null, y: null })
-    // One gesture, one undo step.
-    onCommit?.()
+    // One gesture, one undo step — but only when the gesture moved something.
+    // A press that selects and nothing more used to push a step too, so a few
+    // stray clicks filled the history with no-ops and ⌘Z looked broken.
+    const moved =
+      !after ||
+      after.x !== before.x ||
+      after.y !== before.y ||
+      after.width !== before.width ||
+      (after.rotation ?? 0) !== (before.rotation ?? 0)
+    if (moved) onCommit?.()
   }
+
+  /** The numbers for the gesture in flight: position while moving, else size or angle. */
+  const draggedLayer = dragging
+    ? layout.layers.find((l) => l.id === dragging.id)
+    : undefined
+  const dragReadout = !draggedLayer
+    ? null
+    : dragging?.mode === 'scale'
+      ? `${Math.round(draggedLayer.width * 100)}%`
+      : dragging?.mode === 'rotate'
+        ? `${Math.round(draggedLayer.rotation ?? 0)}°`
+        : `${Math.round(draggedLayer.x * 100)}% · ${Math.round(draggedLayer.y * 100)}%`
 
   const resetView = useCallback(() => {
     setZoom(1)
@@ -494,24 +755,50 @@ export function PlacementCanvas({
   }
 
   const beginPan = (event: React.PointerEvent) => {
-    // Only when zoomed in, and only from empty canvas — a press on a layer is
-    // a drag, and a press that never moves is still a deselect.
-    if (!zoomable || disabled || zoom === 1) return
-    panRef.current = { x: pan.x, y: pan.y, startX: event.clientX, startY: event.clientY }
+    // Every press on empty canvas is recorded, even when panning is off: a
+    // press that never travels is a deselect, and that has to work at 100% too.
+    if (disabled) return
+    panRef.current = {
+      x: pan.x,
+      y: pan.y,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+      canPan: Boolean(zoomable) && zoom > 1,
+    }
   }
 
   const onFramePointerMove = (event: React.PointerEvent) => {
     const p = panRef.current
     if (!p) return
-    setPan({ x: p.x + (event.clientX - p.startX), y: p.y + (event.clientY - p.startY) })
+    const dx = event.clientX - p.startX
+    const dy = event.clientY - p.startY
+    // A few pixels of tremor is still a click, not a pan.
+    if (!p.moved && Math.hypot(dx, dy) > CLICK_SLOP_PX) p.moved = true
+    if (p.moved && p.canPan) setPan({ x: p.x + dx, y: p.y + dy })
   }
 
   const endPan = () => {
+    const p = panRef.current
     panRef.current = null
+    if (!p) return
+    // Deselect on a click, not on a pan. Clearing at pointerdown meant every
+    // attempt to reposition the photo also dropped whatever you were working on.
+    if (!p.moved) setSelectedId(null)
   }
 
   const onLayerKeyDown = (event: React.KeyboardEvent, layer: PlacementLayer) => {
     if (disabled || layer.locked) return
+    // While typing, the keyboard belongs to the caret. Arrow keys move through
+    // the wording and Backspace deletes a character — not the layer.
+    if (editingId === layer.id) return
+    if (
+      layer.kind === 'text' &&
+      (event.key === 'Enter' || event.key === 'F2')
+    ) {
+      event.preventDefault()
+      return beginEdit(layer, 'keyboard')
+    }
     const step = event.shiftKey ? NUDGE_COARSE : NUDGE
     const move = (dx: number, dy: number) => {
       event.preventDefault()
@@ -583,20 +870,83 @@ export function PlacementCanvas({
 
     const metric = textMetrics[layer.id]
     const scale = metric && metric.width > 0 ? size.width / metric.width : 0
+    if (scale > 0) lastScaleRef.current[layer.id] = scale
+    const editing = editingId === layer.id
+
+    // Typography identical either way — the wording must not shift or resize
+    // at the moment it is opened for typing, or the placement being judged is
+    // not the placement that prints.
+    const type = {
+      fontFamily: FONT_STACKS[layer.fontStyle ?? 'sans'],
+      fontSize: MEASURE_FONT_PX,
+      fontWeight: layer.fontWeight ?? 'normal',
+      color: layer.color ?? DEFAULT_TEXT_COLOR,
+      lineHeight: LINE_HEIGHT,
+      transformOrigin: 'top left',
+    } as const
+
+    if (editing) {
+      // Falls back to the size it was last drawn at, so emptying the wording
+      // leaves a caret you can still see — see `lastScaleRef`.
+      const editScale = scale || lastScaleRef.current[layer.id] || 1
+      return (
+        <span
+          ref={editRef}
+          role="textbox"
+          aria-label="Edit the wording"
+          aria-multiline="true"
+          contentEditable
+          // The node has no React children on purpose — see the caret effect.
+          suppressContentEditableWarning
+          spellCheck={false}
+          style={{ ...type, transform: `scale(${editScale})` }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onInput={(e) => onEditInput(layer, e.currentTarget)}
+          onBlur={endEdit}
+          onKeyDown={(e) => {
+            // The caret's keys are the caret's — nothing here reaches the
+            // layer's own nudge and delete handling.
+            e.stopPropagation()
+            if (e.key === 'Escape' || (e.key === 'Enter' && !e.shiftKey)) {
+              e.preventDefault()
+              endEdit()
+            }
+          }}
+          onBeforeInput={(e) => {
+            // Cap the length the way the panel's field does. Only a plain
+            // insertion at a collapsed caret is blocked: typing over a
+            // selection replaces rather than grows, so it stays allowed.
+            const inputType = (e.nativeEvent as InputEvent).inputType ?? ''
+            if (inputType && !inputType.startsWith('insert')) return
+            if (window.getSelection()?.isCollapsed === false) return
+            if (e.currentTarget.innerText.length >= MAX_TEXT_LENGTH) {
+              e.preventDefault()
+            }
+          }}
+          onPaste={(e) => {
+            // Paste the words, never the markup: a paste from a web page
+            // carries its own fonts and colours, and this wording's own are
+            // the design. `insertText` keeps the browser's undo stack, which
+            // rebuilding the node by hand would throw away.
+            e.preventDefault()
+            const room = MAX_TEXT_LENGTH - e.currentTarget.innerText.length
+            const text = e.clipboardData.getData('text/plain').slice(0, room)
+            if (text) document.execCommand('insertText', false, text)
+          }}
+          className="absolute left-0 top-0 cursor-text select-text whitespace-pre text-center outline-none"
+        />
+      )
+    }
+
     return (
       <span
         style={{
-          fontFamily: FONT_STACKS[layer.fontStyle ?? 'sans'],
-          fontSize: MEASURE_FONT_PX,
-          fontWeight: layer.fontWeight ?? 'normal',
-          color: layer.color ?? '#1f2933',
-          lineHeight: LINE_HEIGHT,
+          ...type,
           transform: `scale(${scale})`,
-          transformOrigin: 'top left',
           // Hidden until measured, so it never flashes at 100px.
           visibility: scale ? 'visible' : 'hidden',
         }}
-        className="absolute left-0 top-0 whitespace-pre"
+        className="absolute left-0 top-0 whitespace-pre text-center"
       >
         {layer.text}
       </span>
@@ -621,10 +971,7 @@ export function PlacementCanvas({
           fit === 'square' ? 'aspect-square' : 'min-h-0 flex-1',
         )}
         style={{ touchAction: 'none' }}
-        onPointerDown={(e) => {
-          setSelectedId(null)
-          beginPan(e)
-        }}
+        onPointerDown={beginPan}
         onPointerMove={onFramePointerMove}
         onPointerUp={endPan}
         onPointerLeave={endPan}
@@ -654,37 +1001,67 @@ export function PlacementCanvas({
           layout.layers.map((layer) => {
             const size = layerSize(layer, box)
             const isSelected = layer.id === selectedId
+            const isEditing = layer.id === editingId
             return (
               <div
                 key={layer.id}
                 role="button"
-                tabIndex={disabled ? -1 : 0}
+                // Out of the tab order while its own editable holds the focus,
+                // so Tab leaves the wording rather than landing on its frame.
+                tabIndex={disabled || isEditing ? -1 : 0}
                 aria-label={layerLabel(layer)}
-                onPointerDown={(e) => beginDrag(e, layer, 'move')}
+                onPointerDown={(e) => {
+                  // Already typing: this press is placing the caret. Swallow it
+                  // so the frame does not read it as a click on empty canvas
+                  // and deselect on release, but let it through to the node.
+                  if (isEditing) return e.stopPropagation()
+                  beginDrag(e, layer, 'move')
+                }}
                 onPointerMove={onPointerMove}
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
                 onKeyDown={(e) => onLayerKeyDown(e, layer)}
                 onFocus={() => setSelectedId(layer.id)}
                 className={cn(
-                  'absolute outline-none',
-                  disabled || layer.locked ? 'cursor-default' : 'cursor-move',
-                  isSelected
-                    ? layer.locked
-                      ? 'ring-2 ring-muted-foreground/60 ring-offset-1 ring-offset-background'
-                      : 'ring-2 ring-primary ring-offset-1 ring-offset-background'
-                    : 'ring-1 ring-transparent hover:ring-primary/40',
+                  'absolute',
+                  isEditing
+                    ? 'cursor-text'
+                    : disabled || layer.locked
+                      ? 'cursor-default'
+                      : 'cursor-move',
+                  // A dashed border while typing, so the state is legible: this
+                  // wording is open, and the next keystroke goes into it. An
+                  // outline rather than a ring — a ring is a box-shadow, and a
+                  // box-shadow cannot be dashed.
+                  isEditing
+                    ? 'outline-2 outline-dashed outline-primary outline-offset-2'
+                    : cn(
+                        'outline-none',
+                        isSelected
+                          ? layer.locked
+                            ? 'ring-2 ring-muted-foreground/60 ring-offset-1 ring-offset-background'
+                            : 'ring-2 ring-primary ring-offset-1 ring-offset-background'
+                          : 'ring-1 ring-transparent hover:ring-primary/40',
+                      ),
                 )}
                 style={{
                   left: box.left + layer.x * box.width,
                   top: box.top + layer.y * box.height,
                   width: size.width,
                   height: size.height,
-                  opacity: layer.opacity ?? 1,
                   transform: `translate(-50%, -50%) rotate(${layer.rotation ?? 0}deg)`,
                 }}
               >
-                {renderLayerContent(layer, size)}
+                {/* Opacity belongs to the artwork, not to the controls.
+                    Setting it on the wrapper faded the selection ring and every
+                    handle along with the layer, so a layer at 10% was almost
+                    impossible to grab back. */}
+                <span
+                  className="absolute inset-0"
+                  style={{ opacity: layer.opacity ?? 1 }}
+                >
+                  {renderLayerContent(layer, size)}
+                </span>
 
                 {isSelected && !disabled && layer.locked && (
                   <span
@@ -695,15 +1072,15 @@ export function PlacementCanvas({
                   </span>
                 )}
 
-                {isSelected && !disabled && !layer.locked && (
+                {isSelected && !disabled && !layer.locked && !isEditing && (
                   <>
                     {/* Scale — bottom-right, the corner everyone reaches for. */}
                     <span
                       role="slider"
                       aria-label="Resize"
                       aria-valuenow={Math.round(layer.width * 100)}
-                      aria-valuemin={2}
-                      aria-valuemax={200}
+                      aria-valuemin={Math.round(MIN_LAYER_WIDTH * 100)}
+                      aria-valuemax={Math.round(MAX_LAYER_WIDTH * 100)}
                       tabIndex={-1}
                       onPointerDown={(e) => beginDrag(e, layer, 'scale')}
                       onPointerMove={onPointerMove}
@@ -754,6 +1131,17 @@ export function PlacementCanvas({
               </div>
             )
           })}
+
+        {/* What the gesture is doing, in numbers, while it is doing it.
+            Placement was otherwise pure feel — there was no way to tell 49%
+            from 50%, or to repeat a size on a second design. Pinned to the top
+            of the frame rather than following the layer, so it never sits under
+            the cursor or falls off an edge. */}
+        {box && dragging && dragReadout && (
+          <span className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-brand border border-border/40 bg-background/90 px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground shadow-sm backdrop-blur">
+            {dragReadout}
+          </span>
+        )}
 
         {/* Guides, only while a drag is actually sitting on one. */}
         {box && guides.x !== null && (
@@ -844,7 +1232,7 @@ export function PlacementCanvas({
             <div
               key={l.id}
               data-layer-id={l.id}
-              className="inline-block whitespace-pre"
+              className="inline-block whitespace-pre text-center"
               style={{
                 fontFamily: FONT_STACKS[l.fontStyle ?? 'sans'],
                 fontSize: MEASURE_FONT_PX,
@@ -897,6 +1285,20 @@ export function SelectedLayerControls({
   const rotation = Math.round(layer.rotation ?? 0)
   const opacity = Math.round((layer.opacity ?? 1) * 100)
 
+  const atLayerLimit = layout.layers.length >= MAX_LAYERS
+  const canDuplicate = layer.kind !== 'logo' && !atLayerLimit
+
+  /**
+   * The size track stops at 200% for comfort — that is where hand-placed work
+   * lives, and a track running to 400% puts every useful value in its first
+   * eighth. It stretches only for a layer that is already bigger, which happens
+   * when a layout arrives from the model or from a restored version. Without
+   * that, such a layer sat above the track's ceiling and could not be brought
+   * back down.
+   */
+  const sizePercent = Math.round(layer.width * 100)
+  const sizeMax = Math.max(200, Math.min(sizePercent, MAX_LAYER_WIDTH * 100))
+
   return (
     <div className="space-y-3 rounded-brand border border-border/40 bg-card/40 p-2.5">
       {layer.kind === 'text' && (
@@ -912,6 +1314,12 @@ export function SelectedLayerControls({
             onBlur={() => onCommit?.()}
             className="min-h-0 py-1.5 text-sm"
           />
+          {/* The canvas is the better place to do this and nothing on screen
+              said so — a field here is not where you look to discover that the
+              wording on the photograph can be typed into directly. */}
+          <p className="text-[11px] text-muted-foreground">
+            Or double-click the wording on the product to type on it directly.
+          </p>
           <div className="flex flex-wrap items-center gap-1.5">
             {FONT_STYLES.map((style) => (
               <button
@@ -968,7 +1376,7 @@ export function SelectedLayerControls({
             <input
               type="color"
               aria-label="Custom text colour"
-              value={layer.color ?? '#1f2933'}
+              value={layer.color ?? DEFAULT_TEXT_COLOR}
               onChange={(e) => patch({ color: e.target.value })}
               onBlur={() => onCommit?.()}
               className="size-5 cursor-pointer rounded border border-border/40 bg-transparent p-0"
@@ -982,10 +1390,10 @@ export function SelectedLayerControls({
       <div className="space-y-2">
         <LayerSlider
           label="Size"
-          value={Math.round(layer.width * 100)}
+          value={sizePercent}
           suffix="%"
-          min={2}
-          max={200}
+          min={Math.round(MIN_LAYER_WIDTH * 100)}
+          max={sizeMax}
           disabled={layer.locked}
           onChange={(v) => patch({ width: v / 100 })}
           onCommit={() => onCommit?.()}
@@ -1012,6 +1420,38 @@ export function SelectedLayerControls({
         />
       </div>
 
+      {/* Centring by hand means dragging until the guide catches, which is the
+          first thing anyone tries and the fiddliest. Two buttons do it exactly. */}
+      {!layer.locked && (
+        <div className="flex flex-wrap items-center gap-1">
+          <span className="text-xs text-muted-foreground">Centre</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs"
+            title="Centre left to right"
+            onClick={() => patchAndCommit({ x: 0.5 })}
+            disabled={layer.x === 0.5}
+          >
+            <AlignHorizontalJustifyCenter className="size-3" />
+            Across
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs"
+            title="Centre top to bottom"
+            onClick={() => patchAndCommit({ y: 0.5 })}
+            disabled={layer.y === 0.5}
+          >
+            <AlignVerticalJustifyCenter className="size-3" />
+            Down
+          </Button>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-end gap-1">
         {rotation !== 0 && !layer.locked && (
           <Button
@@ -1025,11 +1465,21 @@ export function SelectedLayerControls({
             Straighten
           </Button>
         )}
+        {/* Say why it is off rather than doing nothing when pressed — both
+            refusals used to be silent no-ops inside `duplicateLayer`. */}
         <Button
           type="button"
           size="sm"
           variant="ghost"
           className="h-7 px-2 text-xs text-muted-foreground"
+          disabled={!canDuplicate}
+          title={
+            layer.kind === 'logo'
+              ? 'A design carries one logo'
+              : atLayerLimit
+                ? `You can place up to ${MAX_LAYERS} things`
+                : undefined
+          }
           onClick={() => {
             onChange(duplicateLayer(layout, layer.id))
             onCommit?.()

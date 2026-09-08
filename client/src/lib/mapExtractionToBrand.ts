@@ -143,3 +143,41 @@ export function mapExtractionToBrand(data: ExtractionPayload): BrandConfig {
     },
   }
 }
+
+/**
+ * The inverse of `mapExtractionToBrand`, for saving edits back to the company.
+ *
+ * It has to write the `colors` block as well as the top-level fields, because
+ * that is what the forward mapping actually reads: `secondaryColor` loses to
+ * `colors.background`, and the first three `otherColors` come from
+ * `colors.text` / `colors.surface` / `colors.textMuted`. Writing only the
+ * top-level fields produced a save that appeared to work and silently reverted
+ * on the next load.
+ *
+ * Returned as a partial: the server merges it over the stored extraction, so
+ * everything not edited here — the source URL, keywords, industry — survives.
+ */
+export function brandConfigToExtraction(
+  brand: BrandConfig,
+): Record<string, unknown> {
+  const [text, surface, textMuted] = brand.otherColors
+  return {
+    companyName: brand.companyName,
+    description: brand.description,
+    logo: brand.logo,
+    logoType: brand.logoType,
+    favicon: brand.favicon,
+    primaryColor: brand.primaryColor,
+    secondaryColor: brand.secondaryColor,
+    otherColors: brand.otherColors,
+    fonts: brand.fonts,
+    colors: {
+      accent: brand.primaryColor,
+      background: brand.secondaryColor,
+      text: text ?? null,
+      surface: surface ?? null,
+      textMuted: textMuted ?? null,
+    },
+    customization: brand.customization,
+  }
+}

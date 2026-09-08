@@ -16,6 +16,7 @@
 
 /** Base colours the supplier offers, scanned out of the catalogue copy. */
 import {
+  placedTypefaceFacts,
   placementFacts,
   PLACEMENT_BLOCK,
   PLACEMENT_SCALE_BLOCK,
@@ -121,6 +122,13 @@ export interface BuildBoxPrintPromptInput {
   placement?: string[]
   /** Wording the shopper typed into placed text layers, from `placedTextLayers`. */
   placedText?: string[]
+  /**
+   * The typeface each piece of placed wording must be set in, from
+   * `placedTypefaces`. Separate from `placedText` because the wording contract
+   * and the typeface contract fail in different ways: wording gets dropped or
+   * reworded, a typeface gets quietly swapped for a generic sans.
+   */
+  placedFonts?: string[]
   /** The closed list of what was placed, from `placementInventory`. */
   inventory?: string
   /**
@@ -193,15 +201,27 @@ function requestedText(request: string): RequestedText | null {
 /**
  * Shoppers type quickly and describe things loosely. Read for intent — this is
  * what stops a request reaching the box as literal instruction text.
+ *
+ * The vagueness licence is narrowed when the shopper placed wording of their
+ * own. "Pick a typeface … that suits the occasion" is exactly right for a
+ * one-line brief with nothing laid out, and is a direct contradiction of the
+ * typeface they chose in the editor — and a model handed both a named face and
+ * an invitation to choose one takes the invitation. A brief and a layout can
+ * coexist ("something festive", logo dragged onto the lid), so this cannot
+ * simply be left as it was.
  */
-const INTERPRETATION_BLOCK = [
-  'READING THE REQUEST — it is a shopper describing what they want, often briefly, with typos and half-formed ideas. Interpret it generously rather than literally:',
-  '- Words that describe the job are instructions to you and NEVER appear on the box: "print", "write", "put", "add", "make", "on it", "on the lid", "across the front", "in gold". Print only the greeting or message itself.',
-  '- Correct obvious misspellings and typos in anything you print, and set it with normal capitalisation for the occasion — a request typed as "marry chirsmas" is printed as "Merry Christmas", "happy bday sara" as "Happy Birthday Sara". The one exception is wording the shopper put in quotes: quoted text is reproduced exactly as written, typos and all.',
-  '- Where the request is vague, make the tasteful design decision yourself instead of leaving the box plain: pick a typeface, layout, palette and any supporting motifs that suit the occasion.',
-  '- Where it names an occasion or theme, design for it properly — seasonal motifs, colours and mood that fit — while keeping any specified wording and the box itself exactly as instructed.',
-  '- If a detail is genuinely ambiguous, choose the most conventional, giftable reading. Never render a question, a placeholder or lorem text on the box.',
-].join('\n')
+function interpretationBlock(hasPlacedText: boolean): string {
+  return [
+    'READING THE REQUEST — it is a shopper describing what they want, often briefly, with typos and half-formed ideas. Interpret it generously rather than literally:',
+    '- Words that describe the job are instructions to you and NEVER appear on the box: "print", "write", "put", "add", "make", "on it", "on the lid", "across the front", "in gold". Print only the greeting or message itself.',
+    '- Correct obvious misspellings and typos in anything you print, and set it with normal capitalisation for the occasion — a request typed as "marry chirsmas" is printed as "Merry Christmas", "happy bday sara" as "Happy Birthday Sara". The one exception is wording the shopper put in quotes: quoted text is reproduced exactly as written, typos and all.',
+    hasPlacedText
+      ? '- Where the request is vague, make the tasteful design decision yourself instead of leaving the box plain: pick the layout, palette and any supporting motifs that suit the occasion. The lettering is the exception — the shopper chose the typeface themselves and it is named below, so that one is not yours to pick.'
+      : '- Where the request is vague, make the tasteful design decision yourself instead of leaving the box plain: pick a typeface, layout, palette and any supporting motifs that suit the occasion.',
+    '- Where it names an occasion or theme, design for it properly — seasonal motifs, colours and mood that fit — while keeping any specified wording and the box itself exactly as instructed.',
+    '- If a detail is genuinely ambiguous, choose the most conventional, giftable reading. Never render a question, a placeholder or lorem text on the box.',
+  ].join('\n')
+}
 
 /**
  * Multiple boxes in one output is the box prompt's own duplication failure —
@@ -334,7 +354,7 @@ export function buildBoxPrintPrompt(input: BuildBoxPrintPromptInput): string {
   //    legitimate: toggling the logo on or off is a complete instruction.
   if (request) {
     p.push(`What the shopper asked for, in their own words: ${request}`)
-    p.push(INTERPRETATION_BLOCK)
+    p.push(interpretationBlock(placedText.length > 0))
   } else if (input.hasBranding && placedText.length === 0) {
     p.push(
       'The shopper asked for the brand logo on the box and nothing else: a clean, understated branded box with no wording, motifs, patterns or decoration beyond the logo itself.',
@@ -355,7 +375,7 @@ export function buildBoxPrintPrompt(input: BuildBoxPrintPromptInput): string {
 
   if (placedText.length > 0) {
     p.push(
-      `PLACED WORDING — the shopper typed ${placedList} and positioned it themselves in the layout mockup. It is asked for and it stays. Print it character for character as given, keeping their spelling and capitalisation, set as real print in a typeface that suits the design rather than the mockup's placeholder face. Never omit it, reword it, translate it or duplicate it.`,
+      `PLACED WORDING — the shopper typed ${placedList} and positioned it themselves in the layout mockup. It is asked for and it stays. Print it character for character as given, keeping their spelling and capitalisation, set as real print rather than as a copy of the mockup's placeholder lettering — in the typeface class named for it below, which the shopper chose. Never omit it, reword it, translate it or duplicate it.`,
     )
   }
 
@@ -387,6 +407,13 @@ export function buildBoxPrintPrompt(input: BuildBoxPrintPromptInput): string {
     // The closed list goes straight after the positive instructions: those say
     // what to draw, this says that the list is finished.
     if (input.inventory) p.push(input.inventory)
+    // The typeface the shopper chose, under its own heading. It belongs with
+    // the other placement facts rather than up beside the wording, because it
+    // is the same kind of statement: something the customer decided that the
+    // render has to honour.
+    if (input.placedFonts && input.placedFonts.length > 0) {
+      p.push(placedTypefaceFacts(input.placedFonts))
+    }
     p.push(PLACEMENT_SCALE_BLOCK)
   } else {
     p.push(

@@ -114,7 +114,11 @@ productsRouter.patch('/:id', async (req, res) => {
   }
 
   try {
-    const product = await updateProduct(req.params.id, parsed.data)
+    const product = await updateProduct(
+      req.params.id,
+      parsed.data,
+      req.authUser?.companyId ?? undefined,
+    )
     if (!product) {
       return res.status(404).json({ error: 'Product not found' })
     }

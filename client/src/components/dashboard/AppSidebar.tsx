@@ -1,5 +1,6 @@
 import {
   Building2,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -38,6 +39,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { to: '/', end: true, label: 'Shop', icon: Store, capability: 'manage_company' },
   { to: '/dashboard', end: true, label: 'Overview', icon: LayoutDashboard, capability: 'manage_company' },
+  { to: '/dashboard/orders', end: false, label: 'Orders', icon: Inbox, capability: 'manage_company' },
   { to: '/dashboard/products', end: false, label: 'Products', icon: Package, capability: 'manage_company' },
   { to: '/dashboard/campaign', end: false, label: 'Campaign', icon: Megaphone, capability: 'manage_company' },
   { to: '/dashboard/branding', end: false, label: 'Branding', icon: Palette, capability: 'manage_company' },

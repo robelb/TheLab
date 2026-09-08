@@ -12,9 +12,10 @@ import { CampaignPage } from '@/pages/CampaignPage'
 import { ProductPage } from '@/pages/ProductPage'
 import { CartPage } from '@/pages/CartPage'
 import { CheckoutPage } from '@/pages/CheckoutPage'
-import { BrandSettingsPage } from '@/pages/BrandSettingsPage'
 import { DashboardLayout } from '@/pages/dashboard/DashboardLayout'
 import { DashboardHomePage } from '@/pages/dashboard/DashboardHomePage'
+import { OrderDetailPage } from '@/pages/dashboard/OrderDetailPage'
+import { OrdersPage } from '@/pages/dashboard/OrdersPage'
 import { ProductsAdminPage } from '@/pages/dashboard/ProductsAdminPage'
 import { ProductDetailPage } from '@/pages/dashboard/ProductDetailPage'
 import { BrandingPage } from '@/pages/dashboard/BrandingPage'
@@ -67,7 +68,6 @@ export default function App() {
                   <Route path="product/:id" element={<ProductPage />} />
                   <Route path="cart" element={<CartPage />} />
                   <Route path="checkout" element={<CheckoutPage />} />
-                  <Route path="brand" element={<BrandSettingsPage />} />
                 </Route>
                 <Route
                   path="/dashboard"
@@ -78,6 +78,8 @@ export default function App() {
                   }
                 >
                   <Route index element={<DashboardHomePage />} />
+                  <Route path="orders" element={<OrdersPage />} />
+                  <Route path="orders/:id" element={<OrderDetailPage />} />
                   <Route path="products" element={<ProductsAdminPage />} />
                   <Route path="products/:id" element={<ProductDetailPage />} />
                   <Route path="campaign" element={<CampaignsPage />} />

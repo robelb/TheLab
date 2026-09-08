@@ -3,7 +3,12 @@ import { ChevronRight, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
 import { useBrand } from '@/context/BrandContext'
-import { boxPieceCount, isBoxSku } from '@/lib/box'
+import {
+  boxPieceCount,
+  FREE_SHIPPING_THRESHOLD,
+  isBoxSku,
+  shippingFor,
+} from '@/lib/box'
 import { getProductDisplayImage } from '@/lib/productImage'
 import { formatPrice } from '@/utils/format'
 import { Button } from '@/components/ui/button'
@@ -29,7 +34,7 @@ export function CartPage() {
     )
   }
 
-  const shipping = subtotal >= 200 ? 0 : 12
+  const shipping = shippingFor(subtotal)
   const total = subtotal + shipping
 
   return (
@@ -43,7 +48,7 @@ export function CartPage() {
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-start">
         <ul className="divide-y divide-border/40">
-          {items.map(({ product, quantity, box }) => {
+          {items.map(({ product, quantity, box, design }) => {
             // A built box is a client-side line item, not a catalog product —
             // its detail page is the box builder, opened on this very box.
             // Boxes added before contents were tracked just open the builder.
@@ -53,6 +58,16 @@ export function CartPage() {
               : isBoxSku(product.sku)
                 ? '/build-box'
                 : `/product/${product.id}`
+            // A branded line shows the artwork it will be printed with, not the
+            // catalogue photo. Showing stock here meant the one thing the
+            // shopper made was invisible at the moment they paid for it.
+            const lineImage =
+              design?.flat ??
+              design?.image ??
+              getProductDisplayImage(product, brandGeneration)
+            const editDesignUrl = `/design/${encodeURIComponent(
+              product.id,
+            )}?to=product&return=/cart`
             return (
             <li
               key={product.id}
@@ -63,7 +78,7 @@ export function CartPage() {
                 className="overflow-hidden rounded-brand"
               >
                 <img
-                  src={getProductDisplayImage(product, brandGeneration)}
+                  src={lineImage}
                   alt=""
                   className="aspect-[4/5] w-full object-cover sm:aspect-square sm:h-[100px] sm:w-[100px]"
                 />
@@ -84,6 +99,17 @@ export function CartPage() {
                     {formatPrice(product.price * quantity, product.currency)}
                   </p>
                 </div>
+
+                {/* What a branded single product carries, said plainly: the
+                    picture above is the artwork, and the brief goes with it. */}
+                {design && (
+                  <p className="mt-3 rounded-brand border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+                    <span className="font-medium">Your design</span> — printed
+                    with the artwork shown
+                    {design.prompt ? `, from your brief “${design.prompt}”` : ''}
+                    .
+                  </p>
+                )}
 
                 {/* A box is one line, so what it holds is spelled out here —
                     folded away by default so a cart of boxes stays scannable. */}
@@ -215,6 +241,22 @@ export function CartPage() {
                       </Link>
                     </Button>
                   )}
+                  {/* Same reasoning as the box: whatever the line carries has
+                      to be changeable from the line, not only from the page it
+                      was added on. Approving comes straight back here. */}
+                  {!box && design && (
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground"
+                    >
+                      <Link to={editDesignUrl}>
+                        <Pencil className="size-4" />
+                        Edit design
+                      </Link>
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
@@ -247,9 +289,9 @@ export function CartPage() {
                 {shipping === 0 ? 'Free' : formatPrice(shipping)}
               </span>
             </div>
-            {subtotal < 200 && (
+            {subtotal < FREE_SHIPPING_THRESHOLD && (
               <p className="text-xs text-primary">
-                Free shipping on orders over {formatPrice(200)}
+                Free shipping on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}
               </p>
             )}
             <Separator />

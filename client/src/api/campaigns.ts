@@ -39,11 +39,14 @@ export async function generateCampaign(
   brand: CampaignBrandSignals,
   bundleSize?: number,
   brief?: string,
+  /** See `HeroImageSupplies.plainUnlessDesigned` — assembly renders too. */
+  plainUnlessDesigned?: boolean,
 ): Promise<Campaign> {
   const { data } = await apiClient.post<Campaign>('/campaigns/generate', {
     brand,
     bundleSize,
     brief,
+    plainUnlessDesigned,
   })
   return data
 }
@@ -59,6 +62,14 @@ export interface CampaignUpdate {
    * the campaign's domain, so a domainless campaign renders unbranded.
    */
   brand?: CampaignBrandSignals
+  /**
+   * Not persisted either — the supplies to render with when this save triggers
+   * a regeneration, for the same reason `brand` is here. A save that changes
+   * the bundle re-renders on its own, and that render is otherwise unsteerable:
+   * it would fall back to whatever the server last remembered for this
+   * campaign, or nothing.
+   */
+  supplies?: HeroImageSupplies
 }
 
 export async function updateCampaign(
@@ -93,6 +104,17 @@ export interface HeroImageSupplies {
    * just branded.
    */
   productImages?: Record<string, string>
+  /**
+   * Photograph a product the shopper has NOT designed from its plain
+   * catalogue photo, rather than the company's own branded shot of it.
+   *
+   * Set by the box builder, whose tiles show the plain photo — so without this
+   * the render came back with a logo on products the builder was showing bare,
+   * and the shopper could not tell which of it was their own work. The
+   * dashboard's campaign builder leaves it off: there the branded shot is the
+   * product's picture.
+   */
+  plainUnlessDesigned?: boolean
 }
 
 export async function regenerateCampaignHeroImage(

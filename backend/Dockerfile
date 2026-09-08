@@ -21,6 +21,31 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@10.26.1 --activate
 
+# Fonts for the flat layout mockup.
+#
+# `composeLayout` renders placed wording by handing sharp an SVG `<text>`, which
+# sharp resolves through fontconfig. This image had no fonts and no fontconfig
+# config at all, so every family — `sans-serif`, `serif`, `monospace` and the
+# script stack alike — resolved to nothing: the wording came out blank or as a
+# sliver of tofu, and since all four resolved to the same nothing, the typeface
+# a shopper picked in the editor made no difference to the mockup they then
+# confirmed into their box.
+#
+# DejaVu supplies the three CSS generics. Parisienne is the calligraphic face
+# the `script` choice needs — Alpine ships no URW base-35 or chancery package,
+# so the stack in `composeLayout` names Parisienne explicitly. Liberation is
+# there so a stack naming Arial/Times/Courier still resolves.
+#
+# Keep this in step with `FONT_FAMILIES` in `src/customizer/composeLayout.ts`:
+# a family named there and missing here is a font choice that silently does
+# nothing in production.
+RUN apk add --no-cache \
+      fontconfig \
+      font-dejavu \
+      font-liberation \
+      font-parisienne \
+    && fc-cache -f
+
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 

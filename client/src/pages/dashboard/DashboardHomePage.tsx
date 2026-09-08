@@ -1,6 +1,10 @@
 import {
   AlertTriangle,
   Boxes,
+  CheckCircle2,
+  Coins,
+  FileText,
+  Inbox,
   Package,
   Star,
   Tags,
@@ -108,7 +112,7 @@ export function DashboardHomePage() {
       <header className="space-y-1">
         <h1 className="font-display text-2xl font-bold">Overview</h1>
         <p className="text-sm text-muted-foreground">
-          A snapshot of your catalog and inventory.
+          Requests waiting on you, and a snapshot of the shared catalogue.
         </p>
       </header>
 
@@ -124,6 +128,72 @@ export function DashboardHomePage() {
             <Skeleton key={i} className="h-28 rounded-brand" />
           ))}
         </div>
+      )}
+
+      {/* Requests first. They are the only numbers here that belong to this
+          company — everything below describes the house catalogue, which is the
+          same for everybody — and they are the thing somebody has to act on. */}
+      {data && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Your requests
+            </h2>
+            <Link
+              to="/dashboard/orders"
+              className="text-xs text-primary hover:underline"
+            >
+              See all
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Awaiting a quote"
+              value={data.requests.new}
+              icon={Inbox}
+              accent={
+                data.requests.new > 0
+                  ? 'bg-primary/10 text-primary'
+                  : undefined
+              }
+              hint={data.requests.new > 0 ? 'Needs a reply' : 'Nothing waiting'}
+            />
+            <StatCard label="Quoted" value={data.requests.quoted} icon={FileText} />
+            <StatCard
+              label="Confirmed"
+              value={data.requests.confirmed}
+              icon={CheckCircle2}
+            />
+            <StatCard
+              label="Open value"
+              value={formatCurrency(data.requests.openValue)}
+              icon={Coins}
+              hint="Everything not cancelled"
+            />
+          </div>
+
+          {data.requests.recent.length > 0 && (
+            <ul className="divide-y divide-border/40 rounded-brand border border-border/40">
+              {data.requests.recent.map((r) => (
+                <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {r.reference}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{r.contactName}</span>
+                  {r.neededBy && (
+                    <span className="text-xs text-muted-foreground">
+                      by {r.neededBy}
+                    </span>
+                  )}
+                  <span className="tabular-nums">
+                    {formatCurrency(r.total)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{r.status}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
 
       {data && (

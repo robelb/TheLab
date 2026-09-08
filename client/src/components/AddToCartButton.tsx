@@ -3,6 +3,7 @@ import { Check, ShoppingBag } from 'lucide-react'
 import { usePostHog } from '@posthog/react'
 import type { Product } from '@/types/product'
 import { useCart } from '@/context/CartContext'
+import { readProductDesign } from '@/lib/productDesign'
 import { Button, type ButtonProps } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -31,7 +32,8 @@ export function AddToCartButton({
   function handleClick(e: MouseEvent<HTMLButtonElement>) {
     e.preventDefault()
     e.stopPropagation()
-    addItem(product)
+    // If this product was branded in the editor, its placement comes with it.
+    addItem(product, 1, undefined, readProductDesign(product.id) ?? undefined)
     setAdded(true)
     window.setTimeout(() => setAdded(false), 2000)
     posthog?.capture('product added to cart', {

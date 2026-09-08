@@ -60,6 +60,23 @@ export function boxColorOptions(description?: string | null): string[] {
   return [...found]
 }
 
+/**
+ * What one cart line costs.
+ *
+ * A box is priced from its contents rather than from its own `price`, which is
+ * a figure the builder assembles client-side and which the server ignores when
+ * it records a request. Deriving it the same way everywhere is what stops a
+ * line disagreeing with the total beside it.
+ */
+export function cartLineTotal(line: {
+  price: number
+  quantity: number
+  box?: Pick<BoxDetails, 'lines' | 'packaging' | 'filling'> | null
+}): number {
+  if (!line.box) return line.price * line.quantity
+  return boxSubtotal(boxAllLines(line.box)) * line.quantity
+}
+
 /** Everything a box charges for: its products, plus the box and the filling. */
 export function boxAllLines(
   box: Pick<BoxDetails, 'lines' | 'packaging' | 'filling'>,
@@ -67,6 +84,22 @@ export function boxAllLines(
   return [...box.lines, box.packaging, box.filling].filter(
     (line): line is BoxLine => Boolean(line),
   )
+}
+
+/**
+ * Free over this, a flat fee under it.
+ *
+ * Mirrors `FREE_SHIPPING_THRESHOLD` / `FLAT_SHIPPING` in the server's orders
+ * service, which is what a request is actually priced with. This copy exists so
+ * the cart and checkout can show the figure before anything is sent — it used to
+ * be the same expression pasted into both pages, which meant they could disagree
+ * about what somebody owed.
+ */
+export const FREE_SHIPPING_THRESHOLD = 200
+export const FLAT_SHIPPING = 12
+
+export function shippingFor(subtotal: number): number {
+  return subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING
 }
 
 /** What the given lines cost together — unit price times how many of each. */

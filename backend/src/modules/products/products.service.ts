@@ -289,6 +289,50 @@ export async function addCompanyProductImage(params: {
     })
 }
 
+/**
+ * Drop this company's own gallery rows for a product that the caller's new
+ * gallery no longer lists.
+ *
+ * `withCustomizations` unions `company_product_images` back into `images` on
+ * every company-scoped read, so trimming `products.images` alone does nothing:
+ * the removed URLs reappear on the next fetch. An edit that sets the gallery is
+ * authoritative, so the rows behind the dropped entries have to go too.
+ *
+ * Compares on the normalized URL because that is the form reads hand out (and
+ * therefore the form the client sends back), while the rows may still hold the
+ * raw `/api/...` or localhost URL they were written with.
+ */
+async function pruneCompanyProductImages(params: {
+  companyId: string
+  productId: string
+  keepUrls: string[]
+}): Promise<void> {
+  const rows = await db
+    .select({ imageUrl: companyProductImages.imageUrl })
+    .from(companyProductImages)
+    .where(
+      and(
+        eq(companyProductImages.companyId, params.companyId),
+        eq(companyProductImages.productId, params.productId),
+      ),
+    )
+  if (rows.length === 0) return
+
+  const keep = new Set(params.keepUrls.map(norm))
+  const drop = rows.map((r) => r.imageUrl).filter((u) => !keep.has(norm(u)))
+  if (drop.length === 0) return
+
+  await db
+    .delete(companyProductImages)
+    .where(
+      and(
+        eq(companyProductImages.companyId, params.companyId),
+        eq(companyProductImages.productId, params.productId),
+        inArray(companyProductImages.imageUrl, drop),
+      ),
+    )
+}
+
 // ---------------------------------------------------------------------------
 // Semantic search (vector similarity via pgvector)
 // ---------------------------------------------------------------------------
@@ -637,6 +681,7 @@ import {
   describePlacement,
   fetchLayoutAssets,
   placedTextLayers,
+  placedTypefaces,
   placementInventory,
 } from '../../customizer/composeLayout.js'
 import type { FetchedImage } from '../../customizer/fetchImage.js'
@@ -720,9 +765,8 @@ export async function runProductPhotoshoot(
       )
     : undefined
 
-  // When the layout places the logo, the composite already carries it — and
-  // now carries it legibly, since the compositor swaps black/white where the
-  // mark would vanish into the surface. Attaching the logo a second time hands
+  // When the layout places the logo, the composite already carries it, at the
+  // size and position the customer set. Attaching the logo a second time hands
   // the model a loose mark plus a strong prior to put one on the product, and
   // it obliges: a duplicate copy elsewhere on the same item. The prompt can ask
   // it not to and still lose. Not attaching it is what settles the matter —
@@ -771,6 +815,7 @@ export async function runProductPhotoshoot(
     hasLayout,
     placement: hasLayout ? describePlacement(layout) : undefined,
     placedText: hasLayout ? placedTextLayers(layout) : undefined,
+    placedFonts: hasLayout ? placedTypefaces(layout) : undefined,
     inventory: hasLayout ? placementInventory(layout) : undefined,
     logoPlaced: layoutPlacesLogo,
   })
@@ -841,9 +886,8 @@ export async function customizeBox(
       )
     : undefined
 
-  // When the layout places the logo, the composite already carries it — and
-  // now carries it legibly, since the compositor swaps black/white where the
-  // mark would vanish into the surface. Attaching the logo a second time hands
+  // When the layout places the logo, the composite already carries it, at the
+  // size and position the customer set. Attaching the logo a second time hands
   // the model a loose mark plus a strong prior to put one on the product, and
   // it obliges: a duplicate copy elsewhere on the same item. The prompt can ask
   // it not to and still lose. Not attaching it is what settles the matter —
@@ -877,6 +921,7 @@ export async function customizeBox(
     hasLayout,
     placement: hasLayout ? describePlacement(layout) : undefined,
     placedText: hasLayout ? placedTextLayers(layout) : undefined,
+    placedFonts: hasLayout ? placedTypefaces(layout) : undefined,
     inventory: hasLayout ? placementInventory(layout) : undefined,
     logoPlaced: layoutPlacesLogo,
   })
@@ -1011,9 +1056,20 @@ export async function createProduct(
   return created
 }
 
+/**
+ * Patch a catalog product.
+ *
+ * `companyId` is the editor's company, and it matters for the gallery: a saved
+ * `images` list is authoritative, so this also prunes that company's own
+ * `company_product_images` rows for entries the list drops — otherwise the read
+ * overlay would union them straight back in on the next fetch. It is also what
+ * the returned row is scoped to, so the response shows the same gallery the
+ * next GET will.
+ */
 export async function updateProduct(
   id: string,
   input: UpdateProductBody,
+  companyId?: string,
 ): Promise<ProductWithCategory | null> {
   const existing = await db
     .select({
@@ -1069,7 +1125,15 @@ export async function updateProduct(
 
   await db.update(products).set(values).where(eq(products.id, id))
 
-  return getProductById(id)
+  if (companyId && input.images !== undefined && input.images.length > 0) {
+    await pruneCompanyProductImages({
+      companyId,
+      productId: id,
+      keepUrls: input.images,
+    })
+  }
+
+  return getProductById(id, companyId)
 }
 
 export async function deleteProduct(id: string): Promise<boolean> {

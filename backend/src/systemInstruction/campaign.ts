@@ -69,20 +69,49 @@ export interface KitSupplyFact {
 }
 
 /**
- * True when every product in the set already carries its branding, so the
- * render has nothing left to design and becomes a pure composition.
+ * What the render is being asked to do about branding.
  *
- * Exported because the SERVICE has to agree with the prompt: in this mode the
- * logo is not attached as a reference image at all. Leaving it attached is what
- * lets the model "re-apply" a mark that is already on the product — the prompt
- * can ask it not to, but not handing it the logo is what makes that stick.
+ *   - `apply`   — some products arrive plain and the logo goes onto them.
+ *   - `preserve`— every product already carries the mark the customer placed.
+ *   - `unbranded` — nothing is branded, and nothing is to be branded.
+ *
+ * Named `unbranded` rather than `plain` because "plain products" already
+ * means the opposite thing in this file and in the prompt audit: products that
+ * arrive plain SO THAT the logo can be put on them.
+ *
+ * The last two are composition rather than design, and the SERVICE has to
+ * agree with the prompt about which: in those modes the logo is not attached
+ * as a reference image at all. Leaving it attached is what lets the model
+ * apply a mark anyway — the prompt can ask it not to, but not handing it the
+ * logo is what makes that stick.
+ *
+ * `unbranded` is asked for, never inferred. An empty pre-branded list means only
+ * that no product carries a mark, which is equally true of a kit someone wants
+ * branded from scratch — the shipping photoshoot — and of a box whose owner
+ * has designed nothing. Which one it is, is the caller's to say.
  */
+export type KitBrandingMode = 'apply' | 'preserve' | 'unbranded'
+
+export function kitBrandingMode(
+  productNames: string[],
+  preBranded: string[] | undefined,
+  noBranding = false,
+): KitBrandingMode {
+  if (productNames.length && preBranded?.length) {
+    if (productNames.every((name) => preBranded.includes(name))) {
+      return 'preserve'
+    }
+  }
+  return noBranding ? 'unbranded' : 'apply'
+}
+
+/** True when the render has nothing to brand, so it is a pure composition. */
 export function isCompositionOnly(
   productNames: string[],
   preBranded: string[] | undefined,
+  noBranding = false,
 ): boolean {
-  if (!productNames.length || !preBranded?.length) return false
-  return productNames.every((name) => preBranded.includes(name))
+  return kitBrandingMode(productNames, preBranded, noBranding) !== 'apply'
 }
 
 export interface CampaignKitImageOptions {
@@ -111,6 +140,18 @@ export interface CampaignKitImageOptions {
    * they just approved. Named here, those products are preserved instead.
    */
   preBranded?: string[]
+  /**
+   * Photograph the products exactly as they are and brand nothing.
+   *
+   * Set when the customer has designed none of them. Without it the render put
+   * the logo on every item in a box nobody had designed yet — branding sized
+   * and positioned by a model rather than by them, which they then had to tell
+   * apart from their own work. Nothing designed now means nothing branded.
+   *
+   * Ignored when every product is already branded: that set has nothing to
+   * brand either, and `preserve` says something stronger and truer about it.
+   */
+  noBranding?: boolean
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -159,6 +200,23 @@ const KIT_COMPOSE_TASK_BLOCK =
   'You are an expert photo compositor. You are given FINISHED product photographs — real items that have already been designed, branded and shot — and your job is to arrange them inside a gift box as ONE photorealistic top-down (90° overhead) flat-lay photograph. This is a composition task, not a design task: you place the products, you do not redraw them.'
 
 /**
+ * The task for a box whose products carry no branding and are not to be given
+ * any.
+ *
+ * Kept apart from the block above rather than sharing it, because that one
+ * opens by telling the model the products "have already been designed,
+ * branded and shot". Said of plain catalogue stock that is simply false, and a
+ * model handed a false premise resolves it the obvious way: it supplies the
+ * branding the brief says must already be there. The premise is the bug, so
+ * this states the true one — these products are unbranded, and unbranded is
+ * what the customer chose.
+ */
+const KIT_UNBRANDED_TASK_BLOCK = [
+  'You are an expert photo compositor. You are given product photographs of PLAIN, UNBRANDED items and your job is to arrange them inside a gift box as ONE photorealistic top-down (90° overhead) flat-lay photograph. This is a composition task, not a design task: you place the products, you do not decorate them.',
+  'NO BRANDING IN THIS BOX — the customer has not designed any of these products, and photographing them plain is the point. Do not add a logo, monogram, wordmark, brand name, slogan, label, badge, sticker, engraving, embroidery or printed graphic of any kind to any product, to the box, to the filling or to the background. No logo has been supplied to you, and none is to be invented, drawn from memory, or inferred from the product names, the box or anything else in the frame. An unbranded product in the output is the correct result, not an unfinished one.',
+].join('\n\n')
+
+/**
  * The hard reproduction contract for composition mode.
  *
  * Stated as an explicit allow-list and deny-list rather than as an adjective
@@ -182,6 +240,18 @@ const KIT_REPRODUCE_EXACTLY_BLOCK = [
  * In composition mode fidelity outranks everything, including the arrangement
  * and the scene — the opposite emphasis to a photoshoot.
  */
+/**
+ * The last word in plain mode, placed with the fidelity rules.
+ *
+ * The reproduce-exactly block is written for products that HAVE artwork and
+ * spends most of its length on keeping it intact. For plain goods the operative
+ * half is the short one — add nothing — so it is restated as its own check
+ * rather than left as one clause in a long paragraph about preserving marks
+ * that are not there.
+ */
+const KIT_UNBRANDED_CHECK_BLOCK =
+  'BEFORE RETURNING THE IMAGE, look over every product in the frame and confirm that not one of them carries a logo, wordmark, brand name, monogram, slogan, label, badge or printed graphic that its own reference photograph does not already show. If any product has picked one up, remove it and return the corrected image. The same applies to the box, the filling and the background.'
+
 const KIT_COMPOSE_PRIORITY_BLOCK =
   'PRIORITY — if any two rules conflict, obey the earlier one: (1) each product reproduced exactly as its reference, artwork and branding untouched, (2) the exact product set, (3) the box and filling matching their references, (4) the arrangement, (5) scene styling. A tidier composition is never worth altering a product.'
 
@@ -431,19 +501,25 @@ export function buildCampaignKitImagePrompt(
   const preBranded = (options.preBranded ?? []).filter((name) =>
     productNames.includes(name),
   )
-  const allPreBranded = isCompositionOnly(productNames, preBranded)
+  const mode = kitBrandingMode(productNames, preBranded, options.noBranding)
+  const allPreBranded = mode === 'preserve'
 
-  // With nothing left to brand, every branding rule below is not just
-  // redundant but actively harmful — each one is an instruction to render a
-  // mark onto a product that already has one. They all drop out together with
-  // the logo attachment, and the reproduction contract takes their place.
-  const compositionOnly = allPreBranded
+  // With nothing to brand, every branding rule below is not just redundant but
+  // actively harmful — each one is an instruction to put a mark on a product
+  // that either already has one or was never meant to. They all drop out
+  // together with the logo attachment, and the reproduction contract takes
+  // their place.
+  const compositionOnly = mode !== 'apply'
   const hasLogo = Boolean(options.hasLogo) && !compositionOnly
 
   return [
     // The logo contract opens the prompt — models weight the first line most.
     hasLogo ? LOGO_PRIME_RULE : '',
-    compositionOnly ? KIT_COMPOSE_TASK_BLOCK : KIT_TASK_BLOCK,
+    mode === 'unbranded'
+      ? KIT_UNBRANDED_TASK_BLOCK
+      : mode === 'preserve'
+        ? KIT_COMPOSE_TASK_BLOCK
+        : KIT_TASK_BLOCK,
     hasLogo ? kitLogoRecap(allPreBranded) : '',
     kitReferenceImagesBlock(count, {
       hasPackaging: Boolean(options.packaging),
@@ -453,6 +529,7 @@ export function buildCampaignKitImagePrompt(
     }),
     kitProductSetBlock(productNames, compositionOnly ? [] : preBranded),
     compositionOnly ? KIT_REPRODUCE_EXACTLY_BLOCK : KIT_PRODUCT_FIDELITY_BLOCK,
+    mode === 'unbranded' ? KIT_UNBRANDED_CHECK_BLOCK : '',
     kitSceneBlock(options.packaging, options.filling),
     KIT_ARRANGEMENT_BLOCK,
     KIT_LIGHTING_BLOCK,

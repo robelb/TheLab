@@ -15,6 +15,7 @@
 
 import { fetchImage, type FetchedImage } from './fetchImage.js'
 import {
+  type FontStyle,
   MAX_LAYER_ASSETS,
   MIN_LAYER_WIDTH,
   type PlacementLayer,
@@ -40,17 +41,59 @@ const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 } as const
  * chancery/casual faces first fixes it — the generic stays on the end so an
  * unknown host still gets something.
  *
- * Deployment note: the named faces are macOS (Snell Roundhand, Apple Chancery)
- * and the URW base-35 set (`fonts-urw-base35` / `gsfonts`, which supplies
- * `Z003`). A Linux image without either falls back to serif again, so keep one
- * of those packages installed on the render host.
+ * DEPLOYMENT — a family named here that the host does not have is a font choice
+ * that silently does nothing, and for a long time that was every family. The
+ * production image is `node:22-alpine`, which ships no fonts and no fontconfig
+ * config whatsoever: all four of these resolved to nothing, wording rendered
+ * blank or as a sliver of tofu, and the four choices were indistinguishable in
+ * the mockup the shopper then confirmed into their box. `backend/Dockerfile`
+ * now installs them, so keep the two in step:
+ *
+ *   - the three generics come from `font-dejavu`
+ *   - `Parisienne` (`font-parisienne`) is the calligraphic face for `script` —
+ *     Alpine packages neither the URW base-35 set (`Z003`) nor a chancery face,
+ *     so the macOS and URW names below only ever resolve in local development
+ *   - `Comic Sans MS` and the `cursive` generic are last-resort only
  */
 const FONT_FAMILIES: Record<string, string> = {
   sans: 'sans-serif',
   serif: 'serif',
   script:
-    "Snell Roundhand, 'Apple Chancery', 'URW Chancery L', Z003, 'Comic Sans MS', cursive, serif",
+    "Snell Roundhand, 'Apple Chancery', 'URW Chancery L', Z003, Parisienne, 'Comic Sans MS', cursive, serif",
   mono: 'monospace',
+}
+
+/**
+ * The same four choices, described to the image model in visual terms.
+ *
+ * The model never sees the word "script" as a font setting — it sees a prompt.
+ * Naming the class ("a script-style typeface") turned out not to be enough:
+ * every prompt that carried it also told the model to choose "a typeface that
+ * suits the design", and between an adjective and an invitation the invitation
+ * won. Script, serif and mono wording all came back set in the same generic
+ * sans, so the face the shopper picked in the editor never reached the render.
+ *
+ * These strings describe what the letters must LOOK like, which is the thing a
+ * diffusion model can actually act on, and each ends by ruling out the failure
+ * it kept producing. Keep them in step with `FONT_FAMILIES` above and with
+ * `FONT_STACKS` / `FONT_LABELS` in the browser canvas — those three are how the
+ * same choice is shown in the editor, drawn into the mockup, and asked for in
+ * the render.
+ */
+const FONT_DESCRIPTIONS: Record<FontStyle, string> = {
+  sans: 'a clean sans-serif typeface — even stroke weight, no serifs at all, modern and geometric',
+  serif:
+    'a serif typeface — every stem visibly bracketed with serifs, with contrast between thick and thin strokes, in the manner of a traditional printed book face. Not a sans-serif',
+  script:
+    'a flowing script typeface — genuinely handwritten or calligraphic, slanted, with the letters of each word joined up. Not an upright printed face of any kind',
+  mono:
+    'a monospaced typewriter typeface — every character on the same width, slab-like terminals, mechanical rather than elegant. Not a proportional face',
+}
+
+/** How the chosen face is named in prose, weight included. */
+function typefaceClause(layer: PlacementLayer): string {
+  const description = FONT_DESCRIPTIONS[layer.fontStyle ?? 'sans']
+  return layer.fontWeight === 'bold' ? `${description}, set bold` : description
 }
 
 /** Big enough that trimming to the ink and scaling down stays sharp. */
@@ -68,11 +111,21 @@ function escapeXml(value: string): string {
     .replace(/'/g, '&apos;')
 }
 
+/**
+ * The colour a text layer prints in when nobody has picked one.
+ *
+ * Must match `DEFAULT_TEXT_COLOR` in the browser canvas. The two used to differ
+ * by a shade, so a layer carrying no colour of its own — an AI-produced layout,
+ * or one whose colour failed to parse — previewed in one near-black and printed
+ * in another.
+ */
+const DEFAULT_TEXT_COLOR = '#1f2933'
+
 /** Only ever emit a colour we recognise — this string lands inside SVG markup. */
 function safeColor(value: string | undefined): string {
   return value && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)
     ? value
-    : '#111111'
+    : DEFAULT_TEXT_COLOR
 }
 
 function normalizeRotation(rotation: number | undefined): number {
@@ -390,6 +443,22 @@ export function placedTextLayers(layout: PlacementLayout): string[] {
 }
 
 /**
+ * The typeface each piece of placed wording must be set in.
+ *
+ * Separate from `describePlacement` for the same reason `placedTextLayers` is:
+ * the placement lines are a paragraph about geometry, and a font choice buried
+ * in one clause of one sentence reads as colour commentary next to the numbers
+ * around it. Given its own heading in the prompt it reads as a requirement.
+ *
+ * Empty when nothing was placed as text, so callers can drop the block.
+ */
+export function placedTypefaces(layout: PlacementLayout): string[] {
+  return layout.layers
+    .filter((l) => l.kind === 'text' && l.text?.trim())
+    .map((l) => `- "${l.text?.trim()}" is set in ${typefaceClause(l)}.`)
+}
+
+/**
  * An explicit inventory of everything the customer placed.
  *
  * `describePlacement` says where each element is, which is a set of positive
@@ -474,13 +543,22 @@ export function describePlacement(layout: PlacementLayout): string[] {
 
     const text = layer.text?.trim()
     if (!text) continue
-    const weight = layer.fontWeight === 'bold' ? 'bold ' : ''
+    // The colour is the customer's choice, so it has to be stated. The mockup
+    // carries it in pixels, but the model is told to re-typeset this wording as
+    // real print — and a re-typeset line with no colour named is a line the
+    // model picks a colour for. Named here, it survives the render.
+    //
+    // The typeface is the customer's choice for exactly the same reason, and
+    // used to be the one attribute this line handed back to the model. The
+    // face is named in full here and again under its own heading — see
+    // `placedTypefaces` — because a single passing adjective lost every time.
+    const ink = safeColor(layer.color)
     lines.push(
       `- The wording "${text}" sits ${where}${rotationClause(
         layer.rotation,
-      )} The mockup sets it in a plain placeholder face: keep its position, size and tilt, but set it properly as real print in a ${weight}${
-        layer.fontStyle ?? 'sans'
-      }-style typeface that suits the design.`,
+      )} The mockup's lettering is a rough placeholder: keep its position, size, tilt and its colour ${ink}, and set it as real print in ${typefaceClause(
+        layer,
+      )}.`,
     )
   }
   return lines
