@@ -41,7 +41,7 @@ import {
   Type,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ASPECT_RATIOS, KEEP_SCENE_ID, SCENE_TYPES } from '@/api/photoshoot'
 import { fileToDataUrl, uploadImages } from '@/api/uploads'
@@ -70,6 +70,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -230,7 +231,20 @@ export function DesignPage() {
     // layout on the way into confirmation anyway, so nothing is lost.
     saved?.photoreal ?? (saved?.flat ? null : (saved?.image ?? null)),
   )
-  const [view, setView] = useState<'layout' | 'flat' | 'photoreal'>('layout')
+  /**
+   * Reopening lands on the picture that was approved.
+   *
+   * A design approved as its photoreal render IS that render everywhere else
+   * in the shop — the tile, the basket, the order. Opening on the placement
+   * canvas showed the flat arrangement instead, so the first thing anyone
+   * coming back to edit saw was not the thing they had approved, and the
+   * render sat one unmarked tab away. Only the render gets this: the exact
+   * mockup is what the canvas already shows, and taking someone out of the
+   * editor to look at it would cost them the tab they actually came for.
+   */
+  const [view, setView] = useState<'layout' | 'flat' | 'photoreal'>(() =>
+    saved?.photoreal && saved.image === saved.photoreal ? 'photoreal' : 'layout',
+  )
   /** Open while the shopper is looking at what they are about to approve. */
   const [confirming, setConfirming] = useState(false)
   /** Open while confirming they want to throw the design away. */
@@ -1676,13 +1690,10 @@ export function DesignPage() {
           </DialogHeader>
 
           {chosenImage && (
-            <div className="flex items-center justify-center overflow-hidden rounded-brand border border-border/40 bg-muted/20 p-2">
-              <img
-                src={chosenImage}
-                alt="The design you are about to confirm"
-                className="max-h-[52vh] w-auto max-w-full object-contain"
-              />
-            </div>
+            <ConfirmPreview
+              src={chosenImage}
+              alt="The design you are about to confirm"
+            />
           )}
 
           {/* Only a question when there are genuinely two pictures of one
@@ -1742,6 +1753,72 @@ export function DesignPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+/**
+ * The picture in the sign-off dialog, with the wait made visible.
+ *
+ * The render is a remote file and the dialog opens before it has arrived, so
+ * the one thing this dialog exists to show used to be a blank panel that
+ * snapped into place — and the footer under it moved with it, out from under
+ * whatever the pointer was already reaching for. A placeholder of roughly the
+ * right size holds the shape and says what is happening.
+ */
+function ConfirmPreview({ src, alt }: { src: string; alt: string }) {
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const imgRef = useRef<HTMLImageElement>(null)
+
+  useLayoutEffect(() => {
+    setState('loading')
+    // A cached picture can be complete before React attaches `onLoad`, which
+    // then never fires — the placeholder would sit over an image that had
+    // already arrived.
+    const img = imgRef.current
+    if (img?.complete) setState(img.naturalWidth > 0 ? 'ready' : 'error')
+  }, [src])
+
+  return (
+    <div
+      className={cn(
+        'relative flex items-center justify-center overflow-hidden rounded-brand border border-border/40 bg-muted/20 p-2',
+        state !== 'ready' && 'min-h-[42vh]',
+      )}
+    >
+      {state === 'loading' && (
+        <>
+          <Skeleton className="absolute inset-0 rounded-none" />
+          <div className="relative flex flex-col items-center gap-2">
+            <Loader2 className="size-6 animate-spin text-primary" />
+            <p className="text-xs text-muted-foreground">
+              Loading your design…
+            </p>
+          </div>
+        </>
+      )}
+
+      {state === 'error' && (
+        <div className="relative flex max-w-xs flex-col items-center gap-2 text-center">
+          <ImageIcon className="size-6 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">
+            That picture could not be loaded. Your design is safe — close this
+            and open it again.
+          </p>
+        </div>
+      )}
+
+      <img
+        ref={imgRef}
+        src={src}
+        alt={alt}
+        onLoad={() => setState('ready')}
+        onError={() => setState('error')}
+        className={cn(
+          'max-h-[52vh] w-auto max-w-full object-contain',
+          state !== 'ready' && 'absolute size-0 opacity-0',
+        )}
+      />
     </div>
   )
 }

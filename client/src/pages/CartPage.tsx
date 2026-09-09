@@ -5,7 +5,6 @@ import { useCart } from '@/context/CartContext'
 import { useBrand } from '@/context/BrandContext'
 import {
   boxPieceCount,
-  FREE_SHIPPING_THRESHOLD,
   isBoxSku,
   shippingFor,
 } from '@/lib/box'
@@ -289,11 +288,6 @@ export function CartPage() {
                 {shipping === 0 ? 'Free' : formatPrice(shipping)}
               </span>
             </div>
-            {subtotal < FREE_SHIPPING_THRESHOLD && (
-              <p className="text-xs text-primary">
-                Free shipping on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}
-              </p>
-            )}
             <Separator />
             <div className="flex justify-between font-semibold">
               <span>Total</span>

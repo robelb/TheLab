@@ -73,6 +73,8 @@ export interface KitSupplyFact {
  *
  *   - `apply`   — some products arrive plain and the logo goes onto them.
  *   - `preserve`— every product already carries the mark the customer placed.
+ *   - `mixed`   — some carry the customer's mark, the rest are plain and stay
+ *                 plain.
  *   - `unbranded` — nothing is branded, and nothing is to be branded.
  *
  * Named `unbranded` rather than `plain` because "plain products" already
@@ -90,7 +92,7 @@ export interface KitSupplyFact {
  * branded from scratch — the shipping photoshoot — and of a box whose owner
  * has designed nothing. Which one it is, is the caller's to say.
  */
-export type KitBrandingMode = 'apply' | 'preserve' | 'unbranded'
+export type KitBrandingMode = 'apply' | 'preserve' | 'mixed' | 'unbranded'
 
 export function kitBrandingMode(
   productNames: string[],
@@ -101,6 +103,16 @@ export function kitBrandingMode(
     if (productNames.every((name) => preBranded.includes(name))) {
       return 'preserve'
     }
+    // Some designed, some not.
+    //
+    // This used to fall through to `apply`, and `apply` hands over the logo:
+    // design one product out of three and all three came back wearing a mark,
+    // two of them placed by the model. A caller who said `noBranding` has
+    // already answered the question — nothing gets branded that the customer
+    // did not brand themselves — and the answer does not change just because
+    // one product in the box happens to carry a design. A photoshoot, which
+    // says nothing, still means what it always did: brand the plain ones.
+    if (noBranding) return 'mixed'
   }
   return noBranding ? 'unbranded' : 'apply'
 }
@@ -214,6 +226,25 @@ const KIT_COMPOSE_TASK_BLOCK =
 const KIT_UNBRANDED_TASK_BLOCK = [
   'You are an expert photo compositor. You are given product photographs of PLAIN, UNBRANDED items and your job is to arrange them inside a gift box as ONE photorealistic top-down (90° overhead) flat-lay photograph. This is a composition task, not a design task: you place the products, you do not decorate them.',
   'NO BRANDING IN THIS BOX — the customer has not designed any of these products, and photographing them plain is the point. Do not add a logo, monogram, wordmark, brand name, slogan, label, badge, sticker, engraving, embroidery or printed graphic of any kind to any product, to the box, to the filling or to the background. No logo has been supplied to you, and none is to be invented, drawn from memory, or inferred from the product names, the box or anything else in the frame. An unbranded product in the output is the correct result, not an unfinished one.',
+].join('\n\n')
+
+/**
+ * The task for a box the customer designed part of and left the rest of alone.
+ *
+ * Neither block above is true of it: one opens by saying every item has
+ * already been designed and branded, the other that none has. Handed a false
+ * premise, the model resolves it against the references it can see — and the
+ * way it resolved this one was to brand the plain products to match the
+ * designed one. Three products, one of them designed, three logos back.
+ *
+ * So this states the true premise, and names the specific move to avoid:
+ * copying a mark off another product in the same frame. Consistency is exactly
+ * what a compositor would reach for here, and it is exactly wrong — the plain
+ * products are plain because the customer left them that way.
+ */
+const KIT_MIXED_TASK_BLOCK = [
+  'You are an expert photo compositor. You are given a mix of FINISHED product photographs: SOME of these items have already been designed and branded by the customer, and the REST are plain, unbranded stock. Your job is to arrange them all inside a gift box as ONE photorealistic top-down (90° overhead) flat-lay photograph. This is a composition task, not a design task: you place the products, you do not redraw them.',
+  'EVERY PRODUCT KEEPS EXACTLY WHAT IT ARRIVES WITH — the branded ones keep their marks, untouched and unmoved; the plain ones stay plain. The customer branded some of these deliberately and left the others alone just as deliberately, so a plain product in this box is a finished product, not an unfinished one. Do not add a logo, monogram, wordmark, brand name, slogan, label, badge, sticker, engraving, embroidery or printed graphic to any product whose own reference photograph does not already show it — not to match the branded items, not to make the set look consistent, not for any other reason. No logo has been supplied to you: none is to be invented, inferred from the product names, or copied off another product in the frame.',
 ].join('\n\n')
 
 /**
@@ -517,9 +548,11 @@ export function buildCampaignKitImagePrompt(
     hasLogo ? LOGO_PRIME_RULE : '',
     mode === 'unbranded'
       ? KIT_UNBRANDED_TASK_BLOCK
-      : mode === 'preserve'
-        ? KIT_COMPOSE_TASK_BLOCK
-        : KIT_TASK_BLOCK,
+      : mode === 'mixed'
+        ? KIT_MIXED_TASK_BLOCK
+        : mode === 'preserve'
+          ? KIT_COMPOSE_TASK_BLOCK
+          : KIT_TASK_BLOCK,
     hasLogo ? kitLogoRecap(allPreBranded) : '',
     kitReferenceImagesBlock(count, {
       hasPackaging: Boolean(options.packaging),
@@ -527,9 +560,9 @@ export function buildCampaignKitImagePrompt(
       hasLogo,
       brand,
     }),
-    kitProductSetBlock(productNames, compositionOnly ? [] : preBranded),
+    kitProductSetBlock(productNames, mode === 'preserve' ? [] : preBranded),
     compositionOnly ? KIT_REPRODUCE_EXACTLY_BLOCK : KIT_PRODUCT_FIDELITY_BLOCK,
-    mode === 'unbranded' ? KIT_UNBRANDED_CHECK_BLOCK : '',
+    mode === 'unbranded' || mode === 'mixed' ? KIT_UNBRANDED_CHECK_BLOCK : '',
     kitSceneBlock(options.packaging, options.filling),
     KIT_ARRANGEMENT_BLOCK,
     KIT_LIGHTING_BLOCK,

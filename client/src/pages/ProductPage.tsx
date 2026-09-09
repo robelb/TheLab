@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowLeft, Palette, Trash2 } from 'lucide-react'
 
 export function ProductPage() {
   const { brandGeneration } = useAuth()
@@ -179,28 +179,33 @@ export function ProductPage() {
             {product.description}
           </p>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <AddToCartButton product={product} disabled={product.stock === 0} />
+          <div className="flex flex-col gap-2">
             {/* The editor was only reachable from the box builder, so someone
                 looking at a single product had no way to put their logo on it
-                without first starting a box they may not want. */}
-            <Button asChild variant={design ? 'ghost' : 'outline'}>
-              <Link to={designUrl}>
-                <Sparkles className="size-4" />
-                {design ? 'Edit your design' : 'Add your branding'}
-              </Link>
-            </Button>
-            {design && (
-              <Button
-                type="button"
-                variant="ghost"
-                className="text-muted-foreground"
-                onClick={removeDesign}
-              >
-                <Trash2 className="size-4" />
-                Remove design
+                without first starting a box they may not want. It sits above
+                the buy button so the choice is visible at the moment of
+                buying, without competing for the primary action's width. */}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {design && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="text-muted-foreground"
+                  onClick={removeDesign}
+                >
+                  <Trash2 className="size-4" />
+                  Discard design
+                </Button>
+              )}
+              <Button asChild size="sm" variant="outline">
+                <Link to={designUrl}>
+                  <Palette className="size-4" />
+                  {design ? 'Edit your design' : 'Customize'}
+                </Link>
               </Button>
-            )}
+            </div>
+            <AddToCartButton product={product} disabled={product.stock === 0} />
           </div>
 
           {/* The design is not a preview — it is what the basket will carry, so

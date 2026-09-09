@@ -292,6 +292,14 @@ export function PlacementCanvas({
    * last good scale holds the empty box open at the size the wording just had.
    */
   const lastScaleRef = useRef<Record<string, number>>({})
+  /**
+   * Per text layer: the wording's natural width the last time its span was
+   * reconciled, and the span it was reconciled to. Together they pin the size
+   * the glyphs are drawn at — see the rescale in the measuring effect.
+   */
+  const typeScaleRef = useRef<Record<string, { natural: number; width: number }>>(
+    {},
+  )
   const [uncontrolledId, setUncontrolledId] = useState<string | null>(null)
   const controlled = controlledId !== undefined
   const selectedId = controlled ? controlledId : uncontrolledId
@@ -406,7 +414,53 @@ export function PlacementCanvas({
         )
       return same ? prev : next
     })
-  }, [layout.layers])
+
+    // Hold the type size still while the wording changes.
+    //
+    // A text layer stores only the span it covers, so the glyphs come out at
+    // whatever size makes the wording fill that span: type a longer word and
+    // the letters shrink, delete one and they grow. Nobody typing expects the
+    // font to resize under them. So the span follows the wording instead —
+    // rescaled in proportion to its natural width, which leaves the px-per-em
+    // the glyphs are drawn at exactly where it was.
+    //
+    // Only for a span untouched since it was last reconciled. Dragging a
+    // resize handle or moving the size slider IS a deliberate type-size
+    // change; re-baselining on it is what stops this from undoing it.
+    const baselines = typeScaleRef.current
+    const live = new Set<string>()
+    const resized: Record<string, number> = {}
+    for (const layer of layout.layers) {
+      if (layer.kind !== 'text') continue
+      live.add(layer.id)
+      // Emptied wording measures nothing. Keep the baseline rather than drop
+      // it, so retyping comes back at the size it left at.
+      const natural = next[layer.id]?.width
+      if (!natural) continue
+      const base = baselines[layer.id]
+      const width =
+        base && base.width === layer.width && Math.abs(base.natural - natural) > 0.5
+          ? clamp(
+              layer.width * (natural / base.natural),
+              MIN_LAYER_WIDTH,
+              MAX_LAYER_WIDTH,
+            )
+          : layer.width
+      if (width !== layer.width) resized[layer.id] = width
+      baselines[layer.id] = { natural, width }
+    }
+    for (const id of Object.keys(baselines)) {
+      if (!live.has(id)) delete baselines[id]
+    }
+
+    if (Object.keys(resized).length) {
+      onChange({
+        layers: layout.layers.map((l) =>
+          resized[l.id] === undefined ? l : { ...l, width: resized[l.id] },
+        ),
+      })
+    }
+  }, [layout.layers, onChange])
 
   // A new mark has a new shape; drop the stale measurement rather than
   // sizing the next one to the last one's box.

@@ -1,7 +1,6 @@
 import { Minus, Plus, Wand2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getProductDisplayImage } from '@/lib/productImage'
-import { cn } from '@/lib/utils'
 import { formatPrice } from '@/utils/format'
 import type { Product } from '@/types/product'
 
@@ -66,15 +65,11 @@ export function CampaignProductTile({
             size="sm"
             variant={designImage ? 'default' : 'secondary'}
             onClick={onDesign}
-            className={cn(
-              'absolute bottom-1.5 left-1.5 h-7 px-2 text-xs shadow-sm transition-opacity',
-              // A designed product keeps its button visible — that design is
-              // the reason the tile no longer matches the catalogue, and it
-              // should be one click to change rather than one hover away.
-              designImage
-                ? 'opacity-100'
-                : 'opacity-0 focus-visible:opacity-100 group-hover:opacity-100',
-            )}
+            // Always visible, designed or not. Hiding it until hover put the
+            // one thing these tiles exist for behind a gesture that does not
+            // exist on touch, and left the grid looking like a plain list of
+            // products rather than a set of things waiting to be branded.
+            className="absolute bottom-1.5 left-1.5 h-7 px-2 text-xs shadow-sm"
           >
             <Wand2 className="size-3" />
             {designImage ? 'Edit design' : 'Design'}

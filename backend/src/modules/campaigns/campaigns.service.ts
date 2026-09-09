@@ -322,7 +322,7 @@ async function generateKitImage(
     .map((e) => e.product.name)
 
   /**
-   * Nothing in this box is branded, so nothing in the render will be.
+   * Brand nothing the shopper did not brand themselves.
    *
    * The prompt cannot decide this for itself: an empty `preBranded` list is
    * equally the shape of a kit somebody wants branded from scratch, which is
@@ -335,9 +335,14 @@ async function generateKitImage(
    * and sized by the model. It read as a design the shopper had made, and the
    * ones who then opened the editor found a blank canvas that disagreed with
    * the picture they were looking at.
+   *
+   * Passed as the raw intent rather than pre-narrowed to "and nothing is
+   * branded yet". Qualified that way it went quiet on the mixed box — design
+   * one product of three and the other two came back branded too, because a
+   * part-designed box fell through to the photoshoot. `kitBrandingMode` is
+   * where that split belongs; it can see both the intent and the list.
    */
-  const noBranding =
-    Boolean(supplies?.plainUnlessDesigned) && preBranded.length === 0
+  const noBranding = Boolean(supplies?.plainUnlessDesigned)
 
   // Two ways there is nothing to apply: every product already carries its
   // branding, or none of them does and none is meant to. Either way the logo

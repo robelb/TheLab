@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Download, FileJson, Printer } from 'lucide-react'
+import { ArrowLeft, Printer } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,7 +12,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useOrder, useSetOrderStatus } from '@/hooks/use-orders'
 import { ORDER_STATUSES, type OrderItem, type OrderStatus } from '@/api/orders'
-import { downloadText, orderToCsv, orderToJson } from '@/lib/orderExport'
+// import { downloadText, orderToCsv, orderToJson } from '@/lib/orderExport'
 import type { ProductDesign } from '@/lib/boxDraft'
 import type { BoxLine } from '@/types/box'
 import type { PlacementLayer, PlacementLayout } from '@/types/layout'
