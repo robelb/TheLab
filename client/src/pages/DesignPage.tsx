@@ -551,11 +551,23 @@ export function DesignPage() {
   const canSaveVersion =
     Boolean(source) && !busy && (placed || Boolean(photoreal) || Boolean(flat))
 
+  /**
+   * Picking a photograph is a design decision too.
+   *
+   * `baseImage` is only ever set by choosing one — from the template strip or
+   * by restoring a version — so it is the record of a deliberate choice, as
+   * opposed to the catalogue's first photo that everyone starts on. Someone
+   * who wants the product on the linen backdrop rather than the white one has
+   * made their design, and had no way to say so: confirm stayed dead until
+   * they placed a mark they did not want or typed a brief they did not mean.
+   */
+  const sourceChosen = Boolean(baseImage)
+
   const canConfirm =
     Boolean(source) &&
     !busy &&
     !preparing &&
-    (placed || Boolean(prompt.trim()) || Boolean(photoreal))
+    (placed || Boolean(prompt.trim()) || Boolean(photoreal) || sourceChosen)
 
   /**
    * Confirming is one click, not two.
@@ -571,9 +583,12 @@ export function DesignPage() {
     setPreparing(true)
     try {
       // With something placed, the composite is the design. With only a brief,
-      // there is nothing to composite and the render is the design.
+      // there is nothing to composite and the render is the design. With
+      // neither, the chosen photograph is the design and is already on screen
+      // — asking for a render here would only put branding on a product whose
+      // owner has asked for none.
       if (placed) await ensureFlat()
-      else if (!photoreal) await generate()
+      else if (!photoreal && prompt.trim()) await generate()
       // Approve what they were looking at. Confirming from the photoreal tab
       // used to open on the flat mockup, which reads as a different design.
       setUseRenderForImage(view === 'photoreal' && Boolean(photoreal))
@@ -593,8 +608,14 @@ export function DesignPage() {
     void saveVersion(raw)
   }
 
-  /** The exact artwork: the mockup, or the render when nothing is placed. */
-  const confirmImage = placed ? (flat?.url ?? null) : (photoreal ?? flat?.url ?? null)
+  /**
+   * The exact artwork: the mockup, or the render when nothing is placed — and
+   * failing both, the chosen photograph itself, which is the whole design when
+   * nothing has been added to it.
+   */
+  const confirmImage = placed
+    ? (flat?.url ?? null)
+    : (photoreal ?? flat?.url ?? source)
 
   /**
    * The one picture the dialog shows and the one that gets saved.
@@ -1685,7 +1706,13 @@ export function DesignPage() {
             <DialogDescription>
               {showingRender
                 ? `The photoreal render of your design on the ${product.name}. Untick below to check the exact print artwork.`
-                : `This is exactly what gets printed on the ${product.name}. Check the placement and the spelling.`}
+                : /* Nothing was placed and nothing was asked for, so there is
+                     no placement or spelling to check — the photograph is the
+                     whole decision, and saying otherwise sends people hunting
+                     for artwork that is not there. */
+                  !placed && !photoreal
+                  ? `The ${product.name} exactly as this photo shows it, with no branding added. This is the picture your design will be.`
+                  : `This is exactly what gets printed on the ${product.name}. Check the placement and the spelling.`}
             </DialogDescription>
           </DialogHeader>
 

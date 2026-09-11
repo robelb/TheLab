@@ -297,20 +297,42 @@ export function BuildBoxPage() {
     [products, quantityOf, draft],
   )
   /**
-   * Whether anything in this box has actually been designed.
+   * What in this box has actually been designed, and what has not.
    *
-   * The render only brands what already carries branding — a box of plain
-   * products comes back plain, which is the honest picture of what was
-   * ordered. It is also not what someone expects the first time, having seen
-   * earlier boxes come back with a logo on every item, so it is worth saying
-   * out loud before the render rather than leaving them to wonder whether it
-   * went wrong.
+   * The render only brands what already carries branding — an undesigned
+   * product comes back plain, which is the honest picture of what was ordered.
+   * It is also not what someone expects the first time, having seen earlier
+   * boxes come back with a logo on every item, so it is worth saying out loud
+   * before the render rather than leaving them to wonder whether it went
+   * wrong.
+   *
+   * Said for a part-designed box too, not just an entirely plain one. The
+   * surprise is the same either way, and it is arguably sharper next to a
+   * product that IS branded: a shopper who designed one of three had no
+   * warning that the other two were going to come back bare.
    */
   const designedProducts = useMemo(
     () => products.filter((p) => Boolean(designFor(draft, p.id))),
     [products, draft],
   )
+  const undesignedProducts = useMemo(
+    () => products.filter((p) => !designFor(draft, p.id)),
+    [products, draft],
+  )
   const nothingDesigned = products.length > 0 && designedProducts.length === 0
+  const anyUndesigned = undesignedProducts.length > 0
+  /**
+   * "Mug", "Mug and Tote", "Mug, Tote and Notebook", "Mug, Tote, Notebook and
+   * 2 more". Named products are the difference between advice and a next step,
+   * and a box can hold more of them than a sentence can carry.
+   */
+  const nameList = (items: Product[]): string => {
+    const names = items.slice(0, 3).map((p) => p.name)
+    const rest = items.length - names.length
+    if (rest > 0) names.push(`${rest} more`)
+    if (names.length === 1) return names[0]
+    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+  }
   /** Open while confirming a box that will be photographed unbranded. */
   const [confirmingPlain, setConfirmingPlain] = useState(false)
 
@@ -448,15 +470,15 @@ export function BuildBoxPage() {
   }
 
   /**
-   * Ask first if the box has nothing designed in it, then render.
+   * Ask first if anything in the box is going to be photographed plain, then
+   * render.
    *
-   * One prompt, and only while nothing is designed — a shopper who has made a
-   * design has already answered the question. Confirming goes straight to the
-   * render rather than remembering the answer: the state that would need
-   * remembering is the one that disappears the moment they design something.
+   * Confirming goes straight to the render rather than remembering the answer:
+   * the state that would need remembering is the one that disappears the
+   * moment they design the product they were asked about.
    */
   const startBuildImage = () => {
-    if (nothingDesigned) return setConfirmingPlain(true)
+    if (anyUndesigned) return setConfirmingPlain(true)
     void buildImage()
   }
 
@@ -1055,7 +1077,7 @@ export function BuildBoxPage() {
       />
 
 
-      {/* ── Nothing designed ──────────────────────────────────────────
+      {/* ── Something in here is going to come back plain ─────────────
           Said before the render, not after, because after is a picture the
           shopper has to interpret. The two ways out are the two real answers:
           go and design something, or take the box as it is. */}
@@ -1068,12 +1090,27 @@ export function BuildBoxPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              You haven’t designed any of these products
+              {nothingDesigned
+                ? 'You haven’t designed any of these products'
+                : undesignedProducts.length === 1
+                  ? `You haven’t designed the ${undesignedProducts[0].name}`
+                  : `You haven’t designed ${undesignedProducts.length} of these products`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {products.length === 1
-                ? `The ${products[0].name} will be photographed exactly as it is — plain, with no logo or artwork on it.`
-                : `All ${products.length} products will be photographed exactly as they are — plain, with no logo or artwork on them.`}
+              {nothingDesigned
+                ? products.length === 1
+                  ? `The ${products[0].name} will be photographed exactly as it is — plain, with no logo or artwork on it.`
+                  : `All ${products.length} products will be photographed exactly as they are — plain, with no logo or artwork on them.`
+                : undesignedProducts.length === 1
+                  ? `The ${undesignedProducts[0].name} will be photographed exactly as it is — plain, with no logo or artwork on it. `
+                  : `${nameList(undesignedProducts)} will be photographed exactly as they are — plain, with no logo or artwork on them. `}
+              {/* Which half is safe matters as much as which half is bare —
+                  the worry a part-designed box raises is whether asking for
+                  the render costs them the work they already did. */}
+              {!nothingDesigned &&
+                (designedProducts.length === 1
+                  ? `Your design on the ${designedProducts[0].name} comes through exactly as you made it.`
+                  : `Your designs on ${nameList(designedProducts)} come through exactly as you made them.`)}
               {packagingDesign
                 ? ' The design you made for the box itself still prints.'
                 : ''}
@@ -1082,14 +1119,11 @@ export function BuildBoxPage() {
           {/* What to do instead, with the products actually named — "design a
               product" is advice; "design the Mug" is a next step. */}
           <p className="rounded-brand border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            To put your branding on one, go back and press{' '}
-            <span className="font-medium text-foreground">Design</span> on it —
-            {products.length === 1
-              ? ` the ${products[0].name}.`
-              : ` ${products
-                  .slice(0, 3)
-                  .map((p) => p.name)
-                  .join(', ')}${products.length > 3 ? ' and the rest' : ''}.`}
+            To put your branding on{' '}
+            {undesignedProducts.length === 1 ? 'it' : 'one of them'}, go back
+            and press{' '}
+            <span className="font-medium text-foreground">Design</span> on it —{' '}
+            {nameList(undesignedProducts)}.
           </p>
           <AlertDialogFooter>
             <AlertDialogCancel>Back to edit</AlertDialogCancel>
