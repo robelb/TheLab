@@ -8,6 +8,26 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number]
 export interface OrderContact {
   name: string
   email: string
+  /** Guests have no company record behind them, so they type the name. */
+  company?: string | null
+  phone?: string | null
+}
+
+/** Where the visit came from, captured first-touch by the browser. */
+export interface OrderAttribution {
+  gclid?: string | null
+  fbclid?: string | null
+  msclkid?: string | null
+  utmSource?: string | null
+  utmMedium?: string | null
+  utmCampaign?: string | null
+  utmTerm?: string | null
+  utmContent?: string | null
+  landingPath?: string | null
+  referrer?: string | null
+  firstSeenAt?: string | null
+  posthogDistinctId?: string | null
+  guestSessionId?: string | null
 }
 
 export interface OrderDelivery {
@@ -32,6 +52,8 @@ export interface OrderItem {
   box?: BoxDetails | null
   /** Set when this single product was branded in the editor. */
   design?: ProductDesign | null
+  /** Set by the server: whether a box kept its ready-made price or was summed. */
+  pricingMode?: 'bundle' | 'parts'
 }
 
 export interface Order {
@@ -48,6 +70,13 @@ export interface Order {
   shipping: number
   total: number
   currency: string
+  /** Null when the request came in with no account behind it. */
+  companyId?: string | null
+  isGuest?: boolean
+  source?: 'storefront' | 'funnel'
+  locale?: string
+  collectionSlug?: string | null
+  attribution?: OrderAttribution | null
 }
 
 /**
@@ -61,6 +90,12 @@ export interface CreateOrderBody {
   delivery?: OrderDelivery | null
   items: OrderItem[]
   currency?: string
+  /** Language the request was written in, so the reply matches it. */
+  locale?: 'de' | 'en'
+  /** `funnel` when they came in through a landing page. */
+  source?: 'storefront' | 'funnel'
+  collectionSlug?: string | null
+  attribution?: OrderAttribution | null
 }
 
 export async function createOrder(body: CreateOrderBody): Promise<Order> {

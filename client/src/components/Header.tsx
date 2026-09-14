@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom'
-import { Gift, LayoutDashboard, LogOut, ShoppingBag } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Gift, LayoutDashboard, LogIn, LogOut, ShoppingBag } from 'lucide-react'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { useAuth } from '@/context/AuthContext'
 import { useBrand } from '@/context/BrandContext'
 import { useCart } from '@/context/CartContext'
@@ -17,8 +19,9 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   )
 
 export function Header() {
+  const { t } = useTranslation()
   const { itemCount } = useCart()
-  const { logout, can } = useAuth()
+  const { user, logout, can } = useAuth()
   const { hasExtractedBrand, brands } = useBrand()
   const canManage = can('manage_company')
 
@@ -33,32 +36,34 @@ export function Header() {
           screen, so it shows whatever the brand state is.
         */}
         <div className="flex items-center gap-2 max-md:order-3 max-md:w-full max-md:justify-center">
-          {!hasExtractedBrand && brands.length > 1 && <BrandSwitcher />}
+          {/* Theme picking is a signed-in convenience, not something to put in
+              front of a visitor who arrived from an ad. */}
+          {user && !hasExtractedBrand && brands.length > 1 && <BrandSwitcher />}
           <VersionBadge />
         </div>
 
         <nav className="flex items-center gap-4 sm:gap-6" aria-label="Main">
           <NavLink to="/" end className={navLinkClass}>
-            Shop
+            {t('common.shop')}
           </NavLink>
           <NavLink to="/build-box" className={navLinkClass}>
             <span className="flex items-center gap-1.5">
               <Gift className="size-4" />
-              Build box
+              {t('common.buildBox')}
             </span>
           </NavLink>
           {canManage && (
             <NavLink to="/dashboard" className={navLinkClass}>
               <span className="flex items-center gap-1.5">
                 <LayoutDashboard className="size-4" />
-                <span className="hidden sm:inline">Dashboard</span>
+                <span className="hidden sm:inline">{t('common.dashboard')}</span>
               </span>
             </NavLink>
           )}
           <NavLink to="/cart" className={navLinkClass}>
             <span className="flex items-center gap-1.5">
               <ShoppingBag className="size-4" />
-              Cart
+              {t('common.cart')}
               {itemCount > 0 && (
                 <Badge className="min-w-5 justify-center px-1.5">
                   {itemCount}
@@ -66,16 +71,29 @@ export function Header() {
               )}
             </span>
           </NavLink>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={logout}
-          >
-            <LogOut className="size-4" />
-            <span className="sr-only">Sign out</span>
-          </Button>
+          <LanguageSwitcher />
+          {/* Signing in is an offer, not a gate: a visitor with no account can
+              do everything on the storefront, so this is the only place the
+              difference shows. */}
+          {user ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={logout}
+            >
+              <LogOut className="size-4" />
+              <span className="sr-only">{t('common.signOut')}</span>
+            </Button>
+          ) : (
+            <NavLink to="/login" className={navLinkClass}>
+              <span className="flex items-center gap-1.5">
+                <LogIn className="size-4" />
+                <span className="hidden sm:inline">{t('common.signIn')}</span>
+              </span>
+            </NavLink>
+          )}
         </nav>
       </div>
     </header>

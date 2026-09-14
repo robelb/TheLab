@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next'
 import { PAGE_SIZE_OPTIONS, type PageSize } from '@/types/product'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +19,7 @@ export function ProductsListToolbar({
   loading,
   className,
 }: ProductsListToolbarProps) {
+  const { t } = useTranslation()
   return (
     <div
       className={cn(
@@ -27,22 +29,27 @@ export function ProductsListToolbar({
     >
       <p className="text-sm text-muted-foreground">
         {loading ? (
-          'Updating results…'
+          t('filters.updating')
         ) : (
-          <>
-            Showing{' '}
-            <span className="font-medium text-foreground">{showing}</span> of{' '}
-            <span className="font-medium text-foreground">{total}</span>
-          </>
+          <Trans
+            i18nKey="filters.showing"
+            values={{ showing, total }}
+            components={{
+              1: <span className="font-medium text-foreground" />,
+              3: <span className="font-medium text-foreground" />,
+            }}
+          />
         )}
       </p>
 
       <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">Per page</span>
+        <span className="text-xs text-muted-foreground">
+          {t('filters.perPage')}
+        </span>
         <div
           className="inline-flex rounded-brand border border-border/50 bg-card/40 p-0.5"
           role="group"
-          aria-label="Products per page"
+          aria-label={t('filters.perPageLabel')}
         >
           {PAGE_SIZE_OPTIONS.map((size) => (
             <button

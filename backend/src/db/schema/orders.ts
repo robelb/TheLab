@@ -26,13 +26,16 @@ export const orders = pgTable(
   'orders',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    companyId: uuid('company_id')
-      .notNull()
-      .references(() => companies.id, { onDelete: 'cascade' }),
-    /** Who sent it. Kept even after they leave the company. */
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id),
+    /**
+     * Null for a guest request. The ad funnel takes people to checkout without
+     * an account, so a request can arrive with nothing behind it but the email
+     * in `contact` — which is the whole point of the funnel.
+     */
+    companyId: uuid('company_id').references(() => companies.id, {
+      onDelete: 'set null',
+    }),
+    /** Who sent it. Kept even after they leave the company. Null for guests. */
+    userId: uuid('user_id').references(() => users.id),
     /** Short, unambiguous, and sayable over the phone — see `makeReference`. */
     reference: text('reference').notNull().unique(),
     /** new → quoted → confirmed, or cancelled at any point. */
@@ -53,6 +56,19 @@ export const orders = pgTable(
     shipping: numeric('shipping', { precision: 10, scale: 2 }).notNull(),
     total: numeric('total', { precision: 10, scale: 2 }).notNull(),
     currency: text('currency').notNull(),
+    /** `storefront` is the shop itself; `funnel` came in off a landing page. */
+    source: text('source').$type<OrderSource>().notNull().default('storefront'),
+    /** Language the request was written in, so the reply matches it. */
+    locale: text('locale').notNull().default('en'),
+    /** The `/c/:slug` they came through, when they came through one. */
+    collectionSlug: text('collection_slug'),
+    /**
+     * Where the visit came from: click ids and UTM tags, captured first-touch.
+     *
+     * This is what the ads side needs back to learn which clicks turn into
+     * money. Null for anyone who arrived without a campaign on them.
+     */
+    attribution: jsonb('attribution').$type<OrderAttribution | null>(),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -62,12 +78,35 @@ export const orders = pgTable(
   },
   (table) => [
     index('orders_company_created_idx').on(table.companyId, table.createdAt),
+    index('orders_source_created_idx').on(table.source, table.createdAt),
   ],
 )
+
+export type OrderSource = 'storefront' | 'funnel'
 
 export interface OrderContact {
   name: string
   email: string
+  /** Guests have no company record, so they type the name instead. */
+  company?: string | null
+  phone?: string | null
+}
+
+/** First-touch campaign data, exactly as the browser saw it. */
+export interface OrderAttribution {
+  gclid?: string | null
+  fbclid?: string | null
+  msclkid?: string | null
+  utmSource?: string | null
+  utmMedium?: string | null
+  utmCampaign?: string | null
+  utmTerm?: string | null
+  utmContent?: string | null
+  landingPath?: string | null
+  referrer?: string | null
+  firstSeenAt?: string | null
+  posthogDistinctId?: string | null
+  guestSessionId?: string | null
 }
 
 export interface OrderDelivery {
@@ -93,6 +132,12 @@ export interface OrderItem {
   box?: unknown
   /** Present when this single product was branded — placement, brief and logo. */
   design?: unknown
+  /**
+   * How this line was priced: `bundle` means the shopper kept a pre-configured
+   * box exactly as sold and paid its sticker price; `parts` means they changed
+   * something and it was summed from its contents.
+   */
+  pricingMode?: 'bundle' | 'parts'
 }
 
 export type Order = typeof orders.$inferSelect

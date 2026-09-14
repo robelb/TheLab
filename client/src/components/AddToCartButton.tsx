@@ -1,4 +1,5 @@
 import { useState, type MouseEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, ShoppingBag } from 'lucide-react'
 import { usePostHog } from '@posthog/react'
 import type { Product } from '@/types/product'
@@ -25,6 +26,7 @@ export function AddToCartButton({
   variant = 'default',
   compact = false,
 }: AddToCartButtonProps) {
+  const { t } = useTranslation()
   const { addItem } = useCart()
   const posthog = usePostHog()
   const [added, setAdded] = useState(false)
@@ -64,14 +66,14 @@ export function AddToCartButton({
       {added ? (
         <>
           <Check className={compact ? 'size-3.5' : 'size-4'} />
-          Added
+          {t('card.added')}
         </>
       ) : outOfStock ? (
-        compact ? 'Sold out' : 'Out of stock'
+        compact ? t('card.soldOut') : t('card.outOfStock')
       ) : (
         <>
           <ShoppingBag className={compact ? 'size-3.5' : 'size-4'} />
-          {compact ? 'Add' : 'Add to cart'}
+          {compact ? t('card.addShort') : t('card.addToCart')}
         </>
       )}
     </Button>

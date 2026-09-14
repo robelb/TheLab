@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -13,6 +14,7 @@ export function ProductSearchBar({
   onChange,
   className,
 }: ProductSearchBarProps) {
+  const { t } = useTranslation()
   return (
     <div className={cn('relative w-full', className)}>
       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex w-12 items-center justify-center">
@@ -26,9 +28,9 @@ export function ProductSearchBar({
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Search by name, SKU, category…"
+        placeholder={t('filters.searchPlaceholder')}
         className="relative h-12 border-border/50 bg-card/60 pl-12 text-base shadow-brand backdrop-blur-sm"
-        aria-label="Search products"
+        aria-label={t('filters.searchLabel')}
       />
     </div>
   )

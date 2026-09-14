@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useMemo } from 'react'
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
@@ -26,6 +27,7 @@ export function PriceRangeFilter({
   onChange,
   className,
 }: PriceRangeFilterProps) {
+  const { t } = useTranslation()
   const step = useMemo(
     () => sliderStep(bounds.min, bounds.max),
     [bounds.min, bounds.max],
@@ -54,7 +56,7 @@ export function PriceRangeFilter({
         onValueChange={(next) => {
           if (next.length >= 2) onChange([next[0], next[1]])
         }}
-        aria-label="Price range"
+        aria-label={t('filters.priceRangeLabel')}
       />
       <div className="flex justify-between text-[10px] text-muted-foreground tabular-nums">
         <span>{formatPrice(bounds.min)}</span>

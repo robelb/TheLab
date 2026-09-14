@@ -11,8 +11,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useOrders } from '@/hooks/use-orders'
-import type { OrderStatus } from '@/api/orders'
-import { formatPrice } from '@/utils/format'
+import type { Order, OrderStatus } from '@/api/orders'
+import { formatPrice, formatDateTime } from '@/utils/format'
 
 /** Quiet until something needs doing — only `new` earns the eye. */
 const STATUS_STYLE: Record<OrderStatus, string> = {
@@ -22,13 +22,24 @@ const STATUS_STYLE: Record<OrderStatus, string> = {
   cancelled: 'border-border/40 text-muted-foreground line-through',
 }
 
-function stamp(iso: string): string {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return ''
-  return `${date.toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-  })} · ${date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`
+/**
+ * Where a request came from, at a glance.
+ *
+ * Worth its own column now that requests arrive from three different places: a
+ * signed-in company, a visitor with no account, and a visitor who came through
+ * a paid landing page. The last of those is the one marketing asks about.
+ */
+function originOf(order: Order): { label: string; className: string } | null {
+  if (order.source === 'funnel') {
+    return {
+      label: order.collectionSlug ?? 'Campaign',
+      className: 'border-primary/40 bg-primary/10 text-primary',
+    }
+  }
+  if (order.isGuest) {
+    return { label: 'Guest', className: 'border-border/60 text-muted-foreground' }
+  }
+  return null
 }
 
 /**
@@ -72,6 +83,7 @@ export function OrdersPage() {
           <TableRow>
             <TableHead>Reference</TableHead>
             <TableHead>From</TableHead>
+            <TableHead>Origin</TableHead>
             <TableHead>Needed by</TableHead>
             <TableHead className="text-right">Total</TableHead>
             <TableHead>Status</TableHead>
@@ -89,8 +101,20 @@ export function OrdersPage() {
               <TableCell>
                 <span className="block text-sm">{order.contact.name}</span>
                 <span className="block text-xs text-muted-foreground">
-                  {order.contact.email}
+                  {order.contact.company || order.contact.email}
                 </span>
+              </TableCell>
+              <TableCell>
+                {(() => {
+                  const origin = originOf(order)
+                  return origin ? (
+                    <Badge variant="outline" className={origin.className}>
+                      {origin.label}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )
+                })()}
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">
                 {order.delivery?.neededBy || '—'}
@@ -104,7 +128,7 @@ export function OrdersPage() {
                 </Badge>
               </TableCell>
               <TableCell className="text-right text-xs text-muted-foreground">
-                {stamp(order.createdAt)}
+                {formatDateTime(order.createdAt)}
               </TableCell>
             </TableRow>
           ))}

@@ -57,6 +57,14 @@ export interface DashboardStats {
 }
 
 /** Payload for creating/updating a product via the dashboard. */
+/** One line of a pre-configured box's parts list, as the editor sends it. */
+export interface ProductComponentInput {
+  componentId: string
+  quantity: number
+  role: 'item' | 'packaging' | 'filling'
+  sortOrder?: number
+}
+
 export interface ProductInput {
   name: string
   tagline: string
@@ -70,4 +78,12 @@ export interface ProductInput {
   details: string[]
   isFeatured: boolean
   sku?: string
+  /** `bundle` is a pre-configured box sold at a price of its own. */
+  kind?: 'single' | 'bundle'
+  /** Occasion slugs a landing page can filter by, e.g. `christmas`. */
+  tags?: string[]
+  /** Smallest order the supplier accepts. */
+  minQuantity?: number
+  /** What a bundle holds. Sent only for a bundle; replaces the list wholesale. */
+  components?: ProductComponentInput[]
 }

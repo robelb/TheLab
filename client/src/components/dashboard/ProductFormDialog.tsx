@@ -1,5 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ImageManager } from '@/components/dashboard/ImageManager'
+import {
+  BundleContentsEditor,
+  type BundleContentsValue,
+} from '@/components/dashboard/BundleContentsEditor'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -26,7 +30,7 @@ import {
   useCreateProduct,
   useUpdateProduct,
 } from '@/hooks/use-product-mutations'
-import type { ProductInput } from '@/types/dashboard'
+import type { ProductComponentInput, ProductInput } from '@/types/dashboard'
 import type { Product } from '@/types/product'
 
 interface ProductFormDialogProps {
@@ -36,7 +40,7 @@ interface ProductFormDialogProps {
   onClose: () => void
 }
 
-type Tab = 'details' | 'images'
+type Tab = 'details' | 'images' | 'contents'
 
 // Active tab adopts the company's brand color (the --primary token is set from
 // the extracted brand palette), so the editor matches the themed shop.
@@ -55,6 +59,18 @@ interface FormState {
   details: string
   isFeatured: boolean
   sku: string
+  /** A pre-configured box, rather than an ordinary catalogue item. */
+  isBundle: boolean
+  /** Occasion slugs, comma-separated in the field, e.g. `christmas, welcome`. */
+  tags: string
+  minQuantity: string
+  contents: BundleContentsValue
+}
+
+const EMPTY_CONTENTS: BundleContentsValue = {
+  items: [],
+  packagingId: null,
+  fillingId: null,
 }
 
 const EMPTY: FormState = {
@@ -69,6 +85,30 @@ const EMPTY: FormState = {
   details: '',
   isFeatured: false,
   sku: '',
+  isBundle: false,
+  tags: '',
+  minQuantity: '1',
+  contents: EMPTY_CONTENTS,
+}
+
+/** The editor's shape for what a bundle already holds. */
+function contentsOf(product: Product): BundleContentsValue {
+  const components = product.components ?? []
+  return {
+    items: components
+      .filter((c) => c.role === 'item')
+      .map((c) => ({
+        productId: c.product.id,
+        name: c.product.name,
+        price: c.product.price,
+        currency: c.product.currency,
+        image: c.product.image,
+        quantity: c.quantity,
+      })),
+    packagingId:
+      components.find((c) => c.role === 'packaging')?.product.id ?? null,
+    fillingId: components.find((c) => c.role === 'filling')?.product.id ?? null,
+  }
 }
 
 /** Gallery for an existing product, falling back to its single cover image. */
@@ -111,6 +151,10 @@ export function ProductFormDialog({
         details: (product.details ?? []).join('\n'),
         isFeatured: Boolean(product.isFeatured),
         sku: product.sku ?? '',
+        isBundle: product.kind === 'bundle',
+        tags: (product.tags ?? []).join(', '),
+        minQuantity: String(product.minQuantity ?? 1),
+        contents: contentsOf(product),
       })
     } else {
       setForm(EMPTY)
@@ -145,6 +189,45 @@ export function ProductFormDialog({
       return
     }
 
+    if (form.isBundle && form.contents.items.length === 0) {
+      setTab('contents')
+      setError('A box needs at least one product in it')
+      return
+    }
+
+    // Sent only for a bundle. An ordinary product has no parts list, and
+    // sending an empty one would wipe the contents of anything converted back.
+    const components: ProductComponentInput[] | undefined = form.isBundle
+      ? [
+          ...form.contents.items.map((item, i) => ({
+            componentId: item.productId,
+            quantity: item.quantity,
+            role: 'item' as const,
+            sortOrder: i,
+          })),
+          ...(form.contents.packagingId
+            ? [
+                {
+                  componentId: form.contents.packagingId,
+                  quantity: 1,
+                  role: 'packaging' as const,
+                  sortOrder: 90,
+                },
+              ]
+            : []),
+          ...(form.contents.fillingId
+            ? [
+                {
+                  componentId: form.contents.fillingId,
+                  quantity: 1,
+                  role: 'filling' as const,
+                  sortOrder: 91,
+                },
+              ]
+            : []),
+        ]
+      : undefined
+
     const payload: ProductInput = {
       name: form.name.trim(),
       tagline: form.tagline.trim(),
@@ -161,6 +244,13 @@ export function ProductFormDialog({
         .filter(Boolean),
       isFeatured: form.isFeatured,
       sku: form.sku.trim() || undefined,
+      kind: form.isBundle ? 'bundle' : 'single',
+      tags: form.tags
+        .split(',')
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean),
+      minQuantity: Math.max(1, Number(form.minQuantity) || 1),
+      ...(components ? { components } : {}),
     }
 
     try {
@@ -201,6 +291,14 @@ export function ProductFormDialog({
               <TabsTrigger value="images" className={brandTabClass}>
                 Images{form.images.length > 0 && ` (${form.images.length})`}
               </TabsTrigger>
+              {/* Only a pre-configured box has anything inside it. */}
+              {form.isBundle && (
+                <TabsTrigger value="contents" className={brandTabClass}>
+                  Box contents
+                  {form.contents.items.length > 0 &&
+                    ` (${form.contents.items.length})`}
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="details" className="mt-4">
@@ -305,6 +403,34 @@ export function ProductFormDialog({
                   />
                 </div>
 
+                <div className="space-y-1.5">
+                  <Label htmlFor="minQuantity">Minimum order</Label>
+                  <Input
+                    id="minQuantity"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={form.minQuantity}
+                    onChange={(e) => update('minQuantity', e.target.value)}
+                  />
+                </div>
+
+                {/* What a landing page filters on. Free text rather than a
+                    fixed list: marketing invents an occasion long before
+                    anybody gets round to adding it to a menu. */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="tags">Occasions (comma separated)</Label>
+                  <Input
+                    id="tags"
+                    value={form.tags}
+                    onChange={(e) => update('tags', e.target.value)}
+                    placeholder="christmas, welcome"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    A collection page shows everything carrying its occasion.
+                  </p>
+                </div>
+
                 <div className="flex items-center gap-2 self-end pb-2">
                   <Checkbox
                     id="featured"
@@ -313,6 +439,24 @@ export function ProductFormDialog({
                   />
                   <Label htmlFor="featured" className="font-medium">
                     Featured product
+                  </Label>
+                </div>
+
+                {/* Turning this on gives the product a parts list and a price
+                    of its own — the two things that make it a box rather than
+                    an item. */}
+                <div className="flex items-center gap-2 self-end pb-2">
+                  <Checkbox
+                    id="isBundle"
+                    checked={form.isBundle}
+                    onCheckedChange={(c) => {
+                      const on = c === true
+                      update('isBundle', on)
+                      if (on) setTab('contents')
+                    }}
+                  />
+                  <Label htmlFor="isBundle" className="font-medium">
+                    Pre-configured box
                   </Label>
                 </div>
               </div>
@@ -324,6 +468,17 @@ export function ProductFormDialog({
                 onChange={(images) => update('images', images)}
               />
             </TabsContent>
+
+            {form.isBundle && (
+              <TabsContent value="contents" className="mt-4">
+                <BundleContentsEditor
+                  value={form.contents}
+                  onChange={(contents) => update('contents', contents)}
+                  bundlePrice={Number(form.price) || 0}
+                  currency={form.currency || 'EUR'}
+                />
+              </TabsContent>
+            )}
           </Tabs>
 
           {error && (

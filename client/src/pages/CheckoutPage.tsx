@@ -1,12 +1,18 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { usePostHog } from '@posthog/react'
 import { Loader2 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { useBrand } from '@/context/BrandContext'
+import { useAuth } from '@/context/AuthContext'
 import { useCreateOrder } from '@/hooks/use-orders'
 import type { OrderItem } from '@/api/orders'
 import { boxAllLines, shippingFor } from '@/lib/box'
+import { loadAttribution } from '@/lib/attribution'
+import { clearFunnelEntry, loadFunnelEntry } from '@/lib/funnel'
+import { getGuestSessionId } from '@/lib/guest-session'
+import { currentLocale } from '@/i18n'
 import { formatPrice } from '@/utils/format'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,13 +32,18 @@ import { Textarea } from '@/components/ui/textarea'
  */
 export function CheckoutPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { brand } = useBrand()
+  const { user, company } = useAuth()
   const { items, subtotal, clearCart } = useCart()
   const posthog = usePostHog()
   const createOrder = useCreateOrder()
 
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [name, setName] = useState(user?.name ?? '')
+  const [email, setEmail] = useState(user?.email ?? '')
+  // A signed-in shopper's company is on their account; a guest has to say.
+  const [companyName, setCompanyName] = useState(company?.name ?? '')
+  const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [city, setCity] = useState('')
   const [zip, setZip] = useState('')
@@ -71,9 +82,18 @@ export function CheckoutPage() {
       design: design ?? null,
     }))
 
+    // Where they came from, gathered at the one moment it is worth something.
+    const attribution = loadAttribution()
+    const funnel = loadFunnelEntry()
+
     try {
       const order = await createOrder.mutateAsync({
-        contact: { name: name.trim(), email: email.trim() },
+        contact: {
+          name: name.trim(),
+          email: email.trim(),
+          company: companyName.trim() || null,
+          phone: phone.trim() || null,
+        },
         delivery: {
           address: address.trim() || null,
           city: city.trim() || null,
@@ -84,6 +104,18 @@ export function CheckoutPage() {
         },
         items: payload,
         currency,
+        locale: currentLocale(),
+        source: funnel ? 'funnel' : 'storefront',
+        collectionSlug: funnel?.collectionSlug ?? null,
+        attribution: attribution
+          ? {
+              ...attribution,
+              // Lets the ads side line a request up with the session that
+              // produced it, without us sending anything more about them.
+              posthogDistinctId: posthog?.get_distinct_id() ?? null,
+              guestSessionId: user ? null : getGuestSessionId(),
+            }
+          : null,
       })
 
       posthog?.capture('order requested', {
@@ -94,12 +126,18 @@ export function CheckoutPage() {
         item_count: items.reduce((sum, i) => sum + i.quantity, 0),
         currency: order.currency,
         brand: brand.companyName,
+        is_guest: !user,
+        source: funnel ? 'funnel' : 'storefront',
+        collection: funnel?.collectionSlug ?? null,
       })
 
       // Only now. Clearing before the request lands would throw the basket away
       // on a failure, and rebuilding a designed box is an afternoon's work.
       setReference(order.reference)
       clearCart()
+      // The campaign brought them this far and has been recorded on the
+      // request; a second order is a new visit, not the same click.
+      clearFunnelEntry()
     } catch {
       // The error renders below; the cart and everything typed stay put.
     }
@@ -113,9 +151,11 @@ export function CheckoutPage() {
   if (items.length === 0 && !reference) {
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-center">
-        <h1 className="font-display text-2xl font-bold">Nothing to request</h1>
+        <h1 className="font-display text-2xl font-bold">
+          {t('checkout.nothing')}
+        </h1>
         <Button asChild>
-          <Link to="/">Continue shopping</Link>
+          <Link to="/">{t('checkout.continueShopping')}</Link>
         </Button>
       </div>
     )
@@ -127,14 +167,15 @@ export function CheckoutPage() {
         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
           ✓
         </span>
-        <h1 className="font-display text-3xl font-bold">Request received</h1>
+        <h1 className="font-display text-3xl font-bold">
+          {t('checkout.received')}
+        </h1>
         <p className="text-muted-foreground">
-          Your reference is{' '}
-          <span className="font-medium text-foreground">{reference}</span>. We
-          have everything we need to price it, and we&apos;ll come back to you
-          with a quote.
+          {t('checkout.referenceIs')}{' '}
+          <span className="font-medium text-foreground">{reference}</span>.{' '}
+          {t('checkout.receivedBody')}
         </p>
-        <Button onClick={() => navigate('/')}>Back to shop</Button>
+        <Button onClick={() => navigate('/')}>{t('checkout.backToShop')}</Button>
       </div>
     )
   }
@@ -142,42 +183,81 @@ export function CheckoutPage() {
   return (
     <div className="space-y-8">
       <div className="space-y-2">
-        <h1 className="font-display text-3xl font-bold">Request your box</h1>
+        <h1 className="font-display text-3xl font-bold">
+          {t('checkout.title')}
+        </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Tell us where it needs to go and when. We&apos;ll price it and come
-          back to you with a quote — nothing is charged here.
+          {t('checkout.intro')}
         </p>
+        {/* Said out loud, because the thing that stopped people getting this
+            far was being asked to make an account first. */}
+        {!user && (
+          <p className="text-sm font-medium text-primary">
+            {t('checkout.noAccountNeeded')}
+          </p>
+        )}
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_340px] lg:items-start">
         <form className="space-y-8" onSubmit={handleSubmit}>
           <fieldset className="space-y-4" disabled={createOrder.isPending}>
-            <legend className="font-display text-lg font-semibold">Contact</legend>
+            <legend className="font-display text-lg font-semibold">
+              {t('checkout.contact')}
+            </legend>
             <div className="space-y-2">
-              <Label htmlFor="name">Full name</Label>
+              <Label htmlFor="name">{t('checkout.name')}</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('checkout.email')}</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 required
               />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="company">{t('checkout.company')}</Label>
+                <Input
+                  id="company"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  autoComplete="organization"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t('checkout.companyHint')}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">{t('checkout.phone')}</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  autoComplete="tel"
+                />
+              </div>
             </div>
           </fieldset>
 
           <fieldset className="space-y-4" disabled={createOrder.isPending}>
-            <legend className="font-display text-lg font-semibold">Delivery</legend>
+            <legend className="font-display text-lg font-semibold">
+              {t('checkout.delivery')}
+            </legend>
             <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">{t('checkout.address')}</Label>
               <Input
                 id="address"
                 value={address}
@@ -187,7 +267,7 @@ export function CheckoutPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
+                <Label htmlFor="city">{t('checkout.city')}</Label>
                 <Input
                   id="city"
                   value={city}
@@ -196,7 +276,7 @@ export function CheckoutPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="zip">ZIP</Label>
+                <Label htmlFor="zip">{t('checkout.zip')}</Label>
                 <Input
                   id="zip"
                   value={zip}
@@ -207,7 +287,7 @@ export function CheckoutPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
+                <Label htmlFor="country">{t('checkout.country')}</Label>
                 <Input
                   id="country"
                   value={country}
@@ -218,7 +298,7 @@ export function CheckoutPage() {
               {/* The first thing a quote has to answer, and the thing people
                   forget to mention until it is too late to make. */}
               <div className="space-y-2">
-                <Label htmlFor="neededBy">Needed by</Label>
+                <Label htmlFor="neededBy">{t('checkout.neededBy')}</Label>
                 <Input
                   id="neededBy"
                   type="date"
@@ -231,16 +311,16 @@ export function CheckoutPage() {
 
           <fieldset className="space-y-4" disabled={createOrder.isPending}>
             <legend className="font-display text-lg font-semibold">
-              Anything else
+              {t('checkout.anythingElse')}
             </legend>
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes">{t('checkout.notes')}</Label>
               <Textarea
                 id="notes"
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Quantities you're still deciding on, a deadline, who it's for…"
+                placeholder={t('checkout.notesPlaceholder')}
               />
             </div>
           </fieldset>
@@ -260,17 +340,17 @@ export function CheckoutPage() {
             {createOrder.isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Sending…
+                {t('checkout.sending')}
               </>
             ) : (
-              'Send request'
+              t('checkout.send')
             )}
           </Button>
         </form>
 
         <Card className="sticky top-24 border-border/30">
           <CardHeader>
-            <CardTitle>What you&apos;re asking for</CardTitle>
+            <CardTitle>{t('checkout.asking')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <ul className="space-y-2 text-sm">
@@ -300,11 +380,11 @@ export function CheckoutPage() {
             </ul>
             <Separator />
             <div className="flex justify-between font-semibold">
-              <span>Estimated total</span>
+              <span>{t('checkout.estimatedTotal')}</span>
               <span>{formatPrice(total, currency)}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Indicative only — your quote is what counts.
+              {t('checkout.indicative')}
             </p>
           </CardContent>
         </Card>

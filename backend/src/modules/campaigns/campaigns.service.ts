@@ -1,10 +1,11 @@
-import { desc, eq, isNull } from 'drizzle-orm'
+import { and, desc, eq, isNull } from 'drizzle-orm'
 import { db, rawSql } from '../../db/index.js'
 import {
   campaignVideos,
   campaigns,
   companies,
   type Campaign,
+  type CampaignOwnerKind,
   type CampaignVideo,
 } from '../../db/schema/index.js'
 import { embedText } from '../../services/embedding.js'
@@ -617,6 +618,7 @@ export async function generateCampaign(
   bundleSize = DEFAULT_BUNDLE_SIZE,
   brief?: string | null,
   plainUnlessDesigned = false,
+  guestSessionId?: string | null,
 ): Promise<HydratedCampaign> {
   const query = buildSemanticQuery(brand, brief)
 
@@ -679,6 +681,8 @@ export async function generateCampaign(
     .insert(campaigns)
     .values({
       domain: brand.domain ?? null,
+      ownerKind: ownerKindFor({ domain: brand.domain, guestSessionId }),
+      guestSessionId: guestSessionId ?? null,
       title: copy.title,
       description: copy.description,
       status: 'draft',
@@ -692,14 +696,35 @@ export async function generateCampaign(
   return hydrate(row)
 }
 
+/**
+ * Who a new campaign belongs to.
+ *
+ * A domain means a company. No domain but a guest session means somebody
+ * building a box without an account — and crucially not a house preset, which
+ * is what "no domain" used to imply all by itself.
+ */
+export function ownerKindFor(params: {
+  domain?: string | null
+  guestSessionId?: string | null
+}): CampaignOwnerKind {
+  if (params.domain) return 'company'
+  return params.guestSessionId ? 'guest' : 'preset'
+}
+
 /** Manually create a blank/draft campaign (no AI assembly). */
 export async function createCampaign(
   input: CreateCampaignBody,
+  owner: { guestSessionId?: string | null } = {},
 ): Promise<HydratedCampaign> {
   const [row] = await db
     .insert(campaigns)
     .values({
       domain: input.domain ?? null,
+      ownerKind: ownerKindFor({
+        domain: input.domain,
+        guestSessionId: owner.guestSessionId,
+      }),
+      guestSessionId: owner.guestSessionId ?? null,
       title: input.title,
       description: input.description ?? '',
       status: 'draft',
@@ -710,16 +735,41 @@ export async function createCampaign(
   return hydrate(row)
 }
 
+/**
+ * Campaigns for a company, or the house presets when no domain is given.
+ *
+ * The preset list is explicitly `owner_kind = 'preset'`: guests' drafts also
+ * have no domain, and without this every box a signed-out visitor started would
+ * appear on the dashboard as a house preset.
+ */
 export async function listCampaigns(domain?: string): Promise<HydratedCampaign[]> {
   const where = domain
     ? eq(campaigns.domain, domain)
-    : isNull(campaigns.domain)
+    : and(isNull(campaigns.domain), eq(campaigns.ownerKind, 'preset'))
   const rows = await db
     .select()
     .from(campaigns)
     .where(where)
     .orderBy(desc(campaigns.updatedAt))
   return Promise.all(rows.map(hydrate))
+}
+
+/** Just enough of a campaign to decide who may change it. */
+export async function campaignOwner(id: string): Promise<{
+  ownerKind: CampaignOwnerKind
+  guestSessionId: string | null
+  domain: string | null
+} | null> {
+  const [row] = await db
+    .select({
+      ownerKind: campaigns.ownerKind,
+      guestSessionId: campaigns.guestSessionId,
+      domain: campaigns.domain,
+    })
+    .from(campaigns)
+    .where(eq(campaigns.id, id))
+    .limit(1)
+  return row ?? null
 }
 
 export async function getCampaign(id: string): Promise<HydratedCampaign | null> {
@@ -891,7 +941,7 @@ export async function listActiveCampaignVideos(opts: {
   clauses.push(
     opts.domain
       ? `c.domain = '${opts.domain.replace(/'/g, "''")}'`
-      : 'c.domain IS NULL',
+      : "c.domain IS NULL AND c.owner_kind = 'preset'",
   )
   const whereClause = clauses.join(' AND ')
 

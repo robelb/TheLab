@@ -20,6 +20,7 @@ import {
   brandCustomizations,
   categories,
   companyProductImages,
+  productComponents,
   products,
 } from '../../db/schema/index.js'
 import { hexToLab } from '../../lib/color.js'
@@ -33,6 +34,7 @@ import { embedText } from '../../services/embedding.js'
 import { captionImageForSearch } from '../../services/imageCaption.js'
 import { parseSearchQuery } from '../../services/queryParser.js'
 import type {
+  BundleComponent,
   InterpretedQuery,
   ListProductsParams,
   ListProductsResult,
@@ -44,7 +46,12 @@ import {
   toProductWithCategory,
 } from '../../types/product.js'
 
-export type { ListProductsParams, ListProductsResult, ProductWithCategory }
+export type {
+  BundleComponent,
+  ListProductsParams,
+  ListProductsResult,
+  ProductWithCategory,
+}
 
 // ---------------------------------------------------------------------------
 // Shared select shape (avoids repeating column list across queries)
@@ -68,6 +75,9 @@ const productSelect = {
   details: products.details,
   isFeatured: products.isFeatured,
   dominantColor: products.dominantColor,
+  kind: products.kind,
+  tags: products.tags,
+  minQuantity: products.minQuantity,
   createdAt: products.createdAt,
   updatedAt: products.updatedAt,
   categoryName: categories.name,
@@ -116,6 +126,18 @@ function buildNonTextFilters(params: ListProductsParams) {
 
   if (params.maxPrice !== undefined) {
     conditions.push(lte(products.price, String(params.maxPrice)))
+  }
+
+  // Containment (`@>`) rather than the `?` key operator: it takes a bound
+  // jsonb parameter cleanly, so a tag arriving from a URL never reaches the
+  // query as SQL, and it is the form a GIN index on `tags` can serve.
+  if (params.tag) {
+    const tag = JSON.stringify([params.tag.toLowerCase()])
+    conditions.push(sql`${products.tags} @> ${tag}::jsonb`)
+  }
+
+  if (params.kind) {
+    conditions.push(eq(products.kind, params.kind))
   }
 
   return conditions
@@ -376,6 +398,14 @@ async function semanticSearch(
   if (params.maxPrice !== undefined) {
     clauses.push(`p.price <= ${Number(params.maxPrice)}`)
   }
+  if (params.tag) {
+    const safe = JSON.stringify([params.tag.toLowerCase()]).replace(/'/g, "''")
+    clauses.push(`p.tags @> '${safe}'::jsonb`)
+  }
+  if (params.kind) {
+    const safe = params.kind.replace(/'/g, "''")
+    clauses.push(`p.kind = '${safe}'`)
+  }
 
   const whereClause = clauses.join(' AND ')
 
@@ -384,6 +414,7 @@ async function semanticSearch(
       p.id, p.source_id, p.variant_id, p.sku, p.name, p.tagline,
       p.price, p.currency, p.stock, p.image, p.images, p.customized_image,
       p.description, p.details, p.is_featured, p.dominant_color,
+      p.kind, p.tags, p.min_quantity,
       p.created_at, p.updated_at,
       c.name AS category_name, c.slug AS category_slug
     FROM products p
@@ -605,6 +636,93 @@ export async function searchByImage(
 }
 
 // ---------------------------------------------------------------------------
+// Bundles (pre-configured boxes and their contents)
+// ---------------------------------------------------------------------------
+
+/**
+ * The parts lists for several bundles at once.
+ *
+ * One query for the rows and one overlay pass for the company's branded images,
+ * so opening a collection page with three boxes on it costs the same as opening
+ * one. Bundles with no components come back absent rather than empty — the
+ * caller decides whether that is a data problem or simply not a bundle.
+ */
+export async function getBundleComponents(
+  bundleIds: string[],
+  companyId?: string,
+): Promise<Map<string, BundleComponent[]>> {
+  const result = new Map<string, BundleComponent[]>()
+  if (bundleIds.length === 0) return result
+
+  const rows = await db
+    .select({
+      bundleId: productComponents.bundleId,
+      quantity: productComponents.quantity,
+      role: productComponents.role,
+      sortOrder: productComponents.sortOrder,
+      product: productSelect,
+    })
+    .from(productComponents)
+    .innerJoin(products, eq(productComponents.componentId, products.id))
+    .innerJoin(categories, eq(products.categoryId, categories.id))
+    .where(inArray(productComponents.bundleId, bundleIds))
+    .orderBy(asc(productComponents.sortOrder), asc(products.name))
+
+  if (rows.length === 0) return result
+
+  // Brand the component pictures the same way the catalogue would, so a box
+  // opened by a logged-in company shows their mugs, not the plain ones.
+  const branded = await withCustomizations(
+    rows.map((r) => toProductWithCategory(r.product)),
+    companyId,
+  )
+
+  rows.forEach((row, i) => {
+    const list = result.get(row.bundleId) ?? []
+    list.push({
+      product: branded[i],
+      quantity: row.quantity,
+      role: row.role,
+      sortOrder: row.sortOrder,
+    })
+    result.set(row.bundleId, list)
+  })
+  return result
+}
+
+/**
+ * Attach parts lists to whichever of these products are bundles.
+ *
+ * Only single-product and by-id reads call this. The catalogue list does not:
+ * a grid of cards shows a price and a picture, and loading every box's contents
+ * to render them would be a second query for nothing.
+ */
+async function withComponents(
+  data: ProductWithCategory[],
+  companyId?: string,
+): Promise<ProductWithCategory[]> {
+  const bundleIds = data.filter((p) => p.kind === 'bundle').map((p) => p.id)
+  if (bundleIds.length === 0) return data
+
+  const components = await getBundleComponents(bundleIds, companyId)
+  return data.map((product) =>
+    product.kind === 'bundle'
+      ? { ...product, components: components.get(product.id) ?? [] }
+      : product,
+  )
+}
+
+/** One bundle with everything in it, or null when the id is not a bundle. */
+export async function getBundleWithComponents(
+  id: string,
+  companyId?: string,
+): Promise<ProductWithCategory | null> {
+  const product = await getProductById(id, companyId)
+  if (!product || product.kind !== 'bundle') return null
+  return product
+}
+
+// ---------------------------------------------------------------------------
 // Get single product
 // ---------------------------------------------------------------------------
 
@@ -621,10 +739,11 @@ export async function getProductById(
 
   if (rows.length === 0) return null
 
-  const [product] = await withCustomizations(
+  const branded = await withCustomizations(
     [toProductWithCategory(rows[0])],
     companyId,
   )
+  const [product] = await withComponents(branded, companyId)
   return product
 }
 
@@ -664,7 +783,12 @@ export async function getProductsByIds(
     .innerJoin(categories, eq(products.categoryId, categories.id))
     .where(inArray(products.id, ids))
 
-  return withCustomizations(rows.map(toProductWithCategory), companyId)
+  const branded = await withCustomizations(
+    rows.map(toProductWithCategory),
+    companyId,
+  )
+  // The cart hydrates through here, and a cart line can be a bundle.
+  return withComponents(branded, companyId)
 }
 
 // ---------------------------------------------------------------------------
@@ -959,6 +1083,11 @@ export async function customizeProduct(
 ): Promise<CustomizeBoxResult> {
   const product = await getProductById(productId)
   if (!product) throw new Error('Product not found')
+  // A bundle is a price and a parts list, not a thing with a surface. Its
+  // contents are designed one at a time in the builder.
+  if (product.kind === 'bundle') {
+    throw new Error('A pre-configured box is designed through its contents')
+  }
 
   const branding = {
     brandingImage: params.brandingImage,
@@ -1045,15 +1174,59 @@ export async function createProduct(
       description: input.description ?? '',
       details: input.details ?? [],
       isFeatured: input.isFeatured ?? false,
+      kind: input.kind ?? 'single',
+      tags: normalizeTags(input.tags),
+      minQuantity: input.minQuantity ?? 1,
       ...(embedding
         ? { embedding, embeddingUpdatedAt: new Date() }
         : {}),
     })
     .returning({ id: products.id })
 
+  if (input.components) {
+    await replaceComponents(inserted.id, input.components)
+  }
+
   const created = await getProductById(inserted.id)
   if (!created) throw new Error('Failed to load created product')
   return created
+}
+
+/** Lowercased, de-duplicated, blank-free. Tags are matched exactly. */
+function normalizeTags(tags?: string[]): string[] {
+  if (!tags) return []
+  return [...new Set(tags.map((t) => t.trim().toLowerCase()).filter(Boolean))]
+}
+
+/**
+ * Replace a bundle's parts list wholesale.
+ *
+ * Delete-then-insert rather than a diff: the editor sends the list it wants,
+ * and matching rows up to preserve ids buys nothing since nothing references
+ * them. The Neon HTTP driver has no interactive transactions, so the two
+ * statements go as one batch — they either both land or neither does.
+ */
+async function replaceComponents(
+  bundleId: string,
+  components: NonNullable<CreateProductBody['components']>,
+): Promise<void> {
+  const rows = components.map((c, i) => ({
+    bundleId,
+    componentId: c.componentId,
+    quantity: c.quantity ?? 1,
+    role: c.role ?? ('item' as const),
+    sortOrder: c.sortOrder ?? i,
+  }))
+
+  const remove = db
+    .delete(productComponents)
+    .where(eq(productComponents.bundleId, bundleId))
+
+  if (rows.length === 0) {
+    await remove
+    return
+  }
+  await db.batch([remove, db.insert(productComponents).values(rows)])
 }
 
 /**
@@ -1109,6 +1282,9 @@ export async function updateProduct(
   if (input.isFeatured !== undefined) values.isFeatured = input.isFeatured
   if (input.sku !== undefined) values.sku = input.sku
   if (input.variantId !== undefined) values.variantId = input.variantId
+  if (input.kind !== undefined) values.kind = input.kind
+  if (input.tags !== undefined) values.tags = normalizeTags(input.tags)
+  if (input.minQuantity !== undefined) values.minQuantity = input.minQuantity
 
   if (touchesEmbedding) {
     const merged = {
@@ -1123,7 +1299,13 @@ export async function updateProduct(
     }
   }
 
-  await db.update(products).set(values).where(eq(products.id, id))
+  if (Object.keys(values).length > 0) {
+    await db.update(products).set(values).where(eq(products.id, id))
+  }
+
+  if (input.components !== undefined) {
+    await replaceComponents(id, input.components)
+  }
 
   if (companyId && input.images !== undefined && input.images.length > 0) {
     await pruneCompanyProductImages({
@@ -1155,6 +1337,7 @@ export async function getRelatedProducts(
       p.id, p.source_id, p.variant_id, p.sku, p.name, p.tagline,
       p.price, p.currency, p.stock, p.image, p.images, p.customized_image,
       p.description, p.details, p.is_featured, p.dominant_color,
+      p.kind, p.tags, p.min_quantity,
       p.created_at, p.updated_at,
       c.name AS category_name, c.slug AS category_slug
     FROM products p

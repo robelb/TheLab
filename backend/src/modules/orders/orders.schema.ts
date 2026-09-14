@@ -32,6 +32,13 @@ const boxLineSchema = z.object({
  */
 const boxSchema = z.object({
   campaignId: z.string().nullish(),
+  /**
+   * The pre-configured box this was opened from, when it was.
+   *
+   * Only a claim: the server checks the contents still match before charging
+   * the bundle's price rather than the sum of its parts.
+   */
+  bundleId: z.string().uuid().nullish(),
   lines: z.array(boxLineSchema).max(64),
   packaging: boxLineSchema.nullish(),
   filling: boxLineSchema.nullish(),
@@ -70,10 +77,35 @@ const itemSchema = z.object({
   design: designSchema.nullish(),
 })
 
+/**
+ * Where the visit came from, as the browser captured it at first touch.
+ *
+ * Every field is optional and bounded: this arrives from a URL anyone can
+ * write, on an endpoint that no longer requires an account.
+ */
+const attributionSchema = z.object({
+  gclid: z.string().trim().max(256).nullish(),
+  fbclid: z.string().trim().max(256).nullish(),
+  msclkid: z.string().trim().max(256).nullish(),
+  utmSource: z.string().trim().max(256).nullish(),
+  utmMedium: z.string().trim().max(256).nullish(),
+  utmCampaign: z.string().trim().max(256).nullish(),
+  utmTerm: z.string().trim().max(256).nullish(),
+  utmContent: z.string().trim().max(256).nullish(),
+  landingPath: z.string().trim().max(2048).nullish(),
+  referrer: z.string().trim().max(2048).nullish(),
+  firstSeenAt: z.string().trim().max(64).nullish(),
+  posthogDistinctId: z.string().trim().max(256).nullish(),
+  guestSessionId: z.string().trim().max(64).nullish(),
+})
+
 export const createOrderSchema = z.object({
   contact: z.object({
     name: shortText,
     email: z.string().trim().email().max(320),
+    /** Guests have no company record behind them, so they type the name. */
+    company: z.string().trim().max(200).nullish(),
+    phone: z.string().trim().max(40).nullish(),
   }),
   delivery: z
     .object({
@@ -87,6 +119,24 @@ export const createOrderSchema = z.object({
     .nullish(),
   items: z.array(itemSchema).min(1, 'There is nothing to request').max(100),
   currency: z.string().trim().min(1).max(8).default('EUR'),
+  locale: z.enum(['de', 'en']).default('en'),
+  source: z.enum(['storefront', 'funnel']).default('storefront'),
+  collectionSlug: z
+    .string()
+    .trim()
+    .max(80)
+    .regex(/^[a-z0-9-]+$/)
+    .nullish(),
+  attribution: attributionSchema.nullish(),
+  /**
+   * Honeypot. A real form leaves this empty because nothing renders it; a bot
+   * filling every field in the payload gives itself away.
+   *
+   * Accepted rather than rejected here on purpose: a validation error tells the
+   * script exactly which field caught it. The router answers as if it worked
+   * and records nothing.
+   */
+  website: z.string().max(500).optional(),
 })
 
 export const ORDER_STATUSES = ['new', 'quoted', 'confirmed', 'cancelled'] as const

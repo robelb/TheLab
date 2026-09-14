@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 /**
  * The design editor — one full-screen surface for putting a brand onto
  * anything the shop sells.
@@ -112,49 +113,46 @@ import type { DesignVersion } from '@/api/designVersions'
 import type { CustomizeProductRequest } from '@/api/products'
 import type { PlacementLayer, PlacementLayout } from '@/types/layout'
 
+/**
+ * Opening chips: a label to click and the brief it writes.
+ *
+ * Stored as translation keys rather than sentences because these live at module
+ * level, where there is no translator, and because the brief is what reaches
+ * the image model — a German shopper should be briefing it in German.
+ */
+interface ExampleChip {
+  labelKey: string
+  promptKey: string
+}
+
 /** Openers for a box. Each shows a different way to brief one. */
-const BOX_EXAMPLES = [
-  {
-    label: 'Welcome box',
-    prompt:
-      'A calm welcome-aboard design for a new starter: a thin accent line beneath the logo, and plenty of empty space. Nothing else.',
-  },
-  {
-    label: 'Festive',
-    prompt:
-      'A festive design with small hand-drawn fir trees scattered across the lid and "Merry Christmas" set beneath them in a warm script.',
-  },
-  {
-    label: 'Thank you',
-    prompt:
-      'Print "THANK YOU" in a bold uppercase sans-serif in a single accent colour.',
-  },
-  {
-    label: 'Birthday',
-    prompt:
-      'A cheerful birthday design: confetti dots in mixed colours around the edge of the lid.',
-  },
+const BOX_EXAMPLES: ExampleChip[] = [
+  { labelKey: 'welcomeBox', promptKey: 'aCalmWelcomeAboardDesign' },
+  { labelKey: 'festive', promptKey: 'aFestiveDesignWithSmall' },
+  { labelKey: 'thankYou', promptKey: 'printThankYouInA' },
+  { labelKey: 'birthday', promptKey: 'aCheerfulBirthdayDesignConfetti' },
 ]
 
 /** Scene direction — only offered once the product is being re-photographed. */
-const PRODUCT_SCENE_EXAMPLES = [
-  { label: 'Clean studio', prompt: 'Clean studio lighting on a soft neutral background.' },
-  { label: 'On wood', prompt: 'Resting on a warm oak surface in soft morning light.' },
-  { label: 'Editorial', prompt: 'An editorial still life with a muted palette and a long soft shadow.' },
+const PRODUCT_SCENE_EXAMPLES: ExampleChip[] = [
+  { labelKey: 'cleanStudio', promptKey: 'cleanStudioLightingOnA' },
+  { labelKey: 'onWood', promptKey: 'restingOnAWarmOak' },
+  { labelKey: 'editorial', promptKey: 'anEditorialStillLifeWith' },
 ]
 
 /**
  * Direction for the branding itself, for when the photograph is being kept.
  * A scene chip here would quietly undo the whole point of keeping it.
  */
-const PRODUCT_FINISH_EXAMPLES = [
-  { label: 'Printed', prompt: 'Print the logo flat onto the surface, following its curve and texture.' },
-  { label: 'Embroidered', prompt: 'Apply the logo as stitched embroidery, with visible thread texture.' },
-  { label: 'Embossed', prompt: 'Deboss the logo into the surface, tonal, catching the light at its edges.' },
-  { label: 'Engraved', prompt: 'Laser-engrave the logo into the material, a subtle tonal mark.' },
+const PRODUCT_FINISH_EXAMPLES: ExampleChip[] = [
+  { labelKey: 'printed', promptKey: 'printTheLogoFlatOnto' },
+  { labelKey: 'embroidered', promptKey: 'applyTheLogoAsStitched' },
+  { labelKey: 'embossed', promptKey: 'debossTheLogoIntoThe' },
+  { labelKey: 'engraved', promptKey: 'laserEngraveTheLogoInto' },
 ]
 
 export function DesignPage() {
+  const { t } = useTranslation()
   const { productId = '' } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -390,11 +388,16 @@ export function DesignPage() {
     [brand.primaryColor, brand.secondaryColor, brand.otherColors],
   )
   const selected = layout.layers.find((l) => l.id === selectedId) ?? null
-  const examples = isBox
-    ? BOX_EXAMPLES
-    : keepScene
-      ? PRODUCT_FINISH_EXAMPLES
-      : PRODUCT_SCENE_EXAMPLES
+  const examples = (
+    isBox
+      ? BOX_EXAMPLES
+      : keepScene
+        ? PRODUCT_FINISH_EXAMPLES
+        : PRODUCT_SCENE_EXAMPLES
+  ).map((chip) => ({
+    label: t(`design.${chip.labelKey}`),
+    prompt: t(`design.${chip.promptKey}`),
+  }))
 
   const brandingFields = (): Pick<
     CustomizeProductRequest,
@@ -425,7 +428,7 @@ export function DesignPage() {
     if (existing) return setSelectedId(existing.id)
     addAndSelect(defaultLogoLayer())
   }
-  const addText = () => addAndSelect(defaultTextLayer('Your text'))
+  const addText = () => addAndSelect(defaultTextLayer(t('design.yourText')))
 
   const pickArtwork = async (file: File | undefined) => {
     if (!file) return
@@ -642,10 +645,10 @@ export function DesignPage() {
    */
   const approveLabel =
     target === 'box'
-      ? 'Approve and use'
+      ? t('design.approveAndUse')
       : target === 'product'
-        ? 'Approve design'
-        : 'Approve and add'
+        ? t('design.approveDesign')
+        : t('design.approveAndAdd')
   const subjectPhrase = target === 'box' ? 'in your box.' : 'on your product.'
 
   const approve = async () => {
@@ -775,13 +778,13 @@ export function DesignPage() {
 
   /** Only offer a view once there is something behind it. */
   const views = [
-    { id: 'layout' as const, label: 'Placement', hint: 'Move things around' },
+    { id: 'layout' as const, label: t('design.placement'), hint: t('design.moveThingsAround') },
     ...(flat
       ? [
           {
             id: 'flat' as const,
-            label: 'Exact mockup',
-            hint: 'Precisely what gets printed',
+            label: t('design.exactMockup'),
+            hint: t('design.preciselyWhatGetsPrinted'),
           },
         ]
       : []),
@@ -789,8 +792,8 @@ export function DesignPage() {
       ? [
           {
             id: 'photoreal' as const,
-            label: 'Photoreal',
-            hint: 'A presentation render of the same design',
+            label: t('design.photoreal'),
+            hint: t('design.aPresentationRenderOfThe'),
           },
         ]
       : []),
@@ -858,12 +861,10 @@ export function DesignPage() {
     return (
       <div className="flex h-dvh flex-col items-center justify-center gap-3 text-center">
         <p className="text-sm text-muted-foreground">
-          That product could not be found.
-        </p>
+          {t('design.thatProductCouldNotBe')}</p>
         <Button variant="outline" onClick={() => navigate(returnTo)}>
           <ArrowLeft className="size-4" />
-          Go back
-        </Button>
+          {t('design.goBack')}</Button>
       </div>
     )
   }
@@ -880,14 +881,13 @@ export function DesignPage() {
           className="text-muted-foreground"
         >
           <ArrowLeft className="size-4" />
-          Back
-        </Button>
+          {t('design.back')}</Button>
         <div className="flex shrink-0 items-center">
           <Button
             variant="ghost"
             size="sm"
-            aria-label="Undo"
-            title="Undo (⌘Z)"
+            aria-label={t('design.undo')}
+            title={t('design.undoZ')}
             onClick={history.undo}
             disabled={!history.canUndo || busy}
             className="px-2 text-muted-foreground"
@@ -897,8 +897,8 @@ export function DesignPage() {
           <Button
             variant="ghost"
             size="sm"
-            aria-label="Redo"
-            title="Redo (⇧⌘Z)"
+            aria-label={t('design.redo')}
+            title={t('design.redoZ')}
             onClick={history.redo}
             disabled={!history.canRedo || busy}
             className="px-2 text-muted-foreground"
@@ -909,7 +909,7 @@ export function DesignPage() {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{product.name}</p>
           <p className="text-xs text-muted-foreground">
-            {isBox ? 'Printed gift box' : 'Branded product'}
+            {isBox ? t('design.printedGiftBox') : t('design.brandedProduct')}
           </p>
         </div>
         {hasDesign && (
@@ -919,11 +919,10 @@ export function DesignPage() {
             className="text-muted-foreground"
             onClick={() => setDiscarding(true)}
             disabled={busy}
-            title="Clear the canvas and start from the product photo"
+            title={t('design.clearTheCanvasAndStart')}
           >
             <Trash2 className="size-4" />
-            Discard design
-          </Button>
+            {t('design.discardDesign')}</Button>
         )}
         {/* No action button up here. The one that finishes the job lives with
             the other controls in the right rail, where the eye is already
@@ -936,12 +935,10 @@ export function DesignPage() {
           <div className="space-y-2">
             <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <LayersIcon className="size-3.5" />
-              Layers
-            </p>
+              {t('design.layers')}</p>
             {layout.layers.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                Nothing placed yet. Add your logo or some wording.
-              </p>
+                {t('design.nothingPlacedYetAddYour')}</p>
             ) : (
               <ul className="space-y-1">
                 {/* Rendered top-of-stack first, because that is what the eye
@@ -974,7 +971,7 @@ export function DesignPage() {
                         )}
                         <span className="truncate">
                           {layer.kind === 'logo'
-                            ? 'Brand logo'
+                            ? t('design.brandLogo')
                             : layer.kind === 'image'
                               ? 'Artwork'
                               : layer.text}
@@ -984,7 +981,7 @@ export function DesignPage() {
                       <div className="flex shrink-0 flex-col">
                         <button
                           type="button"
-                          aria-label="Bring forward"
+                          aria-label={t('design.bringForward')}
                           disabled={busy || index === layout.layers.length - 1}
                           onClick={() => reorder(layer.id, 'up')}
                           className="flex size-4 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
@@ -993,7 +990,7 @@ export function DesignPage() {
                         </button>
                         <button
                           type="button"
-                          aria-label="Send backward"
+                          aria-label={t('design.sendBackward')}
                           disabled={busy || index === 0}
                           onClick={() => reorder(layer.id, 'down')}
                           className="flex size-4 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
@@ -1014,10 +1011,9 @@ export function DesignPage() {
                 className="h-7 px-2 text-xs"
                 onClick={addLogo}
                 disabled={busy || !canvasLogo || Boolean(findLogoLayer(layout))}
-                title={canvasLogo ? undefined : 'Add a logo below first'}
+                title={canvasLogo ? undefined : t('design.addALogoBelowFirst')}
               >
-                Add logo
-              </Button>
+                {t('design.addLogo')}</Button>
               <Button
                 type="button"
                 size="sm"
@@ -1026,8 +1022,7 @@ export function DesignPage() {
                 onClick={addText}
                 disabled={busy || layout.layers.length >= MAX_LAYERS}
               >
-                Add wording
-              </Button>
+                {t('design.addWording')}</Button>
               <Button
                 type="button"
                 size="sm"
@@ -1063,7 +1058,7 @@ export function DesignPage() {
                 onChange={(e) => setKnockOutWhite(e.target.checked)}
                 className="mt-0.5 size-3 accent-[var(--color-primary)]"
               />
-              <span>Make white backgrounds transparent on upload</span>
+              <span>{t('design.makeWhiteBackgroundsTransparentOn')}</span>
             </label>
           </div>
 
@@ -1073,7 +1068,7 @@ export function DesignPage() {
               than the one on the brand settings page. Swapping it here changes
               this design only and leaves the company logo alone. */}
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground">Logo</p>
+            <p className="text-xs font-medium text-muted-foreground">{t('design.logo')}</p>
             <div className="flex items-center gap-2">
               <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-brand border border-border/40 bg-white">
                 {canvasLogo ? (
@@ -1098,10 +1093,10 @@ export function DesignPage() {
               <div className="min-w-0 flex-1 space-y-1">
                 <p className="truncate text-xs text-muted-foreground">
                   {logoOverride
-                    ? 'Custom for this design'
+                    ? t('design.customForThisDesign')
                     : brandLogoKind !== 'none'
-                      ? 'Company logo'
-                      : 'No logo set'}
+                      ? t('design.companyLogo')
+                      : t('design.noLogoSet')}
                 </p>
                 <div className="flex flex-wrap gap-1">
                   <Button
@@ -1127,11 +1122,10 @@ export function DesignPage() {
                       className="h-6 px-1.5 text-[11px] text-muted-foreground"
                       onClick={() => setLogoOverride(null)}
                       disabled={busy || uploadingLogo}
-                      title="Go back to the company logo"
+                      title={t('design.goBackToTheCompany')}
                     >
                       <RotateCcw className="size-3" />
-                      Reset
-                    </Button>
+                      {t('design.reset')}</Button>
                   )}
                 </div>
               </div>
@@ -1162,8 +1156,7 @@ export function DesignPage() {
           {sources.length > 1 && (
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-muted-foreground">
-                Templates
-              </p>
+                {t('design.templates')}</p>
               <div className="flex flex-wrap gap-1.5">
                 {sources.map((src, i) => (
                   <button
@@ -1198,8 +1191,7 @@ export function DesignPage() {
               <div className="flex items-center justify-between gap-2">
                 <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                   <History className="size-3.5" />
-                  Saved versions
-                </p>
+                  {t('design.savedVersions')}</p>
                 <Button
                   type="button"
                   size="sm"
@@ -1212,13 +1204,12 @@ export function DesignPage() {
                   disabled={busy || preparing || !canSaveVersion || namingVersion}
                   title={
                     canSaveVersion
-                      ? 'Keep this state under a name'
-                      : 'Place something or write a brief first'
+                      ? t('design.keepThisStateUnderA')
+                      : t('design.placeSomethingOrWriteA')
                   }
                 >
                   <Save className="size-3" />
-                  Save
-                </Button>
+                  {t('design.save')}</Button>
               </div>
 
               {namingVersion && (
@@ -1286,7 +1277,7 @@ export function DesignPage() {
                             type="button"
                             onClick={() => restoreVersion(version)}
                             disabled={busy}
-                            title="Open this version"
+                            title={t('design.openThisVersion')}
                             className="flex min-w-0 flex-1 items-center gap-2 text-left"
                           >
                             {/* Both pictures, because a version is a set and
@@ -1297,13 +1288,13 @@ export function DesignPage() {
                               <img
                                 src={version.source}
                                 alt=""
-                                title="The photo this was designed on"
+                                title={t('design.thePhotoThisWasDesigned')}
                                 className="size-8 rounded-brand border border-border/40 bg-background object-cover"
                               />
                               <img
                                 src={version.photoreal ?? version.flat ?? version.source}
                                 alt=""
-                                title="What was made from it"
+                                title={t('design.whatWasMadeFromIt')}
                                 className="size-8 rounded-brand border border-border/40 bg-background object-cover"
                               />
                             </span>
@@ -1377,8 +1368,7 @@ export function DesignPage() {
               ))}
               {view === 'flat' && !flatIsCurrent && (
                 <span className="text-[11px] text-muted-foreground">
-                  Confirming rebuilds this from the placement as it stands now.
-                </span>
+                  {t('design.confirmingRebuildsThisFromThe')}</span>
               )}
             </div>
           )}
@@ -1387,7 +1377,7 @@ export function DesignPage() {
             <div className="relative flex min-h-[55vh] items-center justify-center overflow-hidden rounded-brand border border-border/40 bg-muted/20 lg:min-h-0 lg:flex-1">
               <img
                 src={shownImage}
-                alt="Your design"
+                alt={t('design.yourDesign')}
                 className={cn(
                   'max-h-full max-w-full object-contain transition-opacity',
                   busy && 'opacity-40',
@@ -1419,12 +1409,12 @@ export function DesignPage() {
 
           <p className="shrink-0 text-center text-xs text-muted-foreground">
             {view === 'flat'
-              ? 'The exact mockup — this is what gets printed.'
+              ? t('design.theExactMockupThisIs')
               : view === 'photoreal'
-                ? 'A photoreal presentation of the same design.'
+                ? t('design.aPhotorealPresentationOfThe')
                 : placed
-                  ? 'Drag to move · corner dot to resize · top dot to rotate · arrow keys nudge'
-                  : 'Add your logo or some wording to start placing.'}
+                  ? t('design.dragToMoveCornerDot')
+                  : t('design.addYourLogoOrSome')}
           </p>
         </main>
 
@@ -1432,7 +1422,7 @@ export function DesignPage() {
         <aside className="shrink-0 space-y-4 border-t border-border/40 p-4 lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-l">
           <div className="space-y-1.5">
             <label htmlFor="design-brief" className="text-sm font-medium">
-              {isBox ? 'What should we print?' : 'How should it look?'}
+              {isBox ? t('design.whatShouldWePrint') : t('design.howShouldItLook')}
             </label>
             {/* The brief needs a visible way out of it.
                 A written brief with nothing to press reads as an inert field —
@@ -1465,8 +1455,8 @@ export function DesignPage() {
                 <Button
                   type="button"
                   size="sm"
-                  aria-label="Render this brief"
-                  title="Render this brief"
+                  aria-label={t('design.renderThisBrief')}
+                  title={t('design.renderThisBrief')}
                   onClick={() => void generate()}
                   disabled={!canGenerate}
                   className="absolute bottom-2 right-2 size-8 rounded-full p-0"
@@ -1489,9 +1479,9 @@ export function DesignPage() {
                     : ' The box keeps its own colour; your design prints onto it.'}
                 </>
               ) : keepScene ? (
-                'Optional. Anything you place stays where you put it — this is only for how the branding itself should look.'
+                t('design.optionalAnythingYouPlaceStays')
               ) : (
-                'Anything you place stays exactly where you put it — this is for the scene around it.'
+                t('design.anythingYouPlaceStaysExactly')
               )}
             </p>
           </div>
@@ -1517,8 +1507,7 @@ export function DesignPage() {
             colors.length > 0 && (
               <div className="space-y-1.5">
                 <span className="text-xs font-medium text-muted-foreground">
-                  Box colour
-                </span>
+                  {t('design.boxColour')}</span>
                 <div className="flex flex-wrap gap-1.5">
                   {colors.map((option) => (
                     <button
@@ -1543,8 +1532,7 @@ export function DesignPage() {
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <span className="text-xs font-medium text-muted-foreground">
-                  Scene
-                </span>
+                  {t('design.scene')}</span>
                 <Select value={sceneType} onValueChange={setSceneType} disabled={busy}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
@@ -1559,8 +1547,8 @@ export function DesignPage() {
                 </Select>
                 <p className="text-xs text-muted-foreground">
                   {keepScene
-                    ? 'The photo stays as it is — same background, framing and lighting. Only the branding is added.'
-                    : 'The product is re-photographed in this scene.'}
+                    ? t('design.thePhotoStaysAsIt')
+                    : t('design.theProductIsRePhotographed')}
                 </p>
               </div>
               {/* Only meaningful once a new photograph is being composed —
@@ -1568,8 +1556,7 @@ export function DesignPage() {
               {!keepScene && (
                 <div className="space-y-1.5">
                   <span className="text-xs font-medium text-muted-foreground">
-                    Aspect ratio
-                  </span>
+                    {t('design.aspectRatio')}</span>
                   <Select
                     value={aspectRatio}
                     onValueChange={setAspectRatio}
@@ -1621,19 +1608,17 @@ export function DesignPage() {
                 {preparing || compose.isPending ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    Preparing your preview…
-                  </>
+                    {t('design.preparingYourPreview')}</>
                 ) : (
                   <>
                     <Check className="size-4" />
-                    Confirm design
-                  </>
+                    {t('design.confirmDesign')}</>
                 )}
               </Button>
               <p className="text-xs text-muted-foreground">
                 {placed
-                  ? 'We’ll show you the exact mockup to check before anything is saved.'
-                  : 'Describe what you want above, or place your logo on the canvas.'}
+                  ? t('design.weLlShowYouThe')
+                  : t('design.describeWhatYouWantAbove')}
               </p>
             </div>
 
@@ -1648,12 +1633,11 @@ export function DesignPage() {
                 {customize.isPending ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    Rendering…
-                  </>
+                    {t('design.rendering')}</>
                 ) : (
                   <>
                     <Sparkles className="size-4" />
-                    {photoreal ? 'Render again' : 'Make it photoreal'}
+                    {photoreal ? t('design.renderAgain') : t('design.makeItPhotoreal')}
                   </>
                 )}
               </Button>
@@ -1673,7 +1657,7 @@ export function DesignPage() {
       <AlertDialog open={discarding} onOpenChange={setDiscarding}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Discard this design?</AlertDialogTitle>
+            <AlertDialogTitle>{t('design.discardThisDesign')}</AlertDialogTitle>
             <AlertDialogDescription>
               The canvas goes back to the plain {product.name} photo. Anything
               you placed, the wording, and both renders are removed.
@@ -1682,10 +1666,9 @@ export function DesignPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogCancel>{t('design.keepIt')}</AlertDialogCancel>
             <AlertDialogAction onClick={discardDesign}>
-              Discard design
-            </AlertDialogAction>
+              {t('design.discardDesign')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1702,7 +1685,7 @@ export function DesignPage() {
       >
         <DialogContent className="max-h-[92vh] gap-4 overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Confirm your design</DialogTitle>
+            <DialogTitle>{t('design.confirmYourDesign')}</DialogTitle>
             <DialogDescription>
               {showingRender
                 ? `The photoreal render of your design on the ${product.name}. Untick below to check the exact print artwork.`
@@ -1719,7 +1702,7 @@ export function DesignPage() {
           {chosenImage && (
             <ConfirmPreview
               src={chosenImage}
-              alt="The design you are about to confirm"
+              alt={t('design.theDesignYouAreAbout')}
             />
           )}
 
@@ -1735,8 +1718,7 @@ export function DesignPage() {
               />
               <span className="space-y-1">
                 <span className="block font-medium">
-                  Use the photoreal render
-                </span>
+                  {t('design.useThePhotorealRender')}</span>
                 <span className="block text-muted-foreground">
                   Both are saved either way. This changes which one you are
                   looking at, and which one represents the design{' '}
@@ -1758,8 +1740,7 @@ export function DesignPage() {
               onClick={() => setConfirming(false)}
               disabled={updateProduct.isPending}
             >
-              Keep editing
-            </Button>
+              {t('design.keepEditing')}</Button>
             <Button
               type="button"
               onClick={() => void approve()}
@@ -1768,8 +1749,7 @@ export function DesignPage() {
               {updateProduct.isPending ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Saving…
-                </>
+                  {t('design.saving')}</>
               ) : (
                 <>
                   <Check className="size-4" />
@@ -1794,6 +1774,7 @@ export function DesignPage() {
  * right size holds the shape and says what is happening.
  */
 function ConfirmPreview({ src, alt }: { src: string; alt: string }) {
+  const { t } = useTranslation()
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const imgRef = useRef<HTMLImageElement>(null)
 
@@ -1819,8 +1800,7 @@ function ConfirmPreview({ src, alt }: { src: string; alt: string }) {
           <div className="relative flex flex-col items-center gap-2">
             <Loader2 className="size-6 animate-spin text-primary" />
             <p className="text-xs text-muted-foreground">
-              Loading your design…
-            </p>
+              {t('design.loadingYourDesign')}</p>
           </div>
         </>
       )}
@@ -1829,8 +1809,7 @@ function ConfirmPreview({ src, alt }: { src: string; alt: string }) {
         <div className="relative flex max-w-xs flex-col items-center gap-2 text-center">
           <ImageIcon className="size-6 text-muted-foreground" />
           <p className="text-xs text-muted-foreground">
-            That picture could not be loaded. Your design is safe — close this
-            and open it again.
+            {t('design.pictureCouldNotLoad')}
           </p>
         </div>
       )}
@@ -1852,14 +1831,15 @@ function ConfirmPreview({ src, alt }: { src: string; alt: string }) {
 
 /** The two waits are an order of magnitude apart — say which one this is. */
 function BusyOverlay({ photoreal }: { photoreal: boolean }) {
+  const { t } = useTranslation()
   return (
     <>
       <Loader2 className="size-7 animate-spin text-primary" />
       <p className="text-sm font-medium">
-        {photoreal ? 'Rendering your design…' : 'Building the mockup…'}
+        {photoreal ? t('design.renderingYourDesign') : t('design.buildingTheMockup')}
       </p>
       <p className="text-xs text-muted-foreground">
-        {photoreal ? 'This takes around 15 seconds.' : 'Just a moment.'}
+        {photoreal ? t('design.thisTakesAround15Seconds') : t('design.justAMoment')}
       </p>
     </>
   )

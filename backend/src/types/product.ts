@@ -3,6 +3,21 @@ import {
   normalizePublicImageUrl,
   normalizePublicImageUrls,
 } from '../lib/publicImageUrl.js'
+import type { ComponentRole, ProductKind } from '../db/schema/index.js'
+
+/**
+ * One line of a pre-configured box's parts list.
+ *
+ * The component is a whole product, not a reference: the builder opens a bundle
+ * by dropping these straight into a draft, and the shop shows what is inside
+ * without a second round trip.
+ */
+export interface BundleComponent {
+  product: ProductWithCategory
+  quantity: number
+  role: ComponentRole
+  sortOrder: number
+}
 
 export interface ProductWithCategory {
   id: string
@@ -23,6 +38,11 @@ export interface ProductWithCategory {
   details: string[]
   isFeatured: boolean
   dominantColor: string | null
+  kind: ProductKind
+  tags: string[]
+  minQuantity: number
+  /** Present on a `bundle`, when it was read one at a time. */
+  components?: BundleComponent[]
 }
 
 /** Drizzle select result row (camelCase, matches column aliases). */
@@ -44,6 +64,9 @@ export interface ProductRow {
   details: string[] | null
   isFeatured: boolean
   dominantColor: string | null
+  kind: ProductKind
+  tags: string[] | null
+  minQuantity: number
   createdAt: Date
   updatedAt: Date
   categoryName: string
@@ -68,6 +91,9 @@ export interface RawProductRow {
   details: string[] | null
   is_featured: boolean
   dominant_color: string | null
+  kind: ProductKind
+  tags: string[] | null
+  min_quantity: number
   created_at: Date
   updated_at: Date
   category_name: string
@@ -118,6 +144,10 @@ export interface ListProductsParams {
    * alongside catalog products.
    */
   includeSupplies?: boolean
+  /** Occasion/use-case slug, e.g. `christmas`. What a landing page filters by. */
+  tag?: string
+  /** Narrow to ordinary items or to pre-configured boxes. */
+  kind?: ProductKind
 }
 
 /** How the server understood a free-text query (price bound extracted by the LLM). */
@@ -166,6 +196,9 @@ export function toProductWithCategory(row: ProductRow): ProductWithCategory {
     details: row.details ?? [],
     isFeatured: row.isFeatured,
     dominantColor: row.dominantColor,
+    kind: row.kind ?? 'single',
+    tags: row.tags ?? [],
+    minQuantity: row.minQuantity ?? 1,
   }
 }
 
@@ -188,6 +221,9 @@ export function rawRowToProductRow(row: RawProductRow): ProductRow {
     details: row.details,
     isFeatured: row.is_featured,
     dominantColor: row.dominant_color,
+    kind: row.kind ?? 'single',
+    tags: row.tags ?? [],
+    minQuantity: row.min_quantity ?? 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     categoryName: row.category_name,

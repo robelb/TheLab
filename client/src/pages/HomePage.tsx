@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useBrand } from '@/context/BrandContext'
 import { useDebounce } from '@/hooks/use-debounce'
 import { formatPrice } from '@/utils/format'
@@ -38,6 +39,7 @@ function extractErrorMessage(err: unknown): string {
 }
 
 export function HomePage() {
+  const { t } = useTranslation()
   const { brand } = useBrand()
   const isMobile = useIsMobile()
 
@@ -213,16 +215,16 @@ export function HomePage() {
     <div className="space-y-10">
       <section className="max-w-2xl space-y-4">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
-          {brand.companyName} collection
+          {t('home.collection', { company: brand.companyName })}
         </p>
         <h1 className="font-display text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
-          Shop curated pieces
+          {t('home.title')}
         </h1>
         <p className="text-lg text-muted-foreground">{brand.description}</p>
         <Button asChild size="lg" className="uppercase tracking-wider">
           <Link to="/build-box">
             <Gift className="size-4" />
-            Build box
+            {t('common.buildBox')}
           </Link>
         </Button>
       </section>
@@ -253,8 +255,8 @@ export function HomePage() {
         <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border/50 bg-card/40 px-4 py-2 text-sm">
           <span className="text-muted-foreground">
             {imageCaption
-              ? `Visual matches for: “${imageCaption}”`
-              : 'Finding visual matches…'}
+              ? t('home.visualMatches', { caption: imageCaption })
+              : t('home.findingMatches')}
           </span>
           <Button
             type="button"
@@ -263,14 +265,14 @@ export function HomePage() {
             className="ml-auto h-7"
             onClick={clearImageSearch}
           >
-            Clear
+            {t('home.clear')}
           </Button>
         </div>
       )}
 
       {!imageActive && interpretedChips.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border/50 bg-card/40 px-4 py-2 text-sm">
-          <span className="text-muted-foreground">Understood as:</span>
+          <span className="text-muted-foreground">{t('home.understoodAs')}</span>
           {interpretedChips.map((chip) => (
             <span
               key={chip}
@@ -281,7 +283,7 @@ export function HomePage() {
           ))}
           {interpreted?.cleaned && (
             <span className="text-xs text-muted-foreground">
-              searching “{interpreted.cleaned}”
+              {t('home.searchingFor', { query: interpreted.cleaned })}
             </span>
           )}
           <Button
@@ -291,7 +293,7 @@ export function HomePage() {
             className="ml-auto h-7"
             onClick={() => changeSearch('')}
           >
-            Clear
+            {t('home.clear')}
           </Button>
         </div>
       )}
@@ -337,7 +339,7 @@ export function HomePage() {
                 ? imageSearchError
                 : error instanceof Error
                   ? error.message
-                  : 'Failed to load products'}
+                  : t('home.loadFailed')}
             </p>
           )}
 
@@ -357,10 +359,10 @@ export function HomePage() {
               {products.length === 0 && !error && (
                 <div className="rounded-brand border border-dashed border-border/50 bg-card/30 px-6 py-16 text-center">
                   <p className="font-display text-lg font-semibold">
-                    No matches
+                    {t('home.noMatches')}
                   </p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Try another category, adjust price, or clear your search.
+                    {t('home.noMatchesBody')}
                   </p>
                   <Button
                     type="button"
@@ -369,7 +371,7 @@ export function HomePage() {
                     className="mt-6"
                     onClick={clearAllFilters}
                   >
-                    Reset filters
+                    {t('home.resetFilters')}
                   </Button>
                 </div>
               )}
@@ -377,7 +379,7 @@ export function HomePage() {
               {totalPages > 1 && (
                 <nav
                   className="flex flex-wrap items-center justify-center gap-3 border-t border-border/30 pt-8"
-                  aria-label="Pagination"
+                  aria-label={t('home.pagination')}
                 >
                   <Button
                     type="button"
@@ -387,7 +389,7 @@ export function HomePage() {
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                   >
                     <ChevronLeft className="size-4" />
-                    Previous
+                    {t('home.previous')}
                   </Button>
                   <span className="font-mono text-xs text-muted-foreground">
                     {page} / {totalPages}
@@ -399,7 +401,7 @@ export function HomePage() {
                     disabled={!hasNextPage}
                     onClick={() => setPage((p) => p + 1)}
                   >
-                    Next
+                    {t('home.next')}
                     <ChevronRight className="size-4" />
                   </Button>
                 </nav>

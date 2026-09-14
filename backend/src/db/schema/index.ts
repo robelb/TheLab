@@ -7,8 +7,15 @@ export {
   campaigns,
   type Campaign,
   type CampaignHeroImageStatus,
+  type CampaignOwnerKind,
   type NewCampaign,
 } from './campaigns.js'
+export {
+  collections,
+  type Collection,
+  type LocalizedText,
+  type NewCollection,
+} from './collections.js'
 export {
   companyProductImages,
   type CompanyProductImage,
@@ -30,10 +37,19 @@ export {
   orders,
   type Order,
   type NewOrder,
+  type OrderAttribution,
   type OrderContact,
   type OrderDelivery,
   type OrderItem,
+  type OrderSource,
 } from './orders.js'
+export {
+  outboundEvents,
+  type NewOutboundEvent,
+  type OutboundEvent,
+  type OutboundEventKind,
+  type OutboundEventStatus,
+} from './outbound-events.js'
 export { users, type User, type NewUser } from './users.js'
 export {
   campaignVideos,
@@ -41,7 +57,18 @@ export {
   type NewCampaignVideo,
 } from './campaign-videos.js'
 export { categories, type Category, type NewCategory } from './categories.js'
-export { products, type Product, type NewProduct } from './products.js'
+export {
+  products,
+  type Product,
+  type NewProduct,
+  type ProductKind,
+} from './products.js'
+export {
+  productComponents,
+  type ComponentRole,
+  type NewProductComponent,
+  type ProductComponent,
+} from './product-components.js'
 export {
   sharedDesigns,
   type ShareBrand,

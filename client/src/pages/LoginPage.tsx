@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { AxiosError } from 'axios'
@@ -16,6 +17,7 @@ import { Separator } from '@/components/ui/separator'
 import { Loader2, Sparkles } from 'lucide-react'
 
 export function LoginPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const { login, loginWithDefault, isAuthenticated } = useAuth()
@@ -107,22 +109,20 @@ export function LoginPage() {
             <Sparkles className="size-6" />
           </div>
           <CardTitle className="font-display text-2xl tracking-tight">
-            Welcome back
+            {t('auth.welcomeBack')}
           </CardTitle>
-          <CardDescription>
-            Sign in to your account, or browse the demo shop.
-          </CardDescription>
+          <CardDescription>{t('auth.loginIntro')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Work email</Label>
+              <Label htmlFor="email">{t('auth.workEmail')}</Label>
               <Input
                 id="email"
                 name="email"
                 type="email"
                 autoComplete="email"
-                placeholder="you@yourcompany.com"
+                placeholder={t('auth.emailPlaceholder')}
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value)
@@ -133,7 +133,7 @@ export function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('auth.password')}</Label>
               <Input
                 id="password"
                 name="password"
@@ -160,25 +160,25 @@ export function LoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Signing in…
+                  {t('auth.signingIn')}
                 </>
               ) : (
-                'Sign in'
+                t('auth.signIn')
               )}
             </Button>
           </form>
 
           <p className="text-center text-sm text-muted-foreground">
-            New here?{' '}
+            {t('auth.newHere')}{' '}
             <Link to="/signup" className="font-medium text-primary hover:underline">
-              Create your company account
+              {t('auth.createAccountLink')}
             </Link>
           </p>
 
           <div className="relative">
             <Separator />
             <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
-              or
+              {t('auth.or')}
             </span>
           </div>
 
@@ -189,7 +189,7 @@ export function LoginPage() {
             disabled={loading}
             onClick={handleDefaultLogin}
           >
-            Continue with the BLT demo
+            {t('auth.demo')}
           </Button>
         </CardContent>
       </Card>

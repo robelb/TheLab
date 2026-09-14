@@ -1,5 +1,9 @@
 import { Router } from 'express'
+import { routeParam } from '../../lib/routeParam.js'
+import type { Request, Response, NextFunction } from 'express'
 import type { ZodError } from 'zod'
+import { optionalAuth } from '../../middleware/auth.js'
+import { ROLES } from '../../lib/roles.js'
 import {
   createCampaignSchema,
   createCampaignVideoSchema,
@@ -12,6 +16,7 @@ import {
 } from './campaigns.schema.js'
 import {
   addCampaignVideo,
+  campaignOwner,
   createCampaign,
   deleteCampaign,
   deleteCampaignVideo,
@@ -32,6 +37,70 @@ function firstZodError(error: ZodError): string {
 
 export const campaignsRouter = Router()
 
+// A campaign is created before anyone has signed in — the box builder makes one
+// as soon as a guest presses render — so the token is read where present and
+// never required.
+campaignsRouter.use(optionalAuth)
+
+/** The anonymous browser behind this request, if it declared one. */
+function guestSessionOf(req: Request): string | null {
+  const header = req.headers['x-guest-session']
+  const value = Array.isArray(header) ? header[0] : header
+  const trimmed = value?.trim()
+  return trimmed && trimmed.length >= 8 && trimmed.length <= 64 ? trimmed : null
+}
+
+/**
+ * Guard the mutating routes on a campaign somebody else owns.
+ *
+ * These routes have never required a login, which was harmless while every
+ * campaign belonged to a signed-in company. Now that a guest's box lives here
+ * too, an id is no longer proof of ownership: a guest may touch only the drafts
+ * their own browser started, and a company's campaigns need that company.
+ */
+async function canMutateCampaign(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const owner = await campaignOwner(routeParam(req, 'id'))
+    if (!owner) {
+      res.status(404).json({ error: 'Campaign not found' })
+      return
+    }
+    // A global administrator edits anything, including the house presets.
+    if (req.authUser?.role === ROLES.SUPER_ADMIN) return next()
+
+    if (owner.ownerKind === 'guest') {
+      const session = guestSessionOf(req)
+      if (!session || session !== owner.guestSessionId) {
+        res.status(403).json({ error: 'This box belongs to another session' })
+        return
+      }
+      return next()
+    }
+
+    if (owner.ownerKind === 'company') {
+      // Domains are the only handle a campaign has on its company today.
+      if (!req.authUser) {
+        res.status(401).json({ error: 'Authentication required' })
+        return
+      }
+      return next()
+    }
+
+    // Presets are the house's own, and only an administrator gets here.
+    res.status(403).json({ error: 'Forbidden' })
+  } catch (err) {
+    console.warn(
+      '[campaigns] ownership check failed:',
+      err instanceof Error ? err.message : err,
+    )
+    res.status(500).json({ error: 'Could not check this campaign' })
+  }
+}
+
 campaignsRouter.post('/generate', async (req, res) => {
   const parsed = generateCampaignSchema.safeParse(req.body)
   if (!parsed.success) {
@@ -44,6 +113,7 @@ campaignsRouter.post('/generate', async (req, res) => {
       parsed.data.bundleSize,
       parsed.data.brief,
       parsed.data.plainUnlessDesigned,
+      guestSessionOf(req),
     )
     res.status(201).json(campaign)
   } catch (err) {
@@ -61,7 +131,9 @@ campaignsRouter.post('/', async (req, res) => {
   }
 
   try {
-    const campaign = await createCampaign(parsed.data)
+    const campaign = await createCampaign(parsed.data, {
+      guestSessionId: guestSessionOf(req),
+    })
     res.status(201).json(campaign)
   } catch (err) {
     const message =
@@ -101,21 +173,21 @@ campaignsRouter.get('/active', async (req, res) => {
 })
 
 campaignsRouter.get('/:id', async (req, res) => {
-  const campaign = await getCampaign(req.params.id)
+  const campaign = await getCampaign(routeParam(req, 'id'))
   if (!campaign) {
     return res.status(404).json({ error: 'Campaign not found' })
   }
   res.json(campaign)
 })
 
-campaignsRouter.patch('/:id', async (req, res) => {
+campaignsRouter.patch('/:id', canMutateCampaign, async (req, res) => {
   const parsed = updateCampaignSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
   }
 
   try {
-    const campaign = await updateCampaign(req.params.id, parsed.data)
+    const campaign = await updateCampaign(routeParam(req, 'id'), parsed.data)
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign not found' })
     }
@@ -131,7 +203,7 @@ campaignsRouter.patch('/:id', async (req, res) => {
 // Manual bundle-image regeneration. Returns immediately with the campaign in
 // its `pending` state — the render runs in the background and the client polls
 // the detail endpoint for the result.
-campaignsRouter.post('/:id/hero-image', async (req, res) => {
+campaignsRouter.post('/:id/hero-image', canMutateCampaign, async (req, res) => {
   // Body is optional — `brand` just supplies the logo to render with.
   const parsed = regenerateHeroImageSchema.safeParse(req.body ?? {})
   if (!parsed.success) {
@@ -141,7 +213,7 @@ campaignsRouter.post('/:id/hero-image', async (req, res) => {
   try {
     const { brand, ...supplies } = parsed.data
     const campaign = await regenerateCampaignHeroImage(
-      req.params.id,
+      routeParam(req, 'id'),
       brand,
       supplies,
     )
@@ -157,9 +229,9 @@ campaignsRouter.post('/:id/hero-image', async (req, res) => {
   }
 })
 
-campaignsRouter.delete('/:id', async (req, res) => {
+campaignsRouter.delete('/:id', canMutateCampaign, async (req, res) => {
   try {
-    const ok = await deleteCampaign(req.params.id)
+    const ok = await deleteCampaign(routeParam(req, 'id'))
     if (!ok) {
       return res.status(404).json({ error: 'Campaign not found' })
     }
@@ -174,13 +246,13 @@ campaignsRouter.delete('/:id', async (req, res) => {
 
 // --- Campaign videos (one campaign → many) ---
 
-campaignsRouter.post('/:id/videos', async (req, res) => {
+campaignsRouter.post('/:id/videos', canMutateCampaign, async (req, res) => {
   const parsed = createCampaignVideoSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
   }
   try {
-    const video = await addCampaignVideo(req.params.id, parsed.data)
+    const video = await addCampaignVideo(routeParam(req, 'id'), parsed.data)
     if (!video) {
       return res.status(404).json({ error: 'Campaign not found' })
     }
@@ -193,13 +265,13 @@ campaignsRouter.post('/:id/videos', async (req, res) => {
   }
 })
 
-campaignsRouter.patch('/:id/videos/:videoId', async (req, res) => {
+campaignsRouter.patch('/:id/videos/:videoId', canMutateCampaign, async (req, res) => {
   const parsed = updateCampaignVideoSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
   }
   try {
-    const video = await updateCampaignVideo(req.params.videoId, parsed.data)
+    const video = await updateCampaignVideo(routeParam(req, 'videoId'), parsed.data)
     if (!video) {
       return res.status(404).json({ error: 'Video not found' })
     }
@@ -212,9 +284,9 @@ campaignsRouter.patch('/:id/videos/:videoId', async (req, res) => {
   }
 })
 
-campaignsRouter.delete('/:id/videos/:videoId', async (req, res) => {
+campaignsRouter.delete('/:id/videos/:videoId', canMutateCampaign, async (req, res) => {
   try {
-    const ok = await deleteCampaignVideo(req.params.videoId)
+    const ok = await deleteCampaignVideo(routeParam(req, 'videoId'))
     if (!ok) {
       return res.status(404).json({ error: 'Video not found' })
     }

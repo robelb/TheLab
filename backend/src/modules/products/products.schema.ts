@@ -65,6 +65,16 @@ export const productsQuerySchema = z
       .enum(['true', 'false'])
       .optional()
       .transform((v) => v === 'true'),
+    // Occasion / use-case slug. A landing page's whole filter is this one
+    // parameter, so it is lowercased here and matched exactly.
+    tag: z
+      .string()
+      .trim()
+      .max(64)
+      .optional()
+      .transform((v) => (v ? v.toLowerCase() : undefined)),
+    // `bundle` narrows to pre-configured boxes; `single` to ordinary items.
+    kind: z.enum(['single', 'bundle']).optional(),
   })
   .refine(
     (data) =>
@@ -149,6 +159,18 @@ export type ImageSearchBody = z.infer<typeof imageSearchSchema>
 // CRUD schemas (dashboard product management)
 // ---------------------------------------------------------------------------
 
+/** One line of a bundle's parts list, as the dashboard editor sends it. */
+export const productComponentSchema = z.object({
+  componentId: z.string().uuid('componentId must be a valid product'),
+  quantity: z.coerce.number().int().min(1).max(1000).default(1),
+  role: z.enum(['item', 'packaging', 'filling']).default('item'),
+  sortOrder: z.coerce.number().int().min(0).max(500).optional(),
+})
+
+const productKindField = z.enum(['single', 'bundle'])
+const productTagsField = z.array(z.string().trim().min(1).max(64)).max(20)
+const minQuantityField = z.coerce.number().int().min(1).max(100_000)
+
 export const createProductSchema = z.object({
   name: z.string().trim().min(1, 'name is required'),
   tagline: z.string().trim().optional().default(''),
@@ -164,6 +186,11 @@ export const createProductSchema = z.object({
   sku: z.string().trim().optional(),
   sourceId: z.string().trim().optional().default('manual'),
   variantId: z.string().trim().optional(),
+  kind: productKindField.optional(),
+  tags: productTagsField.optional(),
+  minQuantity: minQuantityField.optional(),
+  /** The parts list, when this product is a pre-configured box. */
+  components: z.array(productComponentSchema).max(50).optional(),
 })
 
 export type CreateProductBody = z.infer<typeof createProductSchema>
@@ -184,6 +211,10 @@ export const updateProductSchema = z
     isFeatured: z.boolean().optional(),
     sku: z.string().trim().optional(),
     variantId: z.string().trim().optional(),
+    kind: productKindField.optional(),
+    tags: productTagsField.optional(),
+    minQuantity: minQuantityField.optional(),
+    components: z.array(productComponentSchema).max(50).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AxiosError } from 'axios'
@@ -15,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Loader2, Sparkles } from 'lucide-react'
 
 export function SignupPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { signup, isAuthenticated } = useAuth()
   const [name, setName] = useState('')
@@ -37,10 +39,10 @@ export function SignupPage() {
     } catch (err) {
       const message =
         err instanceof AxiosError
-          ? (err.response?.data?.error ?? 'Could not create your account')
+          ? (err.response?.data?.error ?? t('auth.createFailed'))
           : err instanceof Error
             ? err.message
-            : 'Something went wrong'
+            : t('common.somethingWentWrong')
       setSubmitError(message)
     } finally {
       setLoading(false)
@@ -64,22 +66,19 @@ export function SignupPage() {
             <Sparkles className="size-6" />
           </div>
           <CardTitle className="font-display text-2xl tracking-tight">
-            Create your account
+            {t('auth.createTitle')}
           </CardTitle>
-          <CardDescription>
-            Sign up with your work email. The first person from a company sets up
-            its brand — teammates who join later share it automatically.
-          </CardDescription>
+          <CardDescription>{t('auth.createIntro')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Full name</Label>
+              <Label htmlFor="name">{t('auth.fullName')}</Label>
               <Input
                 id="name"
                 type="text"
                 autoComplete="name"
-                placeholder="Ada Lovelace"
+                placeholder={t('auth.namePlaceholder')}
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value)
@@ -90,12 +89,12 @@ export function SignupPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Work email</Label>
+              <Label htmlFor="email">{t('auth.workEmail')}</Label>
               <Input
                 id="email"
                 type="email"
                 autoComplete="email"
-                placeholder="you@yourcompany.com"
+                placeholder={t('auth.emailPlaceholder')}
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value)
@@ -106,12 +105,12 @@ export function SignupPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('auth.password')}</Label>
               <Input
                 id="password"
                 type="password"
                 autoComplete="new-password"
-                placeholder="At least 8 characters"
+                placeholder={t('auth.passwordPlaceholder')}
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value)
@@ -133,24 +132,22 @@ export function SignupPage() {
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Setting up your brand…
+                  {t('auth.settingUp')}
                 </>
               ) : (
-                'Create account'
+                t('auth.createAccount')
               )}
             </Button>
 
             <p className="text-center text-xs text-muted-foreground">
-              If you're the first from your company, we apply your brand theme
-              right away; your product mockups with your logo then generate in
-              the background and appear when ready.
+              {t('auth.brandNote')}
             </p>
           </form>
 
           <p className="text-center text-sm text-muted-foreground">
-            Already have an account?{' '}
+            {t('auth.haveAccount')}{' '}
             <Link to="/login" className="font-medium text-primary hover:underline">
-              Sign in
+              {t('auth.signIn')}
             </Link>
           </p>
         </CardContent>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Plus, Search } from 'lucide-react'
 import { useState } from 'react'
 import {
@@ -37,9 +38,10 @@ export function AddProductDialog({
   onOpenChange,
   existingIds,
   onAdd,
-  title = 'Add a product',
+  title,
   plainImages,
 }: AddProductDialogProps) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const q = useDebounce(search, 400)
   const { data, isFetching } = useProducts({ page: 1, limit: 20, q })
@@ -49,14 +51,14 @@ export function AddProductDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[80vh] overflow-hidden sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>{title ?? t('buildBox.addAProduct')}</DialogTitle>
         </DialogHeader>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products…"
+            placeholder={t('buildBox.searchProducts')}
             className="pl-9"
             autoFocus
           />
@@ -83,7 +85,7 @@ export function AddProductDialog({
           ))}
           {!isFetching && products.length === 0 && (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              No products found.
+              {t('buildBox.noProductsFound')}
             </p>
           )}
         </div>

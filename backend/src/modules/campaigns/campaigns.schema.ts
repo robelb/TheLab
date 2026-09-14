@@ -30,6 +30,14 @@ export const generateCampaignSchema = z.object({
   plainUnlessDesigned: z.boolean().optional(),
 })
 
+/**
+ * The anonymous browser a guest's draft belongs to.
+ *
+ * Sent as a header on every request from the client. Signed-in callers are
+ * identified by their token instead, and this is ignored for them.
+ */
+export const guestSessionIdSchema = z.string().trim().min(8).max(64)
+
 export const createCampaignSchema = z.object({
   domain: z.string().optional().nullable(),
   title: z.string().trim().min(1, 'title is required'),

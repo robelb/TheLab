@@ -1,6 +1,7 @@
 import {
   Building2,
   Inbox,
+  Link2,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -50,6 +51,7 @@ const navItems: NavItem[] = [
 const adminItems: NavItem[] = [
   { to: '/dashboard/admin/users', end: false, label: 'All Users', icon: Users, capability: 'manage_all' },
   { to: '/dashboard/admin/companies', end: false, label: 'All Companies', icon: Building2, capability: 'manage_all' },
+  { to: '/dashboard/admin/collections', end: false, label: 'Landing Pages', icon: Link2, capability: 'manage_all' },
   { to: '/dashboard/admin/instructions', end: false, label: 'AI Instructions', icon: ScrollText, capability: 'manage_all' },
 ]
 

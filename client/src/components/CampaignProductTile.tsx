@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Minus, Plus, Wand2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getProductDisplayImage } from '@/lib/productImage'
@@ -36,6 +37,7 @@ export function CampaignProductTile({
   designImage,
   plainImage,
 }: CampaignProductTileProps) {
+  const { t } = useTranslation()
   const showStepper = quantity !== undefined && Boolean(onQuantityChange)
 
   return (
@@ -43,7 +45,7 @@ export function CampaignProductTile({
       {onRemove && (
         <button
           type="button"
-          aria-label={`Remove ${product.name}`}
+          aria-label={t('buildBox.removeProduct', { name: product.name })}
           onClick={onRemove}
           className="absolute right-1.5 top-1.5 z-10 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-destructive group-hover:opacity-100"
         >
@@ -72,7 +74,7 @@ export function CampaignProductTile({
             className="absolute bottom-1.5 left-1.5 h-7 px-2 text-xs shadow-sm"
           >
             <Wand2 className="size-3" />
-            {designImage ? 'Edit design' : 'Design'}
+            {designImage ? t('buildBox.editDesign') : t('buildBox.design')}
           </Button>
         )}
       </div>
@@ -95,7 +97,7 @@ export function CampaignProductTile({
             <div className="flex items-center rounded-brand border border-border">
               <button
                 type="button"
-                aria-label={`Decrease ${product.name} quantity`}
+                aria-label={t('buildBox.decreaseQuantity', { name: product.name })}
                 disabled={quantity <= 1}
                 onClick={() => onQuantityChange?.(quantity - 1)}
                 className="flex size-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground"
@@ -107,7 +109,7 @@ export function CampaignProductTile({
               </span>
               <button
                 type="button"
-                aria-label={`Increase ${product.name} quantity`}
+                aria-label={t('buildBox.increaseQuantity', { name: product.name })}
                 onClick={() => onQuantityChange?.(quantity + 1)}
                 className="flex size-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
               >

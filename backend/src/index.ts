@@ -1,6 +1,7 @@
 import { env } from './config/env.js'
 import { createApp } from './app.js'
 import { isSupabaseStorageConfigured } from './services/supabaseStorage.js'
+import { startOutboundLoop } from './services/leadIntake.js'
 
 const app = createApp()
 
@@ -22,6 +23,8 @@ app.listen(env.PORT, '0.0.0.0', () => {
         `SUPABASE_STORAGE_BUCKET=${seen(env.SUPABASE_STORAGE_BUCKET)}`,
     )
   }
+  // Drains anything the last process left queued, then retries on a timer.
+  startOutboundLoop()
   console.log('  GET  /api/health')
   console.log('  GET  /api/products?page=1&limit=20')
   console.log('  POST /api/extract  { "domain": "biglittlethings.de" }')

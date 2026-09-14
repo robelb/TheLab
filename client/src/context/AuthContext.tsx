@@ -13,6 +13,8 @@ import { usePostHog } from '@posthog/react'
 import { toast } from 'sonner'
 import { demoLoginRequest, fetchMe, loginRequest, signupRequest } from '@/api/auth'
 import { clearToken, getToken, setToken } from '@/lib/auth-token'
+import { TOKEN_EXPIRED_EVENT } from '@/lib/api-client'
+import { getDefaultPreset } from '@/config/brands'
 import { mapExtractionToBrand } from '@/lib/mapExtractionToBrand'
 import {
   can as canRule,
@@ -25,15 +27,21 @@ import { CART_STORAGE_KEY } from '@/context/CartContext'
 import { PRODUCT_DESIGNS_STORAGE_KEY } from '@/lib/productDesign'
 import type { AuthAccount, AuthBundle, AuthCompany } from '@/types/auth'
 
-const DEFAULT_BRAND_ID = 'airbnb'
-const GUEST_KEY = 'shop-guest-session'
+/**
+ * What the shop looks like to somebody with no company behind it.
+ *
+ * This used to be a hard-coded demo brand, which was harmless while every
+ * visitor signed in first. Now that an ad click lands straight on the
+ * storefront, the signed-out shop is the house's own shop and has to wear the
+ * house's own brand.
+ */
+const houseBrandId = () => getDefaultPreset().id
 
 interface AuthContextValue {
   user: AuthAccount | null
   company: AuthCompany | null
   role: Role | null
   isAuthenticated: boolean
-  isGuest: boolean
   isLoading: boolean
   /** The company's domain (used by campaigns), or null for guests. */
   domain: string | null
@@ -48,23 +56,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-function loadGuest(): boolean {
-  try {
-    return localStorage.getItem(GUEST_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
-function saveGuest(on: boolean) {
-  try {
-    if (on) localStorage.setItem(GUEST_KEY, '1')
-    else localStorage.removeItem(GUEST_KEY)
-  } catch {
-    /* ignore */
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const posthog = usePostHog()
@@ -72,13 +63,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [user, setUser] = useState<AuthAccount | null>(null)
   const [company, setCompany] = useState<AuthCompany | null>(null)
-  const [isGuest, setIsGuest] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const pollingRef = useRef(false)
 
-  const applyGuestBrand = useCallback(() => {
+  const applyHouseBrand = useCallback(() => {
     clearExtractedBrand()
-    selectBrand(DEFAULT_BRAND_ID)
+    selectBrand(houseBrandId())
   }, [clearExtractedBrand, selectBrand])
 
   /**
@@ -142,14 +132,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (bundle: AuthBundle) => {
       setUser(bundle.user)
       setCompany(bundle.company)
-      setIsGuest(false)
-      saveGuest(false)
       // Apply the persisted company brand — no re-extraction on login.
       if (bundle.company?.brand) {
         applyExtractedBrand(mapExtractionToBrand(bundle.company.brand))
       } else {
         clearExtractedBrand()
-        selectBrand(DEFAULT_BRAND_ID)
+        selectBrand(houseBrandId())
       }
       posthog?.identify(bundle.user.id, {
         email: bundle.user.email,
@@ -171,14 +159,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ],
   )
 
-  // Bootstrap: hydrate from a stored token, else restore guest mode.
+  // Bootstrap: hydrate from a stored token. With no token there is nothing to
+  // restore — the shop simply renders signed out, which is a valid way to use it.
   useEffect(() => {
     const token = getToken()
     if (!token) {
-      if (loadGuest()) {
-        setIsGuest(true)
-        applyGuestBrand()
-      }
       setIsLoading(false)
       return
     }
@@ -230,28 +215,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries({ queryKey: ['products'] })
       posthog?.capture('blt demo opened')
     } catch {
-      // Fallback: plain guest browse if the demo account isn't available.
+      // The demo account is unavailable. Browsing signed out is a first-class
+      // way to use the shop now, so that is where this lands rather than in an
+      // error — the house brand, the plain catalogue, and a working cart.
       clearToken()
       setUser(null)
       setCompany(null)
-      setIsGuest(true)
-      saveGuest(true)
-      applyGuestBrand()
+      applyHouseBrand()
       queryClient.invalidateQueries({ queryKey: ['products'] })
       posthog?.capture('default shop opened')
     }
-  }, [applyBundle, applyGuestBrand, queryClient, posthog])
+  }, [applyBundle, applyHouseBrand, queryClient, posthog])
+
+  /**
+   * A stored token that the API has just rejected.
+   *
+   * Clears the session in place and leaves the person where they were: on the
+   * storefront that is a signed-out shop, which is browsable, and interrupting
+   * them with a login page would be worse than the expiry itself.
+   */
+  useEffect(() => {
+    const onExpired = () => {
+      setUser(null)
+      setCompany(null)
+      applyHouseBrand()
+      queryClient.removeQueries({ queryKey: ['products'] })
+      queryClient.removeQueries({ queryKey: ['orders'] })
+      queryClient.removeQueries({ queryKey: ['campaigns'] })
+    }
+    window.addEventListener(TOKEN_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(TOKEN_EXPIRED_EVENT, onExpired)
+  }, [applyHouseBrand, queryClient])
 
   const logout = useCallback(() => {
     posthog?.capture('logged out')
     posthog?.reset()
     clearToken()
-    saveGuest(false)
     setUser(null)
     setCompany(null)
-    setIsGuest(false)
     clearExtractedBrand()
     queryClient.removeQueries({ queryKey: ['products'] })
+    // A company's own requests and campaigns must not survive into the next
+    // person's session on the same machine.
+    queryClient.removeQueries({ queryKey: ['orders'] })
+    queryClient.removeQueries({ queryKey: ['campaigns'] })
     // The cart holds the last person's box, their designs and their company's
     // pricing. Leaving it behind hands all of that to whoever signs in next on
     // a shared machine. The designs kept against single products are the same
@@ -280,8 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       company,
       role: user?.role ?? null,
-      isAuthenticated: Boolean(user) || isGuest,
-      isGuest,
+      isAuthenticated: Boolean(user),
       isLoading,
       domain: company?.domain ?? null,
       brandGeneration: company?.brandGeneration ?? null,
@@ -294,7 +300,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [
       user,
       company,
-      isGuest,
       isLoading,
       login,
       signup,

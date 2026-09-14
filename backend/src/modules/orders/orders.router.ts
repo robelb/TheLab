@@ -1,6 +1,8 @@
 import { Router } from 'express'
+import { routeParam } from '../../lib/routeParam.js'
 import type { ZodError } from 'zod'
-import { requireAuth } from '../../middleware/auth.js'
+import type { Request } from 'express'
+import { optionalAuth, requireAuth } from '../../middleware/auth.js'
 import { ROLES } from '../../lib/roles.js'
 import { createOrderSchema, updateOrderSchema } from './orders.schema.js'
 import {
@@ -18,8 +20,52 @@ function firstZodError(error: ZodError): string {
 
 export const ordersRouter = Router()
 
-/** A request belongs to a company, so it needs an account behind it. */
-ordersRouter.use(requireAuth)
+/**
+ * Sending a request no longer needs an account; reading them still does.
+ *
+ * The ad funnel takes people from a landing page to checkout without ever
+ * asking them to sign up, so `POST /` only attaches whoever happens to be
+ * signed in. Everything else is company data and stays behind `requireAuth`
+ * per route.
+ */
+ordersRouter.use(optionalAuth)
+
+/**
+ * Crude per-IP throttle for the one anonymous write in the API.
+ *
+ * In memory, so it resets on deploy and does not span instances — which is
+ * fine for what it is for: stopping a script hammering the endpoint, not
+ * stopping a determined attacker. Anything stronger belongs at the edge.
+ */
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
+const RATE_LIMIT_MAX = 10
+const recentByIp = new Map<string, number[]>()
+
+function rateLimited(req: Request): boolean {
+  // A signed-in user is already accountable.
+  if (req.authUser) return false
+  const ip = req.ip ?? 'unknown'
+  const now = Date.now()
+  const seen = (recentByIp.get(ip) ?? []).filter(
+    (t) => now - t < RATE_LIMIT_WINDOW_MS,
+  )
+  if (seen.length >= RATE_LIMIT_MAX) {
+    recentByIp.set(ip, seen)
+    return true
+  }
+  seen.push(now)
+  recentByIp.set(ip, seen)
+
+  // Keep the map from growing without bound on a long-lived process.
+  if (recentByIp.size > 5000) {
+    for (const [key, times] of recentByIp) {
+      if (times.every((t) => now - t >= RATE_LIMIT_WINDOW_MS)) {
+        recentByIp.delete(key)
+      }
+    }
+  }
+  return false
+}
 
 /**
  * Which company's requests this caller may touch.
@@ -40,11 +86,10 @@ function scopeFor(req: {
 const NO_COMPANY = 'A company account is needed to work with requests.'
 
 ordersRouter.post('/', async (req, res) => {
-  const scope = scopeFor(req)
-  // A super admin has no company of their own to file this under.
-  const companyId = scope?.companyId ?? req.authUser?.companyId
-  if (!companyId || !req.authUser) {
-    return res.status(403).json({ error: NO_COMPANY })
+  if (rateLimited(req)) {
+    return res
+      .status(429)
+      .json({ error: 'Too many requests from here. Try again later.' })
   }
 
   const parsed = createOrderSchema.safeParse(req.body)
@@ -52,10 +97,18 @@ ordersRouter.post('/', async (req, res) => {
     return res.status(400).json({ error: firstZodError(parsed.error) })
   }
 
+  // The honeypot is never rendered, so anything in it came from a script.
+  // Answered as if it worked: a bot told it failed simply tries again.
+  if (parsed.data.website?.trim()) {
+    return res.status(201).json({ reference: 'BLT-000000', status: 'new' })
+  }
+
   try {
     const order = await createOrder({
-      companyId,
-      userId: req.authUser.id,
+      // A guest files under nobody. A super admin has no company of their own
+      // to file this under either, so they land in the same place.
+      companyId: req.authUser?.companyId ?? null,
+      userId: req.authUser?.id ?? null,
       body: parsed.data,
     })
     res.status(201).json(order)
@@ -67,7 +120,7 @@ ordersRouter.post('/', async (req, res) => {
   }
 })
 
-ordersRouter.get('/', async (req, res) => {
+ordersRouter.get('/', requireAuth, async (req, res) => {
   const scope = scopeFor(req)
   if (!scope) return res.status(403).json({ error: NO_COMPANY })
 
@@ -80,12 +133,12 @@ ordersRouter.get('/', async (req, res) => {
   }
 })
 
-ordersRouter.get('/:id', async (req, res) => {
+ordersRouter.get('/:id', requireAuth, async (req, res) => {
   const scope = scopeFor(req)
   if (!scope) return res.status(403).json({ error: NO_COMPANY })
 
   try {
-    const order = await getOrder({ ...scope, orderId: req.params.id })
+    const order = await getOrder({ ...scope, orderId: routeParam(req, 'id') })
     // Scoped by company as well as id, so "not yours" and "not there" give the
     // same answer — which is the one we want to give.
     if (!order) return res.status(404).json({ error: 'Request not found' })
@@ -97,7 +150,7 @@ ordersRouter.get('/:id', async (req, res) => {
   }
 })
 
-ordersRouter.patch('/:id', async (req, res) => {
+ordersRouter.patch('/:id', requireAuth, async (req, res) => {
   const scope = scopeFor(req)
   if (!scope) return res.status(403).json({ error: NO_COMPANY })
 
@@ -109,7 +162,7 @@ ordersRouter.patch('/:id', async (req, res) => {
   try {
     const order = await setOrderStatus({
       ...scope,
-      orderId: req.params.id,
+      orderId: routeParam(req, 'id'),
       status: parsed.data.status,
     })
     if (!order) return res.status(404).json({ error: 'Request not found' })

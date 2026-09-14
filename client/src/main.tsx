@@ -4,6 +4,10 @@ import posthog from 'posthog-js'
 import { PostHogErrorBoundary, PostHogProvider } from '@posthog/react'
 import App from './App.tsx'
 import { versionProperties } from '@/lib/version'
+// Imported for its side effect, and before the app so the first render already
+// has the right language — a flash of English on a German ad landing page is
+// the kind of thing a visitor reads as the wrong shop.
+import '@/i18n'
 import './index.css'
 
 const posthogToken = import.meta.env.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN

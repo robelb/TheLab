@@ -37,6 +37,20 @@ export interface BoxLine {
 export interface BoxDetails {
   /** The saved campaign this box was built from, when it has one. */
   campaignId: string | null
+  /**
+   * The pre-configured box this one is, while it still is one.
+   *
+   * Set when a shopper takes a ready-made box as sold, and cleared the moment
+   * they change what is inside it — a box that is no longer that box must not
+   * keep claiming its price. The server checks the contents again before
+   * honouring it, so this is a claim rather than an authority.
+   */
+  bundleId?: string | null
+  /**
+   * The sticker price that goes with `bundleId`, for showing a total before
+   * anything is sent. The server prices the request from the catalogue row.
+   */
+  bundlePrice?: number | null
   /** The products the shopper picked. */
   lines: BoxLine[]
   /**

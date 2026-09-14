@@ -1,6 +1,7 @@
 import {
   boolean,
   customType,
+  index,
   integer,
   jsonb,
   numeric,
@@ -12,6 +13,9 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 import { categories } from './categories.js'
+
+/** An ordinary item, or a pre-configured box made of other items. */
+export type ProductKind = 'single' | 'bundle'
 
 const vector = customType<{ data: number[]; dpiverName: string }>({
   dataType() {
@@ -49,6 +53,20 @@ export const products = pgTable(
     description: text('description').notNull().default(''),
     details: jsonb('details').$type<string[]>().notNull().default([]),
     isFeatured: boolean('is_featured').notNull().default(false),
+    /**
+     * `single` is an ordinary catalogue item. `bundle` is a pre-configured box:
+     * it has its own price and picture, and its contents live in
+     * `product_components`. A bundle is never a component of another bundle.
+     */
+    kind: text('kind').$type<ProductKind>().notNull().default('single'),
+    /**
+     * Lowercase slugs for occasion/use-case filtering — `christmas`, `welcome`.
+     * A product has one category but belongs to any number of occasions, which
+     * is what a landing page filters on.
+     */
+    tags: jsonb('tags').$type<string[]>().notNull().default([]),
+    /** Smallest order the supplier accepts. 1 unless someone says otherwise. */
+    minQuantity: integer('min_quantity').notNull().default(1),
     // Dominant color for brand-color similarity filtering. `dominant_color` is
     // the display hex; `color_l/a/b` are its CIELAB coordinates, so proximity
     // sorting is a plain Euclidean (ΔE) distance in a perceptual color space.
@@ -70,6 +88,7 @@ export const products = pgTable(
   },
   (table) => [
     uniqueIndex('products_sku_idx').on(table.sku),
+    index('products_kind_idx').on(table.kind),
   ],
 )
 

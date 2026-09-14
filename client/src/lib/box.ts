@@ -1,5 +1,5 @@
 import type { BoxDetails, BoxLine } from '@/types/box'
-import type { Product } from '@/types/product'
+import type { BundleComponent, Product } from '@/types/product'
 
 /** Marks a cart line as a client-side built box rather than a catalog product. */
 export const BOX_SKU_PREFIX = 'BOX-'
@@ -71,9 +71,19 @@ export function boxColorOptions(description?: string | null): string[] {
 export function cartLineTotal(line: {
   price: number
   quantity: number
-  box?: Pick<BoxDetails, 'lines' | 'packaging' | 'filling'> | null
+  box?: Pick<
+    BoxDetails,
+    'lines' | 'packaging' | 'filling' | 'bundleId' | 'bundlePrice'
+  > | null
 }): number {
   if (!line.box) return line.price * line.quantity
+  // A ready-made box taken as sold is charged its own price, not the sum of
+  // what is in it — those two numbers are deliberately different. The moment
+  // the shopper changes anything, the builder clears `bundleId` and this falls
+  // back to the parts, which is what the server will price it at too.
+  if (line.box.bundleId && typeof line.box.bundlePrice === 'number') {
+    return line.box.bundlePrice * line.quantity
+  }
   return boxSubtotal(boxAllLines(line.box)) * line.quantity
 }
 
@@ -141,4 +151,95 @@ export function sameBoxLines(a: BoxLine[], b: BoxLine[]): boolean {
         line.price === b[i].price,
     )
   )
+}
+
+
+// ---------------------------------------------------------------------------
+// Pre-configured boxes
+// ---------------------------------------------------------------------------
+
+/** Product id → total quantity, so two parts lists can be compared as sets. */
+function composition(
+  parts: { productId: string; quantity: number }[],
+): Map<string, number> {
+  const map = new Map<string, number>()
+  for (const part of parts) {
+    map.set(part.productId, (map.get(part.productId) ?? 0) + part.quantity)
+  }
+  return map
+}
+
+/**
+ * Whether a box is still the pre-configured one it was opened from.
+ *
+ * Order-independent and role-blind: the packaging and the filling are products
+ * like any other, so what matters is that the same ids appear in the same
+ * quantities. Mirrors `sameComposition` in the server's orders service, which
+ * is what actually decides the price — this copy exists so the builder can show
+ * the shopper the price changing as they change the box.
+ */
+export function sameComposition(
+  parts: { productId: string; quantity: number }[],
+  components: BundleComponent[],
+): boolean {
+  const a = composition(parts)
+  const b = composition(
+    components.map((c) => ({ productId: c.product.id, quantity: c.quantity })),
+  )
+  if (a.size !== b.size) return false
+  for (const [id, qty] of a) {
+    if (b.get(id) !== qty) return false
+  }
+  return true
+}
+
+/**
+ * What a box costs: its sticker price while it is untouched, the sum of its
+ * parts once it is not.
+ *
+ * A pre-configured box is sold for less than its contents come to — that is
+ * what makes it an offer. Change anything and there is no offer to honour, so
+ * it reverts to being priced like any box somebody built themselves.
+ */
+export function boxPrice(
+  lines: BoxLine[],
+  bundle?: Pick<Product, 'price' | 'components'> | null,
+): { total: number; pricingMode: 'bundle' | 'parts' } {
+  if (bundle?.components && sameComposition(lines, bundle.components)) {
+    return { total: bundle.price, pricingMode: 'bundle' }
+  }
+  return { total: boxSubtotal(lines), pricingMode: 'parts' }
+}
+
+/** A pre-configured box's contents, as box lines the builder and cart use. */
+export function bundleToBoxLines(components: BundleComponent[]): {
+  lines: BoxLine[]
+  packaging: BoxLine | null
+  filling: BoxLine | null
+} {
+  const lines: BoxLine[] = []
+  let packaging: BoxLine | null = null
+  let filling: BoxLine | null = null
+
+  for (const component of components) {
+    const line = toBoxLine(component.product, component.quantity)
+    if (component.role === 'packaging') packaging = line
+    else if (component.role === 'filling') filling = line
+    else lines.push(line)
+  }
+  return { lines, packaging, filling }
+}
+
+/** A bundle is a box, so it enters the cart as one. */
+export function bundleToBoxDetails(bundle: Product): BoxDetails | null {
+  if (bundle.kind !== 'bundle' || !bundle.components?.length) return null
+  const { lines, packaging, filling } = bundleToBoxLines(bundle.components)
+  return {
+    campaignId: null,
+    bundleId: bundle.id,
+    bundlePrice: bundle.price,
+    lines,
+    packaging,
+    filling,
+  }
 }

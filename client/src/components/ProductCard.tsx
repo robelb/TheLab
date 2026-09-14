@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/context/AuthContext'
 import { getProductDisplayImage } from '@/lib/productImage'
 import type { Product } from '@/types/product'
@@ -19,6 +20,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, index = 0 }: ProductCardProps) {
+  const { t } = useTranslation()
   const { brandGeneration } = useAuth()
   const detailUrl = `/product/${product.id}`
   const displayImage = getProductDisplayImage(product, brandGeneration)
@@ -34,7 +36,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
       <Link
         to={detailUrl}
         className="absolute inset-0 z-0 rounded-[inherit]"
-        aria-label={`View ${product.name}`}
+        aria-label={t('card.view', { name: product.name })}
       />
 
       <div className="pointer-events-none relative z-[1]">

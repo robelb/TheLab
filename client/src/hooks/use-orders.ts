@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '@/context/AuthContext'
 import {
   createOrder,
   fetchOrder,
@@ -14,16 +15,28 @@ export const orderKeys = {
   detail: (id: string) => ['orders', 'detail', id] as const,
 }
 
-/** The requests this company has sent, newest first. */
+/**
+ * The requests this company has sent, newest first.
+ *
+ * Gated on being signed in: the endpoint answers 401 to anyone else, and the
+ * storefront is now browsable without an account, so an ungated read would fire
+ * a guaranteed failure on every visit.
+ */
 export function useOrders() {
-  return useQuery({ queryKey: orderKeys.list(), queryFn: fetchOrders })
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: orderKeys.list(),
+    queryFn: fetchOrders,
+    enabled: Boolean(user),
+  })
 }
 
 export function useOrder(id: string) {
+  const { user } = useAuth()
   return useQuery({
     queryKey: orderKeys.detail(id),
     queryFn: () => fetchOrder(id),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && Boolean(user),
   })
 }
 

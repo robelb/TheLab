@@ -5,9 +5,12 @@
  * only be seen or changed by the company that sent it.
  */
 
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '../../db/index.js'
-import { orders } from '../../db/schema/index.js'
+import { orders, products } from '../../db/schema/index.js'
+import { getBundleComponents } from '../products/products.service.js'
+import { enqueueLeadEvent } from '../../services/leadIntake.js'
+import type { BundleComponent } from '../../types/product.js'
 import type { CreateOrderBody, OrderStatus } from './orders.schema.js'
 
 /**
@@ -25,34 +28,145 @@ function money(value: number): number {
   return Math.round(value * 100) / 100 + 0
 }
 
-/**
- * What a line costs.
- *
- * A box's own price is derived from what is inside it rather than taken on
- * trust: the shop builds that figure client-side, so accepting it would mean
- * storing a number the browser chose. The contents, the box and the filling are
- * all charged.
- */
-function lineTotal(item: CreateOrderBody['items'][number]): number {
-  if (!item.box) return item.unitPrice * item.quantity
+/** How a box line was priced, recorded on the stored item. */
+export type PricingMode = 'bundle' | 'parts'
 
-  const parts = [...item.box.lines, item.box.packaging, item.box.filling]
-  const boxPrice = parts.reduce(
-    (sum, line) => (line ? sum + line.price * line.quantity : sum),
-    0,
+type Item = CreateOrderBody['items'][number]
+type Box = NonNullable<Item['box']>
+
+/** Everything in a box that is charged: the contents, the box, the filling. */
+function boxParts(box: Box) {
+  return [...box.lines, box.packaging, box.filling].filter(
+    (line): line is NonNullable<typeof line> => Boolean(line),
   )
-  return boxPrice * item.quantity
 }
 
-export function priceOrder(body: CreateOrderBody): {
+/** Product id → total quantity, so two lists can be compared as sets. */
+function composition(
+  parts: { productId: string; quantity: number }[],
+): Map<string, number> {
+  const map = new Map<string, number>()
+  for (const part of parts) {
+    map.set(part.productId, (map.get(part.productId) ?? 0) + part.quantity)
+  }
+  return map
+}
+
+/**
+ * Whether a box is still the bundle it was opened from.
+ *
+ * Order-independent and role-blind: the packaging and the filling are products
+ * like any other, so what matters is that the same ids appear in the same
+ * quantities. Swap a mug for a bottle, or ask for two instead of one, and this
+ * is false — the sticker price stops applying and the box is charged by parts.
+ */
+function sameComposition(
+  parts: { productId: string; quantity: number }[],
+  components: BundleComponent[],
+): boolean {
+  const a = composition(parts)
+  const b = composition(
+    components.map((c) => ({ productId: c.product.id, quantity: c.quantity })),
+  )
+  if (a.size !== b.size) return false
+  for (const [id, qty] of a) {
+    if (b.get(id) !== qty) return false
+  }
+  return true
+}
+
+/** A bundle's own price and contents, keyed by id. */
+interface BundleFacts {
+  prices: Map<string, number>
+  components: Map<string, BundleComponent[]>
+}
+
+async function loadBundles(items: Item[]): Promise<BundleFacts> {
+  const ids = [
+    ...new Set(
+      items
+        .map((i) => i.box?.bundleId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ]
+  if (ids.length === 0) {
+    return { prices: new Map(), components: new Map() }
+  }
+
+  const [rows, components] = await Promise.all([
+    db
+      .select({ id: products.id, price: products.price, kind: products.kind })
+      .from(products)
+      .where(inArray(products.id, ids)),
+    getBundleComponents(ids),
+  ])
+
+  const prices = new Map<string, number>()
+  for (const row of rows) {
+    // Only an actual bundle has a sticker price to honour.
+    if (row.kind === 'bundle') prices.set(row.id, Number(row.price))
+  }
+  return { prices, components }
+}
+
+/**
+ * What a line costs, and on what basis.
+ *
+ * A custom box's price is derived from what is inside it rather than taken on
+ * trust: the shop builds that figure client-side, so accepting it would mean
+ * storing a number the browser chose.
+ *
+ * A pre-configured box is the exception, and only while it is untouched. Those
+ * are sold at a set price that is deliberately not the sum of its parts, so the
+ * price comes from the catalogue row — after checking the contents still match
+ * what that row is for. Change anything and it reverts to being priced by
+ * parts, which is what the builder shows the shopper as they change it.
+ */
+function lineTotal(item: Item, bundles: BundleFacts): {
+  total: number
+  pricingMode?: PricingMode
+} {
+  if (!item.box) return { total: item.unitPrice * item.quantity }
+
+  const parts = boxParts(item.box)
+  const bundleId = item.box.bundleId
+  if (bundleId) {
+    const price = bundles.prices.get(bundleId)
+    const components = bundles.components.get(bundleId)
+    if (price !== undefined && components && sameComposition(parts, components)) {
+      return { total: price * item.quantity, pricingMode: 'bundle' }
+    }
+  }
+
+  const boxPrice = parts.reduce(
+    (sum, line) => sum + line.price * line.quantity,
+    0,
+  )
+  return { total: boxPrice * item.quantity, pricingMode: 'parts' }
+}
+
+export interface PricedOrder {
   subtotal: number
   shipping: number
   total: number
-} {
-  const subtotal = money(body.items.reduce((sum, i) => sum + lineTotal(i), 0))
+  /** The items as stored: unchanged, plus how each box line was priced. */
+  items: Item[]
+}
+
+export async function priceOrder(body: CreateOrderBody): Promise<PricedOrder> {
+  const bundles = await loadBundles(body.items)
+
+  let running = 0
+  const items = body.items.map((item) => {
+    const { total, pricingMode } = lineTotal(item, bundles)
+    running += total
+    return pricingMode ? { ...item, pricingMode } : item
+  })
+
+  const subtotal = money(running)
   const shipping =
     subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING
-  return { subtotal, shipping, total: money(subtotal + shipping) }
+  return { subtotal, shipping, total: money(subtotal + shipping), items }
 }
 
 /**
@@ -88,6 +202,13 @@ export interface OrderDto {
   shipping: number
   total: number
   currency: string
+  /** Null when this came from the funnel with no account behind it. */
+  companyId: string | null
+  isGuest: boolean
+  source: Row['source']
+  locale: string
+  collectionSlug: string | null
+  attribution: Row['attribution']
 }
 
 function toDto(row: Row): OrderDto {
@@ -105,16 +226,23 @@ function toDto(row: Row): OrderDto {
     shipping: Number(row.shipping),
     total: Number(row.total),
     currency: row.currency,
+    companyId: row.companyId,
+    isGuest: row.userId === null,
+    source: row.source,
+    locale: row.locale,
+    collectionSlug: row.collectionSlug,
+    attribution: row.attribution,
   }
 }
 
 export async function createOrder(params: {
-  companyId: string
-  userId: string
+  /** Null for a guest: the funnel takes people to checkout without an account. */
+  companyId: string | null
+  userId: string | null
   body: CreateOrderBody
 }): Promise<OrderDto> {
   const { body } = params
-  const { subtotal, shipping, total } = priceOrder(body)
+  const { subtotal, shipping, total, items } = await priceOrder(body)
 
   const [row] = await db
     .insert(orders)
@@ -125,15 +253,75 @@ export async function createOrder(params: {
       status: 'new',
       contact: body.contact,
       delivery: body.delivery ?? null,
-      items: body.items as Row['items'],
+      items: items as Row['items'],
       subtotal: subtotal.toFixed(2),
       shipping: shipping.toFixed(2),
       total: total.toFixed(2),
       currency: body.currency,
+      source: body.source,
+      locale: body.locale,
+      collectionSlug: body.collectionSlug ?? null,
+      attribution: body.attribution ?? null,
     })
     .returning()
 
-  return toDto(row)
+  const dto = toDto(row)
+  // Queued, never awaited: the shopper is waiting on this response and the
+  // marketing endpoint is not ours to depend on.
+  void enqueueLeadEvent('order.created', leadPayload(dto, 'order.created'))
+  return dto
+}
+
+/**
+ * What the marketing side is sent about a request.
+ *
+ * Enough to score a lead and attribute it to a click: who they are, where they
+ * came from, what they asked for and what it comes to. Deliberately not sent:
+ * design layouts, generated artwork, delivery addresses — none of it helps an
+ * ad platform, and all of it is somebody's business.
+ */
+function leadPayload(
+  order: OrderDto,
+  event: 'order.created' | 'order.status_changed',
+  previousStatus?: OrderStatus,
+): Record<string, unknown> {
+  return {
+    event,
+    occurredAt: new Date().toISOString(),
+    lead: {
+      name: order.contact.name,
+      email: order.contact.email,
+      company: order.contact.company ?? null,
+      phone: order.contact.phone ?? null,
+      locale: order.locale,
+      isGuest: order.isGuest,
+    },
+    attribution: order.attribution ?? null,
+    order: {
+      id: order.id,
+      reference: order.reference,
+      status: order.status,
+      previousStatus: previousStatus ?? null,
+      source: order.source,
+      collectionSlug: order.collectionSlug,
+      currency: order.currency,
+      subtotal: order.subtotal,
+      shipping: order.shipping,
+      total: order.total,
+      itemCount: order.items.length,
+      items: order.items.map((item) => ({
+        name: item.name,
+        sku: item.sku ?? null,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        isBox: Boolean(item.box),
+        bundleId:
+          (item.box as { bundleId?: string | null } | undefined)?.bundleId ??
+          null,
+        pricingMode: item.pricingMode ?? null,
+      })),
+    },
+  }
 }
 
 /** Newest first — the team works the top of this list. */
@@ -170,10 +358,28 @@ export async function setOrderStatus(params: {
   const where = params.companyId
     ? and(eq(orders.id, params.orderId), eq(orders.companyId, params.companyId))
     : eq(orders.id, params.orderId)
+
+  // Read first so the event can say what it moved from — `quoted → confirmed`
+  // is the signal the ads side scores a lead on, and a bare "confirmed" with no
+  // previous state cannot be told apart from a correction.
+  const previous = await getOrder({
+    companyId: params.companyId,
+    orderId: params.orderId,
+  })
+
   const [row] = await db
     .update(orders)
     .set({ status: params.status, updatedAt: new Date() })
     .where(where)
     .returning()
-  return row ? toDto(row) : null
+  if (!row) return null
+
+  const dto = toDto(row)
+  if (previous?.status !== dto.status) {
+    void enqueueLeadEvent(
+      'order.status_changed',
+      leadPayload(dto, 'order.status_changed', previous?.status),
+    )
+  }
+  return dto
 }

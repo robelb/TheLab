@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useMemo, useState } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -47,6 +48,7 @@ export function ProductFilters({
   onClearAll,
   hasSearch = false,
 }: ProductFiltersProps) {
+  const { t } = useTranslation()
   const [categoryQuery, setCategoryQuery] = useState('')
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -89,7 +91,7 @@ export function ProductFilters({
     <div className="flex flex-col gap-5">
       <div className="space-y-2">
         <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-          Category
+          {t('filters.category')}
         </p>
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex w-9 items-center justify-center">
@@ -103,23 +105,23 @@ export function ProductFilters({
             type="search"
             value={categoryQuery}
             onChange={(e) => setCategoryQuery(e.target.value)}
-            placeholder="Filter categories…"
+            placeholder={t('filters.filterCategories')}
             className="relative h-9 border-border/40 bg-background/40 pl-9 text-xs"
-            aria-label="Filter category list"
+            aria-label={t('filters.filterCategoryList')}
           />
         </div>
         <nav
           className="max-h-52 space-y-0.5 overflow-y-auto pr-1 [-ms-overflow-style:none] [scrollbar-width:thin]"
-          aria-label="Product categories"
+          aria-label={t('filters.productCategories')}
         >
           <CategoryOption
-            label="All products"
+            label={t('filters.allProducts')}
             active={category === 'all'}
             onClick={() => pickCategory('all')}
           />
           {filteredCategories.length === 0 ? (
             <p className="px-3 py-4 text-xs text-muted-foreground">
-              No categories match.
+              {t('filters.noCategories')}
             </p>
           ) : (
             filteredCategories.map((cat) => (
@@ -137,7 +139,7 @@ export function ProductFilters({
       {priceBounds && priceSelection && onPriceChange && (
         <div className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            Price range
+            {t('filters.priceRange')}
           </p>
           <PriceRangeFilter
             bounds={priceBounds}
@@ -150,14 +152,14 @@ export function ProductFilters({
       {onBrandColorChange && onColorSortToggle && (
         <div className="space-y-2.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            Brand color
+            {t('filters.brandColor')}
           </p>
           <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
             <Checkbox
               checked={colorSortActive}
               onCheckedChange={(c) => onColorSortToggle(c === true)}
             />
-            <span>Sort by closest color to my CI</span>
+            <span>{t('filters.sortByColor')}</span>
           </label>
           <div
             className={cn(
@@ -170,7 +172,7 @@ export function ProductFilters({
               value={brandColor ?? '#2563eb'}
               onChange={(e) => onBrandColorChange(e.target.value)}
               disabled={!colorSortActive}
-              aria-label="Brand color"
+              aria-label={t('filters.brandColor')}
               className="h-8 w-10 cursor-pointer rounded-brand border border-border/40 bg-transparent p-0.5 disabled:cursor-not-allowed"
             />
             <span className="font-mono text-xs uppercase text-muted-foreground">
@@ -190,7 +192,7 @@ export function ProductFilters({
             onClick={clearAll}
           >
             <X className="size-3.5" />
-            Clear {activeCount} filter{activeCount === 1 ? '' : 's'}
+            {t('filters.clearFilters', { count: activeCount })}
           </Button>
         )}
       </div>
@@ -209,7 +211,7 @@ export function ProductFilters({
           aria-expanded={mobileOpen}
         >
           <SlidersHorizontal className="size-4" />
-          Filters
+          {t('filters.filters')}
           {activeCount > 0 && (
             <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
               {activeCount}
@@ -292,6 +294,7 @@ function FilterChip({
   label: string
   onRemove: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/50 bg-background/80 py-0.5 pl-2.5 pr-1 text-xs capitalize">
       <span className="truncate">{label}</span>
@@ -299,7 +302,7 @@ function FilterChip({
         type="button"
         onClick={onRemove}
         className="rounded-full p-0.5 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
-        aria-label={`Remove ${label} filter`}
+        aria-label={t('filters.removeFilter', { label })}
       >
         <X className="size-3" />
       </button>

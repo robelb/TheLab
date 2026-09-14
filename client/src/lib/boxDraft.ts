@@ -58,6 +58,14 @@ export interface ProductDesign {
 
 export interface BoxDraft {
   campaignId: string | null
+  /**
+   * The pre-configured box this draft started from, while it still matches it.
+   *
+   * Kept so the builder can charge the box's own price while nothing has been
+   * changed, and show the price move to per-item the moment something is. The
+   * server checks the contents again before honouring it.
+   */
+  bundleId: string | null
   title: string
   productIds: string[]
   /** How many of each product the box holds; a missing entry means one. */
@@ -88,6 +96,7 @@ export interface BoxDraft {
 
 export const EMPTY_BOX_DRAFT: BoxDraft = {
   campaignId: null,
+  bundleId: null,
   title: '',
   productIds: [],
   quantities: {},
@@ -163,6 +172,7 @@ export function loadBoxDraft(): BoxDraft {
 
     return {
       campaignId: typeof parsed.campaignId === 'string' ? parsed.campaignId : null,
+      bundleId: typeof parsed.bundleId === 'string' ? parsed.bundleId : null,
       title: typeof parsed.title === 'string' ? parsed.title : '',
       productIds: Array.isArray(parsed.productIds)
         ? parsed.productIds.filter((id): id is string => typeof id === 'string')

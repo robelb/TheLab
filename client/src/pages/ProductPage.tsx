@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
 import { cn } from '@/lib/utils'
@@ -16,11 +17,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Palette, Trash2 } from 'lucide-react'
+import { ArrowLeft, Palette, Pencil, Trash2 } from 'lucide-react'
+import { bundleToBoxDetails } from '@/lib/box'
 
 export function ProductPage() {
+  const { t } = useTranslation()
   const { brandGeneration } = useAuth()
-  const { setItemDesign } = useCart()
+  const { setItemDesign, addItem } = useCart()
   const { id } = useParams<{ id: string }>()
 
   const { data: product, isLoading, error } = useProduct(id)
@@ -43,13 +46,23 @@ export function ProductPage() {
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-center">
         <h1 className="font-display text-2xl font-bold">
-          {error instanceof Error ? error.message : 'Product not found'}
+          {error instanceof Error ? error.message : t('product.notFound')}
         </h1>
         <Button asChild variant="outline">
-          <Link to="/">Back to shop</Link>
+          <Link to="/">{t('product.backToShop')}</Link>
         </Button>
       </div>
     )
+  }
+
+  const isBundle = product.kind === 'bundle'
+  const contents = (product.components ?? []).filter((c) => c.role === 'item')
+
+  /** A ready-made box enters the cart as a box, so checkout prices it as one. */
+  function addBundleToCart() {
+    const box = bundleToBoxDetails(product!)
+    if (!box) return
+    addItem(product!, Math.max(1, product!.minQuantity ?? 1), box)
   }
 
   const coverImage = getProductDisplayImage(product, brandGeneration)
@@ -102,7 +115,7 @@ export function ProductPage() {
       <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
         <Link to="/">
           <ArrowLeft className="size-4" />
-          Back to shop
+          {t('product.backToShop')}
         </Link>
       </Button>
 
@@ -130,7 +143,9 @@ export function ProductPage() {
                   type="button"
                   onClick={() => setActiveIndex(i)}
                   aria-label={
-                    slot.own ? 'View your design' : `View image ${i + 1}`
+                    slot.own
+                      ? t('product.viewYourDesign')
+                      : t('product.viewImage', { index: i + 1 })
                   }
                   className={cn(
                     'relative aspect-square overflow-hidden rounded-brand border bg-muted/10 transition-colors',
@@ -148,7 +163,7 @@ export function ProductPage() {
                       extra photo, indistinguishable from the catalogue's. */}
                   {slot.own && (
                     <span className="absolute inset-x-0 bottom-0 bg-primary/85 py-0.5 text-center text-[9px] font-medium uppercase tracking-wide text-primary-foreground">
-                      Yours
+                      {t('product.yours')}
                     </span>
                   )}
                 </button>
@@ -171,13 +186,38 @@ export function ProductPage() {
           {product.stock !== undefined && (
             <p className="text-sm text-muted-foreground">
               {product.stock > 0
-                ? `${product.stock} in stock`
-                : 'Out of stock'}
+                ? t('product.inStock', { count: product.stock })
+                : t('product.outOfStock')}
             </p>
           )}
           <p className="leading-relaxed text-muted-foreground">
             {product.description}
           </p>
+
+          {/* A pre-configured box is a parts list with a price, so what it
+              holds belongs next to that price rather than in the details
+              below — it is the thing being bought. */}
+          {isBundle && contents.length > 0 && (
+            <Card className="border-border/30 bg-card/50">
+              <CardContent className="space-y-2 p-4">
+                <h2 className="text-sm font-semibold uppercase tracking-wide">
+                  {t('product.inside')}
+                </h2>
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  {contents.map((component) => (
+                    <li key={component.product.id}>
+                      —{' '}
+                      {component.quantity > 1 && `${component.quantity}× `}
+                      {component.product.name}
+                    </li>
+                  ))}
+                </ul>
+                <p className="pt-1 text-xs text-muted-foreground">
+                  {t('product.partsNote')}
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex flex-col gap-2">
             {/* The editor was only reachable from the box builder, so someone
@@ -195,26 +235,55 @@ export function ProductPage() {
                   onClick={removeDesign}
                 >
                   <Trash2 className="size-4" />
-                  Discard design
+                  {t('product.discardDesign')}
                 </Button>
               )}
+              {/* A bundle has no surface of its own to print on — the things
+                  inside it do, and those are designed in the builder. */}
               <Button asChild size="sm" variant="outline">
-                <Link to={designUrl}>
-                  <Palette className="size-4" />
-                  {design ? 'Edit your design' : 'Customize'}
+                <Link
+                  to={
+                    isBundle
+                      ? `/build-box?bundle=${encodeURIComponent(product.id)}`
+                      : designUrl
+                  }
+                >
+                  {isBundle ? (
+                    <Pencil className="size-4" />
+                  ) : (
+                    <Palette className="size-4" />
+                  )}
+                  {isBundle
+                    ? t('product.customiseBox')
+                    : design
+                      ? t('product.editYourDesign')
+                      : t('product.customize')}
                 </Link>
               </Button>
             </div>
-            <AddToCartButton product={product} disabled={product.stock === 0} />
+            {isBundle ? (
+              <Button
+                type="button"
+                size="lg"
+                disabled={product.stock === 0}
+                onClick={addBundleToCart}
+              >
+                {t('product.addToCart')}
+              </Button>
+            ) : (
+              <AddToCartButton product={product} disabled={product.stock === 0} />
+            )}
           </div>
 
           {/* The design is not a preview — it is what the basket will carry, so
               say so where the decision is made rather than at checkout. */}
           {design && (
             <p className="rounded-brand border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
-              Your design is ready. Adding this to the basket sends it with your
-              artwork
-              {design.prompt ? ` and your brief “${design.prompt}”` : ''}.
+              {t('product.designReady', {
+                brief: design.prompt
+                  ? t('product.andYourBrief', { prompt: design.prompt })
+                  : '',
+              })}
             </p>
           )}
 
@@ -223,7 +292,7 @@ export function ProductPage() {
           <Card className="border-border/30 bg-card/50">
             <CardContent className="space-y-2 p-4">
               <h2 className="text-sm font-semibold uppercase tracking-wide">
-                Details
+                {t('product.details')}
               </h2>
               <ul className="space-y-1 text-sm text-muted-foreground">
                 {product.details.map((d) => (
@@ -238,7 +307,7 @@ export function ProductPage() {
       <section className="space-y-6">
         <Separator />
         <h2 className="font-display text-xl font-semibold tracking-tight">
-          You might also like
+          {t('product.youMightAlsoLike')}
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
           {relatedLoading

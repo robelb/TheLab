@@ -11,6 +11,16 @@ import {
 export type CampaignHeroImageStatus = 'idle' | 'pending' | 'ready' | 'failed'
 
 /**
+ * Who a campaign belongs to.
+ *
+ * `domain IS NULL` used to mean "preset" on its own. Once signed-out visitors
+ * could build boxes, every one of their drafts landed in that same null
+ * partition and showed up as a house preset, so ownership is now stated rather
+ * than inferred from a missing domain.
+ */
+export type CampaignOwnerKind = 'preset' | 'company' | 'guest'
+
+/**
  * Auto-assembled "Your Company Kit" starter campaigns.
  * `domain` is nullable so demo/preset-mode campaigns share a null partition.
  * `status` is plain text (codebase convention) — values constrained in Zod.
@@ -23,6 +33,12 @@ export const campaigns = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     domain: text('domain'),
+    ownerKind: text('owner_kind')
+      .$type<CampaignOwnerKind>()
+      .notNull()
+      .default('company'),
+    /** Which anonymous browser owns this, when `ownerKind` is `guest`. */
+    guestSessionId: text('guest_session_id'),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
     status: text('status').notNull().default('draft'),
@@ -50,7 +66,10 @@ export const campaigns = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (table) => [index('campaigns_domain_idx').on(table.domain)],
+  (table) => [
+    index('campaigns_domain_idx').on(table.domain),
+    index('campaigns_owner_kind_idx').on(table.ownerKind),
+  ],
 )
 
 export type Campaign = typeof campaigns.$inferSelect

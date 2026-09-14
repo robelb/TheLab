@@ -26,6 +26,10 @@ export interface FetchProductsParams {
    * catalog products.
    */
   includeSupplies?: boolean
+  /** Occasion / use-case slug. A landing page's whole filter is this. */
+  tag?: string
+  /** Narrow to ordinary items or to pre-configured boxes. */
+  kind?: 'single' | 'bundle'
 }
 
 export interface ImageSearchParams {
@@ -97,6 +101,12 @@ export async function fetchProducts(
   }
   if (params.includeSupplies) {
     search.includeSupplies = 'true'
+  }
+  if (params.tag) {
+    search.tag = params.tag
+  }
+  if (params.kind) {
+    search.kind = params.kind
   }
 
   const { data } = await apiClient.get<ProductsResponse>('/products', {

@@ -1,3 +1,22 @@
+/** An ordinary item, or a pre-configured box made of other items. */
+export type ProductKind = 'single' | 'bundle'
+
+/** What a component sits in a pre-configured box as. */
+export type ComponentRole = 'item' | 'packaging' | 'filling'
+
+/**
+ * One line of a pre-configured box's parts list.
+ *
+ * The component is the whole product, so the box can be shown, opened in the
+ * builder and priced without another round trip.
+ */
+export interface BundleComponent {
+  product: Product
+  quantity: number
+  role: ComponentRole
+  sortOrder: number
+}
+
 export interface Product {
   id: string
   sourceId?: string
@@ -18,6 +37,14 @@ export interface Product {
   isFeatured?: boolean
   /** Dominant color (hex) used for brand-color similarity sorting. */
   dominantColor?: string | null
+  /** `bundle` is a pre-configured box with a price of its own. */
+  kind?: ProductKind
+  /** Occasion slugs, e.g. `christmas`. What a landing page filters by. */
+  tags?: string[]
+  /** Smallest order the supplier accepts. */
+  minQuantity?: number
+  /** What is inside, on a bundle read one at a time. */
+  components?: BundleComponent[]
 }
 
 export interface ProductsPagination {

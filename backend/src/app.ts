@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { authRouter } from './modules/auth/auth.router.js'
 import { campaignsRouter } from './modules/campaigns/campaigns.router.js'
 import { categoriesRouter } from './modules/categories/categories.router.js'
+import { collectionsRouter } from './modules/collections/collections.router.js'
 import { companiesRouter } from './modules/companies/companies.router.js'
 import { composeRouter } from './modules/compose/compose.router.js'
 import { dashboardRouter } from './modules/dashboard/dashboard.router.js'
@@ -43,6 +44,7 @@ export function createApp() {
   app.use('/api/companies', companiesRouter)
   app.use('/api/products', productsRouter)
   app.use('/api/categories', categoriesRouter)
+  app.use('/api/collections', collectionsRouter)
   app.use('/api/compose', composeRouter)
   app.use('/api/orders', ordersRouter)
   // Nested under products for listing, addressed by id once saved — so it owns

@@ -5,7 +5,9 @@ import { AuthProvider } from '@/context/AuthContext'
 import { CartProvider } from '@/context/CartContext'
 import { Layout } from '@/components/Layout'
 import { RequireAuth } from '@/components/RequireAuth'
+import { AttributionCapture } from '@/components/AttributionCapture'
 import { HomePage } from '@/pages/HomePage'
+import { CollectionPage } from '@/pages/CollectionPage'
 import { BuildBoxPage } from '@/pages/BuildBoxPage'
 import { DesignPage } from '@/pages/DesignPage'
 import { CampaignPage } from '@/pages/CampaignPage'
@@ -25,6 +27,7 @@ import { TeamPage } from '@/pages/dashboard/TeamPage'
 import { CompanySettingsPage } from '@/pages/dashboard/CompanySettingsPage'
 import { UsersPage as AdminUsersPage } from '@/pages/admin/UsersPage'
 import { CompaniesPage as AdminCompaniesPage } from '@/pages/admin/CompaniesPage'
+import { CollectionsPage as AdminCollectionsPage } from '@/pages/admin/CollectionsPage'
 import { SystemInstructionsPage } from '@/pages/admin/SystemInstructionsPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SignupPage } from '@/pages/SignupPage'
@@ -40,6 +43,7 @@ export default function App() {
           <BrowserRouter>
             <CartProvider>
               <Toaster position="top-center" richColors closeButton />
+              <AttributionCapture />
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
@@ -47,22 +51,21 @@ export default function App() {
                 <Route path="/share/:slug" element={<SharePage />} />
                 {/* The design editor owns the whole viewport, so it sits
                     outside the site chrome rather than inside `Layout`. */}
-                <Route
-                  path="/design/:productId"
-                  element={
-                    <RequireAuth>
-                      <DesignPage />
-                    </RequireAuth>
-                  }
-                />
-                <Route
-                  element={
-                    <RequireAuth>
-                      <Layout />
-                    </RequireAuth>
-                  }
-                >
+                <Route path="/design/:productId" element={<DesignPage />} />
+                {/*
+                  The storefront is open to anyone.
+
+                  It used to sit behind `RequireAuth`, which meant an ad click
+                  met a login form before it met a price — the single thing most
+                  likely to end the visit. Browsing, building, designing and
+                  asking for a quote all work signed out now; only the dashboard
+                  below needs an account, because only it shows other people's
+                  data.
+                */}
+                <Route element={<Layout />}>
                   <Route index element={<HomePage />} />
+                  {/* Campaign landing pages: /c/weihnachten?lang=de&gclid=… */}
+                  <Route path="c/:slug" element={<CollectionPage />} />
                   <Route path="build-box" element={<BuildBoxPage />} />
                   <Route path="campaign/:id" element={<CampaignPage />} />
                   <Route path="product/:id" element={<ProductPage />} />
@@ -90,6 +93,10 @@ export default function App() {
                   {/* Super-admin only (pages self-guard `manage_all`). */}
                   <Route path="admin/users" element={<AdminUsersPage />} />
                   <Route path="admin/companies" element={<AdminCompaniesPage />} />
+                  <Route
+                    path="admin/collections"
+                    element={<AdminCollectionsPage />}
+                  />
                   <Route
                     path="admin/instructions"
                     element={<SystemInstructionsPage />}

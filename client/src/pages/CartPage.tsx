@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ChevronRight, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
@@ -15,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 
 export function CartPage() {
+  const { t } = useTranslation()
   const { brand } = useBrand()
   const { brandGeneration } = useAuth()
   const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart()
@@ -22,12 +24,12 @@ export function CartPage() {
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-center">
-        <h1 className="font-display text-3xl font-bold">Your cart is empty</h1>
+        <h1 className="font-display text-3xl font-bold">{t('cart.empty')}</h1>
         <p className="max-w-sm text-muted-foreground">
-          Browse the {brand.companyName} collection and add something you love.
+          {t('cart.emptyBody', { company: brand.companyName })}
         </p>
         <Button asChild size="lg">
-          <Link to="/">Browse collection</Link>
+          <Link to="/">{t('cart.browse')}</Link>
         </Button>
       </div>
     )
@@ -39,9 +41,9 @@ export function CartPage() {
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="font-display text-3xl font-bold">Cart</h1>
+        <h1 className="font-display text-3xl font-bold">{t('cart.title')}</h1>
         <span className="text-sm text-muted-foreground">
-          {itemCount} {itemCount === 1 ? 'item' : 'items'}
+          {t('common.item', { count: itemCount })}
         </span>
       </div>
 
@@ -103,10 +105,20 @@ export function CartPage() {
                     picture above is the artwork, and the brief goes with it. */}
                 {design && (
                   <p className="mt-3 rounded-brand border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
-                    <span className="font-medium">Your design</span> — printed
-                    with the artwork shown
-                    {design.prompt ? `, from your brief “${design.prompt}”` : ''}
+                    <span className="font-medium">{t('cart.yourDesign')}</span>{' '}
+                    — {t('cart.yourDesignBody')}
+                    {design.prompt
+                      ? `, ${t('cart.fromBrief', { prompt: design.prompt })}`
+                      : ''}
                     .
+                  </p>
+                )}
+
+                {/* A ready-made box says which price it is being charged at —
+                    the sticker price only holds while it is untouched. */}
+                {box?.bundleId && (
+                  <p className="mt-3 text-xs text-primary">
+                    {t('cart.bundleKept')}
                   </p>
                 )}
 
@@ -116,11 +128,15 @@ export function CartPage() {
                   <details className="group mt-3 rounded-brand border border-border/40 bg-muted/5 p-3">
                     <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground">
                       <ChevronRight className="size-3.5 shrink-0 transition-transform group-open:rotate-90" />
-                      Inside this box · {boxPieceCount(box.lines)} item
-                      {boxPieceCount(box.lines) === 1 ? '' : 's'}
+                      {t('cart.insideBox')} ·{' '}
+                      {t('common.item', { count: boxPieceCount(box.lines) })}
                       <span className="ml-auto text-[0.7rem] normal-case tracking-normal text-primary">
-                        <span className="group-open:hidden">View products</span>
-                        <span className="hidden group-open:inline">Hide</span>
+                        <span className="group-open:hidden">
+                          {t('cart.viewProducts')}
+                        </span>
+                        <span className="hidden group-open:inline">
+                          {t('common.close')}
+                        </span>
                       </span>
                     </summary>
                     <ul className="mt-2 space-y-2">
@@ -176,7 +192,7 @@ export function CartPage() {
                                 {line!.name}
                                 {line!.customPrint && (
                                   <span className="block truncate text-primary">
-                                    Custom print
+                                    {t('cart.customPrint')}
                                     {box.packagingPrompt
                                       ? `: “${box.packagingPrompt}”`
                                       : ''}
@@ -195,7 +211,7 @@ export function CartPage() {
                     )}
                     {quantity > 1 && (
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Per box — you have {quantity} of these boxes.
+                        {t('cart.perBox', { count: quantity })}
                       </p>
                     )}
                   </details>
@@ -209,7 +225,7 @@ export function CartPage() {
                     variant="ghost"
                     size="icon"
                     className="h-9 w-9 rounded-none"
-                    aria-label="Decrease quantity"
+                    aria-label={t('cart.decrease')}
                     onClick={() => updateQuantity(product.id, quantity - 1)}
                   >
                     <Minus className="size-4" />
@@ -220,7 +236,7 @@ export function CartPage() {
                     variant="ghost"
                     size="icon"
                     className="h-9 w-9 rounded-none"
-                    aria-label="Increase quantity"
+                    aria-label={t('cart.increase')}
                     onClick={() => updateQuantity(product.id, quantity + 1)}
                   >
                     <Plus className="size-4" />
@@ -236,7 +252,7 @@ export function CartPage() {
                     >
                       <Link to={editBoxUrl}>
                         <Pencil className="size-4" />
-                        Edit box
+                        {t('cart.editBox')}
                       </Link>
                     </Button>
                   )}
@@ -252,7 +268,7 @@ export function CartPage() {
                     >
                       <Link to={editDesignUrl}>
                         <Pencil className="size-4" />
-                        Edit design
+                        {t('cart.editDesign')}
                       </Link>
                     </Button>
                   )}
@@ -264,7 +280,7 @@ export function CartPage() {
                     onClick={() => removeItem(product.id)}
                   >
                     <Trash2 className="size-4" />
-                    Remove
+                    {t('common.remove')}
                   </Button>
                 </div>
               </div>
@@ -275,26 +291,26 @@ export function CartPage() {
 
         <Card className="sticky top-24 border-border/30">
           <CardHeader>
-            <CardTitle>Order summary</CardTitle>
+            <CardTitle>{t('cart.summary')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal</span>
+              <span className="text-muted-foreground">{t('cart.subtotal')}</span>
               <span>{formatPrice(subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Shipping</span>
+              <span className="text-muted-foreground">{t('cart.shipping')}</span>
               <span>
-                {shipping === 0 ? 'Free' : formatPrice(shipping)}
+                {shipping === 0 ? t('common.free') : formatPrice(shipping)}
               </span>
             </div>
             <Separator />
             <div className="flex justify-between font-semibold">
-              <span>Total</span>
+              <span>{t('cart.total')}</span>
               <span>{formatPrice(total)}</span>
             </div>
             <Button asChild className="mt-2 w-full" size="lg">
-              <Link to="/checkout">Proceed to checkout</Link>
+              <Link to="/checkout">{t('cart.checkout')}</Link>
             </Button>
           </CardContent>
         </Card>

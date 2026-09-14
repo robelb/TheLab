@@ -49,6 +49,13 @@ export const env = {
   // extends the built-in list). Signups from these are rejected.
   CONSUMER_EMAIL_DOMAINS: process.env.CONSUMER_EMAIL_DOMAINS?.trim() ?? '',
 
+  // Lead intake — the marketing side's webhook for campaign optimisation.
+  // Leave LEAD_INTAKE_URL blank to keep the queue dormant: events are still
+  // recorded, nothing is sent.
+  LEAD_INTAKE_URL: process.env.LEAD_INTAKE_URL?.trim() ?? '',
+  LEAD_INTAKE_TOKEN: process.env.LEAD_INTAKE_TOKEN?.trim() ?? '',
+  LEAD_INTAKE_TIMEOUT_MS: Number(process.env.LEAD_INTAKE_TIMEOUT_MS) || 10_000,
+
   // Supabase Storage — when configured, uploaded/generated images are stored
   // there instead of on local disk. Leave blank to keep local storage.
   SUPABASE_URL: process.env.SUPABASE_URL?.trim() ?? '',

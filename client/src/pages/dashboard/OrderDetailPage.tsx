@@ -11,12 +11,17 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useOrder, useSetOrderStatus } from '@/hooks/use-orders'
-import { ORDER_STATUSES, type OrderItem, type OrderStatus } from '@/api/orders'
+import {
+  ORDER_STATUSES,
+  type Order,
+  type OrderItem,
+  type OrderStatus,
+} from '@/api/orders'
 // import { downloadText, orderToCsv, orderToJson } from '@/lib/orderExport'
 import type { ProductDesign } from '@/lib/boxDraft'
 import type { BoxLine } from '@/types/box'
 import type { PlacementLayer, PlacementLayout } from '@/types/layout'
-import { formatPrice } from '@/utils/format'
+import { formatDateTime, formatPrice } from '@/utils/format'
 
 const STATUS_STYLE: Record<OrderStatus, string> = {
   new: 'border-primary/40 bg-primary/10 text-primary',
@@ -291,6 +296,27 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
  * let alone a placement table per element — and it could not be printed or
  * handed to a supplier.
  */
+/** The campaign fields that are actually set, in a readable order. */
+function attributionRows(order: Order): [string, string][] {
+  const a = order.attribution
+  const rows: [string, string | null | undefined][] = [
+    ['Source', order.source ?? null],
+    ['Landing page', order.collectionSlug],
+    ['Google click id', a?.gclid],
+    ['Meta click id', a?.fbclid],
+    ['Microsoft click id', a?.msclkid],
+    ['utm_source', a?.utmSource],
+    ['utm_medium', a?.utmMedium],
+    ['utm_campaign', a?.utmCampaign],
+    ['utm_term', a?.utmTerm],
+    ['utm_content', a?.utmContent],
+    ['Landed on', a?.landingPath],
+    ['Referrer', a?.referrer],
+    ['First seen', a?.firstSeenAt ? formatDateTime(a.firstSeenAt) : null],
+  ]
+  return rows.filter((row): row is [string, string] => Boolean(row[1]))
+}
+
 export function OrderDetailPage() {
   const { id = '' } = useParams()
   const { data: order, isLoading, error } = useOrder(id)
@@ -406,12 +432,61 @@ export function OrderDetailPage() {
             <dt className="text-muted-foreground">Needed by</dt>
             <dd>{order.delivery?.neededBy || 'Not stated'}</dd>
           </div>
+          {order.contact.company && (
+            <div className="flex gap-2">
+              <dt className="text-muted-foreground">Company</dt>
+              <dd>
+                {order.contact.company}
+                {order.isGuest && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    (no account)
+                  </span>
+                )}
+              </dd>
+            </div>
+          )}
+          {order.contact.phone && (
+            <div className="flex gap-2">
+              <dt className="text-muted-foreground">Phone</dt>
+              <dd>{order.contact.phone}</dd>
+            </div>
+          )}
+          {order.locale && (
+            <div className="flex gap-2">
+              <dt className="text-muted-foreground">Reply in</dt>
+              <dd className="uppercase">{order.locale}</dd>
+            </div>
+          )}
         </dl>
         {order.delivery?.notes && (
           <p className="whitespace-pre-wrap rounded-brand bg-muted/40 px-3 py-2 text-sm">
             <span className="text-muted-foreground">Notes: </span>
             {order.delivery.notes}
           </p>
+        )}
+
+        {/*
+          Where this request came from.
+
+          Folded away because the team pricing a box does not need it, and open
+          to whoever is asking which campaign paid for which lead. It is also
+          what was forwarded to the ads side, so it is worth being able to see.
+        */}
+        {(order.source === 'funnel' || order.attribution) && (
+          <details className="group rounded-brand border border-border/40 bg-muted/10 px-3 py-2 text-sm print:hidden">
+            <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground">
+              Campaign
+              {order.collectionSlug ? ` · ${order.collectionSlug}` : ''}
+            </summary>
+            <dl className="mt-2 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
+              {attributionRows(order).map(([label, value]) => (
+                <div key={label} className="flex gap-2">
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd className="min-w-0 break-all">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </details>
         )}
       </header>
 

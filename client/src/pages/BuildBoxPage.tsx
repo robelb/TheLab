@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
 import { usePostHog } from '@posthog/react'
 import { AddProductDialog } from '@/components/AddProductDialog'
 import {
@@ -49,11 +50,13 @@ import {
   useUpdateCampaign,
 } from '@/hooks/use-campaigns'
 import { useBoxSupplies, useProductsByIds } from '@/hooks/use-products'
+import { useProduct } from '@/hooks/use-product'
 import {
   BOX_SKU_PREFIX,
   boxAllLines,
   boxSubtotal,
   sameBoxLines,
+  sameComposition,
   toBoxLine,
 } from '@/lib/box'
 import {
@@ -110,6 +113,7 @@ function errorMessage(err: unknown, fallback: string): string {
 
 export function BuildBoxPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const posthog = usePostHog()
   const { brand } = useBrand()
   const { domain } = useAuth()
@@ -209,6 +213,7 @@ export function BuildBoxPage() {
     if (item?.box) {
       setDraft({
         campaignId: item.box.campaignId,
+        bundleId: item.box.bundleId ?? null,
         title: item.product.name,
         productIds: item.box.lines.map((l) => l.productId),
         quantities: Object.fromEntries(
@@ -239,6 +244,47 @@ export function BuildBoxPage() {
     }
     setSearchParams({}, { replace: true })
   }, [editParam, cartItems, setSearchParams])
+
+  // ── Opening a pre-configured box ─────────────────────────────────────────
+  // A collection card links here as `/build-box?bundle=<product id>`. The box
+  // is loaded into the draft exactly as sold, so the first thing the shopper
+  // sees is the box they clicked — and the price they were shown holds until
+  // they change something. The param is dropped once it has been read, so a
+  // refresh does not undo their edits.
+  const bundleParam = searchParams.get('bundle')
+  // Falls back to the draft's own id once the param has been consumed: the
+  // builder needs the box's parts list for as long as it is charging that
+  // box's price, not just for the moment it loads it.
+  const { data: bundle } = useProduct(bundleParam ?? draft.bundleId ?? '')
+
+  useEffect(() => {
+    if (!bundleParam || !bundle?.components?.length) return
+    const contents = bundle.components.filter((c) => c.role === 'item')
+    setDraft({
+      ...EMPTY_BOX_DRAFT,
+      bundleId: bundle.id,
+      title: bundle.name,
+      productIds: contents.map((c) => c.product.id),
+      quantities: Object.fromEntries(
+        contents.map((c) => [c.product.id, c.quantity]),
+      ),
+      packagingId:
+        bundle.components.find((c) => c.role === 'packaging')?.product.id ?? null,
+      fillingId:
+        bundle.components.find((c) => c.role === 'filling')?.product.id ?? null,
+    })
+    // The components came back whole, so the tiles can render before the
+    // `by-ids` refetch lands.
+    setKnown((prev) => {
+      const next = { ...prev }
+      for (const component of bundle.components ?? []) {
+        next[component.product.id] = component.product
+      }
+      return next
+    })
+    setError(null)
+    setSearchParams({}, { replace: true })
+  }, [bundleParam, bundle, setSearchParams])
 
   // The line can disappear while it's being edited (removed in another tab), in
   // which case saving falls back to adding a new box.
@@ -329,9 +375,14 @@ export function BuildBoxPage() {
   const nameList = (items: Product[]): string => {
     const names = items.slice(0, 3).map((p) => p.name)
     const rest = items.length - names.length
-    if (rest > 0) names.push(`${rest} more`)
-    if (names.length === 1) return names[0]
-    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+    if (names.length === 1 && rest === 0) return names[0]
+    if (rest > 0) {
+      return t('buildBox.andMore', { list: names.join(', '), count: rest })
+    }
+    return t('buildBox.listAnd', {
+      list: names.slice(0, -1).join(', '),
+      last: names[names.length - 1],
+    })
   }
   /** Open while confirming a box that will be photographed unbranded. */
   const [confirmingPlain, setConfirmingPlain] = useState(false)
@@ -361,9 +412,13 @@ export function BuildBoxPage() {
   // replaces the last one, so at most one printed box is ever offered.
   const imageOptions = useMemo(() => {
     const options: { url: string; label: string }[] = []
-    if (imageUrl) options.push({ url: imageUrl, label: 'Bundle photo' })
+    if (imageUrl)
+      options.push({ url: imageUrl, label: t('buildBox.bundlePhoto') })
     if (packagingDesign) {
-      options.push({ url: packagingDesign.image, label: 'Printed box' })
+      options.push({
+        url: packagingDesign.image,
+        label: t('buildBox.printedBox'),
+      })
     }
     for (const product of products) {
       const design = designFor(draft, product.id)
@@ -384,7 +439,23 @@ export function BuildBoxPage() {
 
   const productsSubtotal = boxSubtotal(lines)
   const suppliesSubtotal = boxSubtotal(supplyLines)
-  const subtotal = productsSubtotal + suppliesSubtotal
+  const partsSubtotal = productsSubtotal + suppliesSubtotal
+
+  /**
+   * A ready-made box keeps its own price only while it is still that box.
+   *
+   * Those boxes are sold for less than their contents come to, which is what
+   * makes them an offer. Swap a product or change a quantity and there is no
+   * offer left to honour, so the price becomes the sum of the parts — shown
+   * here as it happens, and checked again by the server before anything is
+   * recorded.
+   */
+  const bundleIntact = Boolean(
+    draft.bundleId &&
+      bundle?.components &&
+      sameComposition([...lines, ...supplyLines], bundle.components),
+  )
+  const subtotal = bundleIntact && bundle ? bundle.price : partsSubtotal
   const pieceCount = lines.reduce((sum, l) => sum + l.quantity, 0)
   const currency = products[0]?.currency ?? packaging?.currency
   const fallbackTitle = `${brand.companyName} box`
@@ -465,7 +536,7 @@ export function BuildBoxPage() {
         domain,
       })
     } catch (err) {
-      setError(errorMessage(err, 'Could not put a box together.'))
+      setError(errorMessage(err, t('buildBox.assembleFailed')))
     }
   }
 
@@ -548,7 +619,7 @@ export function BuildBoxPage() {
         domain,
       })
     } catch (err) {
-      setError(errorMessage(err, 'Could not build the box image.'))
+      setError(errorMessage(err, t('buildBox.imageFailed')))
     }
   }
 
@@ -564,15 +635,17 @@ export function BuildBoxPage() {
     id,
     sku: `${BOX_SKU_PREFIX}${id.slice(0, 8).toUpperCase()}`,
     name: title,
-    tagline: `Gift box · ${pieceCount} item${pieceCount === 1 ? '' : 's'}`,
+    tagline: t('buildBox.giftBoxTagline', { count: pieceCount }),
     price: subtotal,
     currency,
-    category: 'Gift box',
+    category: t('buildBox.giftBox'),
     image: mainImage ?? products[0].image,
     customizedImage: null,
-    description: `Gift box with: ${lines
-      .map((l) => (l.quantity > 1 ? `${l.name} × ${l.quantity}` : l.name))
-      .join(', ')}`,
+    description: t('buildBox.giftBoxWith', {
+      contents: lines
+        .map((l) => (l.quantity > 1 ? `${l.name} × ${l.quantity}` : l.name))
+        .join(', '),
+    }),
     // Packaging and filling ride along so the line item alone is enough to
     // fulfil the order.
     details: [
@@ -587,6 +660,10 @@ export function BuildBoxPage() {
     const title = draft.title.trim() || fallbackTitle
     const box: BoxDetails = {
       campaignId,
+      // Only claimed while the box is untouched — a changed box is a box of
+      // their own, and is priced like one.
+      bundleId: bundleIntact ? draft.bundleId : null,
+      bundlePrice: bundleIntact && bundle ? bundle.price : null,
       lines,
       packaging: packagingLine,
       filling: fillingLine,
@@ -652,7 +729,7 @@ export function BuildBoxPage() {
       <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
         <Link to="/">
           <ArrowLeft className="size-4" />
-          Back to shop
+          {t('buildBox.backToShop')}
         </Link>
       </Button>
 
@@ -661,12 +738,10 @@ export function BuildBoxPage() {
           {brand.companyName}
         </p>
         <h1 className="font-display text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
-          {editing ? 'Edit your box' : 'Build your box'}
+          {editing ? t('buildBox.editTitle') : t('buildBox.buildTitle')}
         </h1>
         <p className="text-lg text-muted-foreground">
-          {editing
-            ? 'Change what’s inside, then save it back to your cart.'
-            : 'Pick the pieces you want together, then let us photograph them as one branded gift box.'}
+          {editing ? t('buildBox.editIntro') : t('buildBox.buildIntro')}
         </p>
       </section>
 
@@ -675,13 +750,15 @@ export function BuildBoxPage() {
           <p className="flex items-center gap-2 text-sm">
             <Pencil className="size-4 shrink-0 text-primary" />
             <span>
-              Editing{' '}
-              <span className="font-medium">{editingItem?.product.name}</span>{' '}
-              from your cart — changes apply when you save.
+              <Trans
+                i18nKey="buildBox.editingFromCart"
+                values={{ name: editingItem?.product.name ?? '' }}
+                components={{ 1: <span className="font-medium" /> }}
+              />
             </span>
           </p>
           <Button type="button" variant="ghost" size="sm" onClick={cancelEditing}>
-            Cancel
+            {t('buildBox.cancel')}
           </Button>
         </div>
       )}
@@ -698,7 +775,7 @@ export function BuildBoxPage() {
                 type="button"
                 onClick={() => setPreview(true)}
                 className="block w-full"
-                aria-label="Preview box image"
+                aria-label={t('buildBox.previewImage')}
               >
                 {/* The previous render stays up while a new one is in flight. */}
                 <img
@@ -714,8 +791,8 @@ export function BuildBoxPage() {
               <div className="flex aspect-square flex-col items-center justify-center gap-3 px-6 text-center text-sm text-muted-foreground">
                 <Gift className="size-8" />
                 {products.length === 0
-                  ? 'Describe your box or add a few products, and we’ll photograph it for you.'
-                  : 'Ready when you are — build the box image.'}
+                  ? t('buildBox.emptyIntro')
+                  : t('buildBox.readyToBuild')}
               </div>
             )}
 
@@ -724,13 +801,13 @@ export function BuildBoxPage() {
                 <Loader2 className="size-7 animate-spin text-primary" />
                 <p className="text-sm font-medium">
                   {generate.isPending
-                    ? 'Putting your box together…'
-                    : 'Photographing your box…'}
+                    ? t('buildBox.assembling')
+                    : t('buildBox.photographing')}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {generate.isPending
-                    ? 'Picking the products, then photographing them.'
-                    : 'This can take up to a minute. You can keep adding products.'}
+                    ? t('buildBox.pickingProducts')
+                    : t('buildBox.takesAMinute')}
                 </p>
               </div>
             )}
@@ -742,7 +819,7 @@ export function BuildBoxPage() {
             <div
               className="flex flex-wrap gap-2"
               role="radiogroup"
-              aria-label="Box image"
+              aria-label={t('buildBox.boxImage')}
             >
               {imageOptions.map((option) => {
                 const active = option.url === mainImage
@@ -777,17 +854,15 @@ export function BuildBoxPage() {
             <p className="flex items-start gap-2 rounded-brand border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
               <AlertTriangle className="mt-px size-3.5 shrink-0" />
               <span>
-                {error ??
-                  campaign?.heroImageError ??
-                  'Could not build the box image.'}{' '}
-                Try again.
+                {error ?? campaign?.heroImageError ?? t('buildBox.imageFailed')}
+                {t('buildBox.tryAgain')}
               </span>
             </p>
           )}
 
           {imageStale && (
             <p className="text-xs text-muted-foreground">
-              Your box changed — build the image again to update it.
+              {t('buildBox.boxChanged')}
             </p>
           )}
 
@@ -801,12 +876,14 @@ export function BuildBoxPage() {
             {generating ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Building…
+                {t('buildBox.building')}
               </>
             ) : (
               <>
                 <Sparkles className="size-4" />
-                {imageUrl ? 'Rebuild box image' : 'Build box image'}
+                {imageUrl
+                  ? t('buildBox.rebuildImage')
+                  : t('buildBox.buildImage')}
               </>
             )}
           </Button>
@@ -817,7 +894,7 @@ export function BuildBoxPage() {
             <dl className="space-y-1 text-xs">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">
-                  Products
+                  {t('buildBox.products')}
                   {pieceCount > 0 && ` (${pieceCount})`}
                 </dt>
                 <dd className="tabular-nums">
@@ -827,7 +904,7 @@ export function BuildBoxPage() {
               {packagingLine && (
                 <div className="flex justify-between gap-3">
                   <dt className="min-w-0 truncate text-muted-foreground">
-                    Box · {packagingLine.name}
+                    {t('buildBox.boxLabel')} · {packagingLine.name}
                   </dt>
                   <dd className="shrink-0 tabular-nums">
                     {formatPrice(packagingLine.price, packagingLine.currency)}
@@ -837,7 +914,7 @@ export function BuildBoxPage() {
               {fillingLine && (
                 <div className="flex justify-between gap-3">
                   <dt className="min-w-0 truncate text-muted-foreground">
-                    Filling · {fillingLine.name}
+                    {t('buildBox.fillingLabel')} · {fillingLine.name}
                   </dt>
                   <dd className="shrink-0 tabular-nums">
                     {formatPrice(fillingLine.price, fillingLine.currency)}
@@ -849,11 +926,20 @@ export function BuildBoxPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-2">
               <div className="space-y-0.5">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Box total
+                  {t('buildBox.boxTotal')}
                 </p>
                 <p className="font-display text-lg font-semibold">
                   {formatPrice(subtotal, currency)}
                 </p>
+                {/* Says which of the two prices this is, and — once they have
+                    changed a ready-made box — why it moved. */}
+                {draft.bundleId && (
+                  <p className="text-xs text-primary">
+                    {bundleIntact
+                      ? t('cart.bundleKept')
+                      : t('cart.bundleChanged')}
+                  </p>
+                )}
               </div>
               <Button
                 type="button"
@@ -863,7 +949,7 @@ export function BuildBoxPage() {
                 disabled={products.length === 0}
               >
                 <ShoppingBag className="size-4" />
-                {editing ? 'Save box to cart' : 'Add box to cart'}
+                {editing ? t('buildBox.saveToCart') : t('buildBox.addToCart')}
               </Button>
             </div>
           </div>
@@ -871,8 +957,8 @@ export function BuildBoxPage() {
           {outOfStock.length > 0 && (
             <p className="text-xs text-muted-foreground">
               {outOfStock.length === 1
-                ? `${outOfStock[0].name} is out of stock.`
-                : `${outOfStock.length} products in this box are out of stock.`}
+                ? t('buildBox.outOfStockOne', { name: outOfStock[0].name })
+                : t('buildBox.outOfStockMany', { count: outOfStock.length })}
             </p>
           )}
         </div>
@@ -886,11 +972,10 @@ export function BuildBoxPage() {
                 className="flex items-center gap-1.5 text-sm font-medium"
               >
                 <Sparkles className="size-4 text-primary" />
-                Let us pick for you
+                {t('buildBox.letUsPick')}
               </label>
               <p className="text-xs text-muted-foreground">
-                Describe the box you want — occasion, who it’s for, the vibe.
-                Leave it blank for a box built around {brand.companyName}.
+                {t('buildBox.briefHint', { company: brand.companyName })}
               </p>
             </div>
             <Textarea
@@ -898,7 +983,7 @@ export function BuildBoxPage() {
               rows={3}
               value={brief}
               onChange={(e) => setBrief(e.target.value)}
-              placeholder="e.g. A cosy winter welcome box for new hires — warm, understated, premium."
+              placeholder={t('buildBox.briefPlaceholder')}
               disabled={generate.isPending}
             />
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -910,19 +995,20 @@ export function BuildBoxPage() {
                 {generate.isPending ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    Putting your box together…
+                    {t('buildBox.assembling')}
                   </>
                 ) : (
                   <>
                     <Sparkles className="size-4" />
-                    Pick products for me
+                    {t('buildBox.pickForMe')}
                   </>
                 )}
               </Button>
               {draft.productIds.length > 0 && !generate.isPending && (
                 <span className="text-xs text-muted-foreground">
-                  Replaces the {draft.productIds.length} product
-                  {draft.productIds.length === 1 ? '' : 's'} in your box.
+                  {t('buildBox.replacesProducts', {
+                    count: draft.productIds.length,
+                  })}
                 </span>
               )}
             </div>
@@ -933,7 +1019,7 @@ export function BuildBoxPage() {
               htmlFor="box-name"
               className="text-xs font-medium text-muted-foreground"
             >
-              Box name
+              {t('buildBox.boxName')}
             </label>
             <Input
               id="box-name"
@@ -948,14 +1034,18 @@ export function BuildBoxPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">
-                In this box ({products.length}
-                {pieceCount !== products.length && ` · ${pieceCount} items`})
+                {pieceCount !== products.length
+                  ? t('buildBox.inThisBoxPieces', {
+                      count: products.length,
+                      pieces: pieceCount,
+                    })
+                  : t('buildBox.inThisBox', { count: products.length })}
               </span>
               <div className="flex items-center gap-1">
                 {draft.productIds.length > 0 && (
                   <Button variant="ghost" size="sm" onClick={startOver}>
                     <RotateCcw className="size-4" />
-                    Start over
+                    {t('buildBox.startOver')}
                   </Button>
                 )}
                 <Button
@@ -964,7 +1054,7 @@ export function BuildBoxPage() {
                   onClick={() => setAddOpen(true)}
                 >
                   <Plus className="size-4" />
-                  Add product
+                  {t('buildBox.addProduct')}
                 </Button>
               </div>
             </div>
@@ -973,11 +1063,11 @@ export function BuildBoxPage() {
               <div className="flex flex-col items-center gap-3 rounded-brand border border-dashed border-border/60 bg-muted/20 px-6 py-12 text-center">
                 <ImageIcon className="size-6 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  Your box is empty. Add products to get started.
+                  {t('buildBox.emptyBox')}
                 </p>
                 <Button variant="outline" onClick={() => setAddOpen(true)}>
                   <Plus className="size-4" />
-                  Add your first product
+                  {t('buildBox.addFirst')}
                 </Button>
               </div>
             ) : productsLoading && products.length === 0 ? (
@@ -1009,17 +1099,16 @@ export function BuildBoxPage() {
             <div className="space-y-1">
               <p className="flex items-center gap-1.5 text-sm font-medium">
                 <Package className="size-4 text-primary" />
-                Packaging &amp; filling
+                {t('buildBox.packagingAndFilling')}
               </p>
               <p className="text-xs text-muted-foreground">
-                Every box ships in one of these, padded with filling material.
-                Both are included in the box total.
+                {t('buildBox.suppliesNote')}
               </p>
             </div>
 
             <SupplyPicker
-              label="Box"
-              hint="The gift box your products are packed into."
+              label={t('buildBox.packaging')}
+              hint={t('buildBox.packagingHint')}
               options={supplies.packaging}
               selectedId={draft.packagingId}
               // Picking a different box keeps any generated design — it took
@@ -1034,14 +1123,16 @@ export function BuildBoxPage() {
                 <Wand2 className="size-4 shrink-0 text-primary" />
                 <p className="min-w-0 flex-1 text-xs text-muted-foreground">
                   {packagingDesign ? (
-                    <>
-                      Printed with{' '}
-                      <span className="text-foreground">
-                        “{packagingDesign.prompt || 'your design'}”
-                      </span>
-                    </>
+                    <Trans
+                      i18nKey="buildBox.printedWith"
+                      values={{
+                        prompt:
+                          packagingDesign.prompt || t('buildBox.yourDesign'),
+                      }}
+                      components={{ 1: <span className="text-foreground" /> }}
+                    />
                   ) : (
-                    <>Print a name, message or your logo on this box.</>
+                    t('buildBox.printOnBox')
                   )}
                 </p>
                 <Button
@@ -1050,14 +1141,16 @@ export function BuildBoxPage() {
                   size="sm"
                   onClick={() => openDesigner(packaging.id)}
                 >
-                  {packagingDesign ? 'Change design' : 'Customise box'}
+                  {packagingDesign
+                    ? t('buildBox.changeDesign')
+                    : t('buildBox.customiseBox')}
                 </Button>
               </div>
             )}
 
             <SupplyPicker
-              label="Filling material"
-              hint="What cushions the products inside the box."
+              label={t('buildBox.filling')}
+              hint={t('buildBox.fillingHint')}
               options={supplies.filling}
               selectedId={draft.fillingId}
               onSelect={(p) => setDraft((d) => ({ ...d, fillingId: p.id }))}
@@ -1072,7 +1165,7 @@ export function BuildBoxPage() {
         onOpenChange={setAddOpen}
         existingIds={draft.productIds}
         onAdd={addProduct}
-        title="Add to your box"
+        title={t('buildBox.addToYourBox')}
         plainImages
       />
 
@@ -1091,49 +1184,65 @@ export function BuildBoxPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {nothingDesigned
-                ? 'You haven’t designed any of these products'
+                ? t('buildBox.plainTitleNone')
                 : undesignedProducts.length === 1
-                  ? `You haven’t designed the ${undesignedProducts[0].name}`
-                  : `You haven’t designed ${undesignedProducts.length} of these products`}
+                  ? t('buildBox.plainTitleOne', {
+                      name: undesignedProducts[0].name,
+                    })
+                  : t('buildBox.plainTitleMany', {
+                      count: undesignedProducts.length,
+                    })}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {nothingDesigned
                 ? products.length === 1
-                  ? `The ${products[0].name} will be photographed exactly as it is — plain, with no logo or artwork on it.`
-                  : `All ${products.length} products will be photographed exactly as they are — plain, with no logo or artwork on them.`
+                  ? t('buildBox.plainBodyAllOne', { name: products[0].name })
+                  : t('buildBox.plainBodyAllMany', { count: products.length })
                 : undesignedProducts.length === 1
-                  ? `The ${undesignedProducts[0].name} will be photographed exactly as it is — plain, with no logo or artwork on it. `
-                  : `${nameList(undesignedProducts)} will be photographed exactly as they are — plain, with no logo or artwork on them. `}
+                  ? t('buildBox.plainBodySomeOne', {
+                      name: undesignedProducts[0].name,
+                    })
+                  : t('buildBox.plainBodySomeMany', {
+                      names: nameList(undesignedProducts),
+                    })}
               {/* Which half is safe matters as much as which half is bare —
                   the worry a part-designed box raises is whether asking for
                   the render costs them the work they already did. */}
               {!nothingDesigned &&
                 (designedProducts.length === 1
-                  ? `Your design on the ${designedProducts[0].name} comes through exactly as you made it.`
-                  : `Your designs on ${nameList(designedProducts)} come through exactly as you made them.`)}
-              {packagingDesign
-                ? ' The design you made for the box itself still prints.'
-                : ''}
+                  ? t('buildBox.designedSafeOne', {
+                      name: designedProducts[0].name,
+                    })
+                  : t('buildBox.designedSafeMany', {
+                      names: nameList(designedProducts),
+                    }))}
+              {packagingDesign ? t('buildBox.boxDesignStillPrints') : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {/* What to do instead, with the products actually named — "design a
               product" is advice; "design the Mug" is a next step. */}
           <p className="rounded-brand border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            To put your branding on{' '}
-            {undesignedProducts.length === 1 ? 'it' : 'one of them'}, go back
-            and press{' '}
-            <span className="font-medium text-foreground">Design</span> on it —{' '}
-            {nameList(undesignedProducts)}.
+            <Trans
+              i18nKey={
+                undesignedProducts.length === 1
+                  ? 'buildBox.howToDesignOne'
+                  : 'buildBox.howToDesignMany'
+              }
+              values={{ names: nameList(undesignedProducts) }}
+              components={{
+                1: <span className="font-medium text-foreground" />,
+              }}
+            />
           </p>
           <AlertDialogFooter>
-            <AlertDialogCancel>Back to edit</AlertDialogCancel>
+            <AlertDialogCancel>{t('buildBox.backToEdit')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setConfirmingPlain(false)
                 void buildImage()
               }}
             >
-              Approve and build
+              {t('buildBox.approveAndBuild')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1142,7 +1251,9 @@ export function BuildBoxPage() {
       {mainImage && (
         <Dialog open={preview} onOpenChange={setPreview}>
           <DialogContent className="max-w-4xl border-none bg-transparent p-0 shadow-none">
-            <DialogTitle className="sr-only">Box image</DialogTitle>
+            <DialogTitle className="sr-only">
+              {t('buildBox.boxImage')}
+            </DialogTitle>
             <img
               src={mainImage}
               alt={draft.title || fallbackTitle}
