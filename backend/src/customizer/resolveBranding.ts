@@ -29,17 +29,25 @@ export interface ResolveBrandingOptions {
    * than an error they can act on.
    */
   required?: boolean
+  /**
+   * Longest edge to keep for a raster mark. Defaults to the image-model input
+   * cap; the flat mockup raises it, because nothing downstream of it is a model.
+   */
+  maxEdge?: number
 }
 
 export async function resolveBrandingImage(
   input: BrandingInput,
   options: ResolveBrandingOptions = {},
 ): Promise<FetchedImage | undefined> {
+  const { maxEdge } = options
   if (input.brandingImage) {
-    return fetchedImageFromDataUrl(input.brandingImage, 'logo')
+    return fetchedImageFromDataUrl(input.brandingImage, 'logo', { maxEdge })
   }
   if (input.brandingImageUrl) {
-    const fetched = await fetchImageOptional(input.brandingImageUrl, 'logo')
+    const fetched = await fetchImageOptional(input.brandingImageUrl, 'logo', {
+      maxEdge,
+    })
     if (!fetched && options.required) {
       throw new Error(
         'Could not load your logo. Check the brand logo and try again.',
@@ -48,7 +56,7 @@ export async function resolveBrandingImage(
     return fetched ?? undefined
   }
   if (input.brandingSvg) {
-    return fetchedImageFromInlineSvg(input.brandingSvg)
+    return fetchedImageFromInlineSvg(input.brandingSvg, { maxEdge })
   }
   return undefined
 }

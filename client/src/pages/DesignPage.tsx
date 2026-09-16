@@ -280,9 +280,21 @@ export function DesignPage() {
   )
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingArt, setUploadingArt] = useState(false)
-  // Shared by both upload entry points — a mark on a coloured product almost
-  // always wants its white background gone, so it defaults on.
-  const [knockOutWhite, setKnockOutWhite] = useState(true)
+  /**
+   * Whether to cut the white background off an upload — asked separately of the
+   * two entry points, because the honest default is opposite for each.
+   *
+   * A LOGO is nearly always supplied on white and nearly always going onto a
+   * coloured product, where that white reads as a pasted rectangle. On.
+   *
+   * ARTWORK is whatever the shopper wants printed: a photograph, an
+   * illustration, a scan. Cutting the background out of one is not a tidy-up,
+   * it is damage — a photo's sky is light and runs to every edge, so the
+   * knockout ate into the clouds and the picture arrived on the canvas full of
+   * holes. Nothing is removed unless it is asked for.
+   */
+  const [knockOutLogoWhite, setKnockOutLogoWhite] = useState(true)
+  const [knockOutArtWhite, setKnockOutArtWhite] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
   const artInputRef = useRef<HTMLInputElement>(null)
 
@@ -351,7 +363,7 @@ export function DesignPage() {
       // mockup, the photoreal pass and the saved draft then all reference one
       // URL instead of passing a base64 blob between them.
       const [url] = await uploadImages([await fileToDataUrl(file)], {
-        transparent: knockOutWhite,
+        transparent: knockOutLogoWhite,
       })
       setLogoOverride(url)
       // Uploading a mark when none is placed is a request to place it.
@@ -435,7 +447,7 @@ export function DesignPage() {
     setUploadingArt(true)
     try {
       const [url] = await uploadImages([await fileToDataUrl(file)], {
-        transparent: knockOutWhite,
+        transparent: knockOutArtWhite,
       })
       addAndSelect(defaultImageLayer(url))
     } finally {
@@ -1049,13 +1061,14 @@ export function DesignPage() {
                 e.target.value = ''
               }}
             />
-            {/* Applies to both upload buttons. Default on: a mark supplied on
-                white reads as a pasted white box on any coloured product. */}
+            {/* Artwork only — the logo has its own, below. Default off: this
+                uploads photographs as often as marks, and a photograph has
+                nothing to cut out. */}
             <label className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
               <input
                 type="checkbox"
-                checked={knockOutWhite}
-                onChange={(e) => setKnockOutWhite(e.target.checked)}
+                checked={knockOutArtWhite}
+                onChange={(e) => setKnockOutArtWhite(e.target.checked)}
                 className="mt-0.5 size-3 accent-[var(--color-primary)]"
               />
               <span>{t('design.makeWhiteBackgroundsTransparentOn')}</span>
@@ -1141,6 +1154,16 @@ export function DesignPage() {
                 e.target.value = ''
               }}
             />
+            {/* The logo's own, and on by default — see `knockOutLogoWhite`. */}
+            <label className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={knockOutLogoWhite}
+                onChange={(e) => setKnockOutLogoWhite(e.target.checked)}
+                className="mt-0.5 size-3 accent-[var(--color-primary)]"
+              />
+              <span>{t('design.makeWhiteBackgroundsTransparentOn')}</span>
+            </label>
           </div>
 
           {selected && (

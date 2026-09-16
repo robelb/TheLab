@@ -20,6 +20,7 @@ const MIME_EXT: Record<string, string> = {
 export async function fetchedImageFromDataUrl(
   input: string,
   role: ImageFetchRole,
+  options: { maxEdge?: number } = {},
 ): Promise<FetchedImage> {
   const match = /^data:([^;]+);base64,(.*)$/s.exec(input)
   const declaredMime = match?.[1]
@@ -29,12 +30,15 @@ export async function fetchedImageFromDataUrl(
 
   const normalized = await normalizeImageForAi(
     { buffer, mimeType, base64: buffer.toString('base64') },
-    { role },
+    { role, maxEdge: options.maxEdge },
   )
   return {
     buffer: normalized.buffer,
     mimeType: normalized.mimeType,
     base64: normalized.base64,
+    // An uploaded SVG mark carries its markup on, same as a fetched one — the
+    // compositor re-renders it rather than upscaling the raster.
+    vector: normalized.vector,
   }
 }
 

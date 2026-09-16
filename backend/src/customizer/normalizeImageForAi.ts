@@ -100,22 +100,30 @@ export function resolveImageMime(
  * input dimensions, not file compression — larger images just add tokens for
  * detail the 1024-output models discard. Logos/favicons are usually smaller and
  * are left untouched (withoutEnlargement).
+ *
+ * It is the DEFAULT, not the rule: `maxEdge` raises it for callers whose output
+ * a person looks at rather than a model. The flat mockup is one — it never
+ * touches an image model, so paying a model's token budget only cost it detail.
  */
-const MAX_AI_INPUT_EDGE = 1024
+export const MAX_AI_INPUT_EDGE = 1024
 
-async function downscaleForAi(buffer: Buffer, mimeType: string): Promise<Buffer> {
+async function downscaleForAi(
+  buffer: Buffer,
+  mimeType: string,
+  maxEdge: number,
+): Promise<Buffer> {
   // GIFs may be animated; resizing would flatten them, so leave as-is.
   if (mimeType === 'image/gif') return buffer
 
   const { default: sharp } = await import('sharp')
   const meta = await sharp(buffer).metadata()
   const longest = Math.max(meta.width ?? 0, meta.height ?? 0)
-  if (longest <= MAX_AI_INPUT_EDGE) return buffer
+  if (longest <= maxEdge) return buffer
 
   // No explicit format call → sharp re-encodes in the original format,
   // preserving PNG/WebP transparency for logos.
   return sharp(buffer)
-    .resize(MAX_AI_INPUT_EDGE, MAX_AI_INPUT_EDGE, {
+    .resize(maxEdge, maxEdge, {
       fit: 'inside',
       withoutEnlargement: true,
     })
@@ -148,11 +156,20 @@ function repairSvgMarkup(svgMarkup: string): string {
   return svg
 }
 
-async function convertSvgToPng(buffer: Buffer): Promise<Buffer> {
+/**
+ * Raster size a converted logo SVG lands at, longest edge.
+ *
+ * It stays small because this raster is what goes to the image model, which
+ * discards detail beyond its own output size anyway. It is no longer a ceiling
+ * on quality: the markup travels alongside as `vector`, so a compositor that
+ * needs the mark bigger than this re-renders it rather than upscaling.
+ */
+const SVG_RASTER_EDGE = 512
+
+async function convertSvgToPng(buffer: Buffer, edge: number): Promise<Buffer> {
   const { default: sharp } = await import('sharp')
-  const repaired = Buffer.from(repairSvgMarkup(buffer.toString('utf8')), 'utf8')
-  return sharp(repaired, { density: 300 })
-    .resize(512, 512, {
+  return sharp(buffer, { density: 300 })
+    .resize(edge, edge, {
       fit: 'inside',
       withoutEnlargement: false,
       background: { r: 0, g: 0, b: 0, alpha: 0 },
@@ -166,6 +183,7 @@ function toFetched(
   mimeType: string,
   originalMimeType: string,
   converted: boolean,
+  vector?: Buffer,
 ): FetchedImage & { originalMimeType: string; converted: boolean } {
   return {
     buffer,
@@ -174,12 +192,15 @@ function toFetched(
     originalMimeType,
     converted,
     convertedForAi: converted,
+    vector,
   }
 }
 
 export interface NormalizeImageOptions {
   role: ImageFetchRole
   sourceUrl?: string
+  /** Longest edge to keep, overriding `MAX_AI_INPUT_EDGE`. */
+  maxEdge?: number
 }
 
 /**
@@ -193,6 +214,7 @@ export async function normalizeImageForAi(
   options: NormalizeImageOptions,
 ): Promise<FetchedImage & { originalMimeType: string; converted: boolean }> {
   const { role, sourceUrl } = options
+  const maxEdge = options.maxEdge ?? MAX_AI_INPUT_EDGE
   const originalMimeType = image.mimeType
   const mimeType = resolveImageMime(
     image.buffer,
@@ -201,7 +223,7 @@ export async function normalizeImageForAi(
   )
 
   if (AI_SAFE_IMAGE_MIMES.has(mimeType)) {
-    const downscaled = await downscaleForAi(image.buffer, mimeType)
+    const downscaled = await downscaleForAi(image.buffer, mimeType, maxEdge)
     const resized = downscaled !== image.buffer
     return toFetched(
       downscaled,
@@ -214,8 +236,15 @@ export async function normalizeImageForAi(
   if (mimeType === 'image/svg+xml') {
     if (role === 'logo') {
       try {
-        const png = await convertSvgToPng(image.buffer)
-        return toFetched(png, 'image/png', originalMimeType, true)
+        // Repaired once, here, so the markup handed on as `vector` is the same
+        // markup this raster came from — a compositor re-rendering it at print
+        // size must not be the first thing to discover librsvg rejects it.
+        const repaired = Buffer.from(
+          repairSvgMarkup(image.buffer.toString('utf8')),
+          'utf8',
+        )
+        const png = await convertSvgToPng(repaired, SVG_RASTER_EDGE)
+        return toFetched(png, 'image/png', originalMimeType, true, repaired)
       } catch (err) {
         throw new Error(
           `Logo SVG could not be converted to PNG${sourceUrl ? ` (${sourceUrl})` : ''}: ${
@@ -249,11 +278,12 @@ export async function normalizeImageForAi(
 /** Build a logo image from inline SVG markup returned by brand extraction. */
 export async function fetchedImageFromInlineSvg(
   svgMarkup: string,
+  options: Omit<NormalizeImageOptions, 'role' | 'sourceUrl'> = {},
 ): Promise<FetchedImage> {
   const buffer = Buffer.from(svgMarkup, 'utf8')
   const normalized = await normalizeImageForAi(
     { buffer, mimeType: 'image/svg+xml', base64: buffer.toString('base64') },
-    { role: 'logo', sourceUrl: 'inline-svg' },
+    { ...options, role: 'logo', sourceUrl: 'inline-svg' },
   )
   return normalized
 }

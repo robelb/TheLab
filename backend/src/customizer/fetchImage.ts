@@ -13,6 +13,25 @@ export interface FetchedImage {
   base64: string
   originalMimeType?: string
   convertedForAi?: boolean
+  /**
+   * The mark's own SVG markup, when it arrived as one — repaired, ready for
+   * librsvg, and already the source of `buffer`.
+   *
+   * `buffer` is a raster at a fixed size, which is all an image model can be
+   * handed. A compositor is not so limited: printing a vector mark across half
+   * a photograph meant upscaling that raster and shipping a soft logo in the
+   * one picture a customer studies before ordering. With the markup in hand it
+   * re-renders at whatever size the layout asks for.
+   */
+  vector?: Buffer
+}
+
+export interface FetchImageOptions {
+  /**
+   * Longest edge to keep. Defaults to the image-model input cap — raise it when
+   * the result is looked at rather than sent to a model.
+   */
+  maxEdge?: number
 }
 
 const EXT_MIME: Record<string, string> = {
@@ -38,8 +57,9 @@ function mimeFromUrl(url: string): string | undefined {
 export async function fetchImage(
   url: string,
   role: ImageFetchRole = 'product',
+  options: FetchImageOptions = {},
 ): Promise<FetchedImage> {
-  const result = await fetchImageOptional(url, role)
+  const result = await fetchImageOptional(url, role, options)
   if (!result) {
     throw new Error(`Could not use image (${role}): ${url}`)
   }
@@ -53,6 +73,7 @@ export async function fetchImage(
 export async function fetchImageOptional(
   url: string,
   role: ImageFetchRole,
+  options: FetchImageOptions = {},
 ): Promise<FetchedImage | null> {
   const res = await fetch(url, {
     headers: {
@@ -79,7 +100,7 @@ export async function fetchImageOptional(
   try {
     const normalized = await normalizeImageForAi(
       { buffer, mimeType, base64: buffer.toString('base64') },
-      { role, sourceUrl: url },
+      { role, sourceUrl: url, maxEdge: options.maxEdge },
     )
 
     return {
@@ -88,6 +109,7 @@ export async function fetchImageOptional(
       base64: normalized.base64,
       originalMimeType: normalized.originalMimeType,
       convertedForAi: normalized.converted,
+      vector: normalized.vector,
     }
   } catch (err) {
     if (err instanceof SkippableBrandImageError) {

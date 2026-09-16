@@ -136,6 +136,132 @@ const MEASURE_FONT_PX = 100
 const LINE_HEIGHT = 1.2
 
 /**
+ * Where a piece of wording's INK sits, in the span's own pixels at
+ * `MEASURE_FONT_PX` — not the line box it is laid out in.
+ *
+ * The distinction is the whole reason this type exists. A line box is as wide
+ * as the text advances (side bearings and the trailing space of the last glyph
+ * included) and as tall as the leading, whether or not any letter reaches into
+ * it. The server crops its render to the ink and scales THAT to the layer's
+ * width, so measuring the line box here meant the same layer came out some 5%
+ * smaller in the editor than in the mockup, and sitting a little high — higher
+ * still for wording with no descenders, lower for wording that was all
+ * descenders, because the two boxes have different centres.
+ *
+ * Nobody could point at the cause; it just looked like the mockup had moved
+ * things. Measuring the ink is what makes the placement canvas and the flat
+ * mockup describe the same rectangle.
+ */
+interface TextInk {
+  /** Offset of the ink from the span's top-left, at `MEASURE_FONT_PX`. */
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+/**
+ * One canvas for every measurement ever taken.
+ *
+ * `measureText` is the only way to the ink extents of a glyph run — the DOM
+ * reports advances and line boxes and nothing else — and a fresh 2D context per
+ * keystroke is a real cost when the wording is being typed on the product.
+ */
+let measuringContext: CanvasRenderingContext2D | null | undefined
+function textMeasurer(): CanvasRenderingContext2D | null {
+  if (measuringContext === undefined) {
+    measuringContext =
+      typeof document === 'undefined'
+        ? null
+        : document.createElement('canvas').getContext('2d')
+  }
+  return measuringContext
+}
+
+/**
+ * The ink box of a layer's wording, given where the DOM put its first baseline.
+ *
+ * Only the baseline comes from the DOM, because where the browser put it is a
+ * fact about its own layout rather than something to predict from font metrics.
+ * Everything else is measured here: how wide each line advances — which is the
+ * span's own shrink-to-fit width, and so where `text-center` centres it — and
+ * how far the ink reaches from that centre and that baseline.
+ *
+ * Taking the width from the same place as the ink rather than from the
+ * measuring div keeps the two in one coordinate system, and leaves that div
+ * free to hold the baseline marker without its own width becoming load-bearing.
+ *
+ * Null when the run has no ink at all — whitespace, or wording that has just
+ * been emptied. The server's `trim` fails on exactly the same input, so the two
+ * agree that there is no layer to draw rather than disagreeing about its size.
+ */
+function measureInk(
+  layer: PlacementLayer,
+  firstBaseline: number,
+): TextInk | null {
+  const lines = (layer.text ?? '').split('\n')
+  const ctx = textMeasurer()
+  if (!ctx) return null
+
+  ctx.font = `${layer.fontWeight === 'bold' ? 'bold' : 'normal'} ${MEASURE_FONT_PX}px ${
+    FONT_STACKS[layer.fontStyle ?? 'sans']
+  }`
+  // Both ends of the pipeline centre each line on the same anchor — `text-center`
+  // here, `text-anchor="middle"` in the server's SVG — so the ink offsets have
+  // to be read from the centre too, or a short line in a multi-line block would
+  // be measured as if it started at the left edge.
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'alphabetic'
+
+  const measured = lines.map((line) => ctx.measureText(line))
+  const centre = Math.max(...measured.map((m) => m.width)) / 2
+  if (!(centre > 0)) return null
+
+  if (measured[0].actualBoundingBoxAscent === undefined) {
+    // No ink extents to be had: fall back to the line box, which is what this
+    // measured before. Slightly off the mockup, rather than not drawn at all.
+    return {
+      left: 0,
+      top: 0,
+      width: centre * 2,
+      height: MEASURE_FONT_PX * LINE_HEIGHT * lines.length,
+    }
+  }
+
+  let left = Infinity
+  let right = -Infinity
+  let top = Infinity
+  let bottom = -Infinity
+  measured.forEach((m, i) => {
+    // A blank line has a baseline but no ink. Counting it would stretch the box
+    // to a line nobody can see; the server's trim passes straight over it.
+    if (m.actualBoundingBoxAscent + m.actualBoundingBoxDescent <= 0) return
+    const baseline = firstBaseline + i * MEASURE_FONT_PX * LINE_HEIGHT
+    left = Math.min(left, centre - m.actualBoundingBoxLeft)
+    right = Math.max(right, centre + m.actualBoundingBoxRight)
+    top = Math.min(top, baseline - m.actualBoundingBoxAscent)
+    bottom = Math.max(bottom, baseline + m.actualBoundingBoxDescent)
+  })
+
+  if (!(right > left) || !(bottom > top)) return null
+  return { left, top, width: right - left, height: bottom - top }
+}
+
+/**
+ * Put a span where its ink lands on the layer's box.
+ *
+ * Translate before scale, with the offsets already in scaled pixels: the
+ * transform origin is the span's top-left, so this maps the ink's corner onto
+ * the box's corner and leaves the type size to `scale`.
+ */
+function inkTransform(
+  draw: { scale: number; left: number; top: number } | null | undefined,
+): string {
+  if (!draw) return 'scale(1)'
+  return `translate(${draw.left}px, ${draw.top}px) scale(${draw.scale})`
+}
+
+/**
  * How far a press may wander and still count as a click.
  *
  * A press on empty canvas means two things at once: deselect, and start panning
@@ -284,16 +410,19 @@ export function PlacementCanvas({
   /** The last press, so a second one on the same wording can open it. */
   const lastPressRef = useRef<{ id: string; time: number } | null>(null)
   /**
-   * The scale each piece of wording was last drawn at.
+   * How each piece of wording was last drawn: the scale, and the ink offset it
+   * was nudged by.
    *
    * Deleting the last character leaves nothing to measure, so the computed
    * scale drops to zero and the caret would vanish with the glyphs — exactly
    * when the person is mid-edit and needs to see where they are typing. The
-   * last good scale holds the empty box open at the size the wording just had.
+   * last good placement holds the empty box open where the wording just was.
    */
-  const lastScaleRef = useRef<Record<string, number>>({})
+  const lastDrawRef = useRef<
+    Record<string, { scale: number; left: number; top: number }>
+  >({})
   /**
-   * Per text layer: the wording's natural width the last time its span was
+   * Per text layer: the wording's ink width the last time its span was
    * reconciled, and the span it was reconciled to. Together they pin the size
    * the glyphs are drawn at — see the rescale in the measuring effect.
    */
@@ -324,10 +453,8 @@ export function PlacementCanvas({
   const [dragging, setDragging] = useState<{ id: string; mode: DragMode } | null>(
     null,
   )
-  // Natural size of each text layer at MEASURE_FONT_PX, keyed by layer id.
-  const [textMetrics, setTextMetrics] = useState<
-    Record<string, { width: number; height: number }>
-  >({})
+  // Ink box of each text layer at MEASURE_FONT_PX, keyed by layer id.
+  const [textMetrics, setTextMetrics] = useState<Record<string, TextInk>>({})
   // Width ÷ height of each drawn mark. Most logos are wide wordmarks and
   // uploaded artwork is any shape at all; assuming square puts the selection
   // ring and its handles nowhere near the artwork. Logo layers share one entry
@@ -395,12 +522,21 @@ export function PlacementCanvas({
   useLayoutEffect(() => {
     const node = measureRef.current
     if (!node) return
-    const next: Record<string, { width: number; height: number }> = {}
+    const next: Record<string, TextInk> = {}
     for (const child of Array.from(node.children)) {
-      const id = (child as HTMLElement).dataset.layerId
+      const el = child as HTMLElement
+      const id = el.dataset.layerId
       if (!id) continue
-      const rect = (child as HTMLElement).getBoundingClientRect()
-      if (rect.width > 0) next[id] = { width: rect.width, height: rect.height }
+      const layer = layout.layers.find((l) => l.id === id)
+      // The marker is an empty inline-block sitting on the first baseline —
+      // the only way to ask the DOM where it put that baseline.
+      const marker = el.querySelector<HTMLElement>('[data-baseline]')
+      if (!layer || !marker) continue
+      const ink = measureInk(
+        layer,
+        marker.getBoundingClientRect().top - el.getBoundingClientRect().top,
+      )
+      if (ink) next[id] = ink
     }
     setTextMetrics((prev) => {
       const ids = Object.keys(next)
@@ -409,6 +545,8 @@ export function PlacementCanvas({
         ids.every(
           (id) =>
             prev[id] &&
+            Math.abs(prev[id].left - next[id].left) < 0.5 &&
+            Math.abs(prev[id].top - next[id].top) < 0.5 &&
             Math.abs(prev[id].width - next[id].width) < 0.5 &&
             Math.abs(prev[id].height - next[id].height) < 0.5,
         )
@@ -421,7 +559,7 @@ export function PlacementCanvas({
     // whatever size makes the wording fill that span: type a longer word and
     // the letters shrink, delete one and they grow. Nobody typing expects the
     // font to resize under them. So the span follows the wording instead —
-    // rescaled in proportion to its natural width, which leaves the px-per-em
+    // rescaled in proportion to the width of its ink, which leaves the px-per-em
     // the glyphs are drawn at exactly where it was.
     //
     // Only for a span untouched since it was last reconciled. Dragging a
@@ -608,7 +746,15 @@ export function PlacementCanvas({
     onChange(updateLayer(layout, layer.id, { text }))
   }
 
-  /** On-screen size of a layer, in frame pixels. */
+  /**
+   * On-screen size of a layer, in frame pixels.
+   *
+   * For wording this is the box its INK fills, which is what `layer.width`
+   * means everywhere else — the compositor crops to the ink before scaling, and
+   * the prompt tells the image model the wording spans that much of the photo.
+   * Sizing to the line box instead left the selection ring standing off the
+   * letters and the mockup disagreeing with the canvas about both.
+   */
   const layerSize = (layer: PlacementLayer, content: ContentBox) => {
     const width = layer.width * content.width
     if (layer.kind !== 'text') {
@@ -924,7 +1070,19 @@ export function PlacementCanvas({
 
     const metric = textMetrics[layer.id]
     const scale = metric && metric.width > 0 ? size.width / metric.width : 0
-    if (scale > 0) lastScaleRef.current[layer.id] = scale
+    // The span is laid out as a line box, but the layer's box is the ink inside
+    // it. Sliding the span by the ink's own offset is what lands the letters on
+    // the layer's box rather than near it — and it is the same offset the
+    // server's crop takes out before scaling.
+    const draw = metric
+      ? {
+          scale,
+          left: -metric.left * scale,
+          top: -metric.top * scale,
+        }
+      : null
+    if (draw && scale > 0) lastDrawRef.current[layer.id] = draw
+    const placement = draw ?? lastDrawRef.current[layer.id]
     const editing = editingId === layer.id
 
     // Typography identical either way — the wording must not shift or resize
@@ -940,9 +1098,9 @@ export function PlacementCanvas({
     } as const
 
     if (editing) {
-      // Falls back to the size it was last drawn at, so emptying the wording
-      // leaves a caret you can still see — see `lastScaleRef`.
-      const editScale = scale || lastScaleRef.current[layer.id] || 1
+      // Falls back to where it was last drawn, so emptying the wording leaves a
+      // caret you can still see — see `lastDrawRef`.
+      const edit = scale > 0 ? draw : (lastDrawRef.current[layer.id] ?? null)
       return (
         <span
           ref={editRef}
@@ -953,7 +1111,7 @@ export function PlacementCanvas({
           // The node has no React children on purpose — see the caret effect.
           suppressContentEditableWarning
           spellCheck={false}
-          style={{ ...type, transform: `scale(${editScale})` }}
+          style={{ ...type, transform: inkTransform(edit) }}
           onPointerDown={(e) => e.stopPropagation()}
           onInput={(e) => onEditInput(layer, e.currentTarget)}
           onBlur={endEdit}
@@ -996,7 +1154,7 @@ export function PlacementCanvas({
       <span
         style={{
           ...type,
-          transform: `scale(${scale})`,
+          transform: inkTransform(placement),
           // Hidden until measured, so it never flashes at 100px.
           visibility: scale ? 'visible' : 'hidden',
         }}
@@ -1297,6 +1455,19 @@ export function PlacementCanvas({
                 lineHeight: LINE_HEIGHT,
               }}
             >
+              {/* An empty inline-block aligned to the baseline: its box sits
+                  exactly on the first line's baseline, which is where the DOM
+                  will otherwise not say it put anything. Zero-sized, so it
+                  changes neither the measured width nor the centring. */}
+              <span
+                data-baseline
+                style={{
+                  display: 'inline-block',
+                  width: 0,
+                  height: 0,
+                  verticalAlign: 'baseline',
+                }}
+              />
               {l.text}
             </div>
           ))}
