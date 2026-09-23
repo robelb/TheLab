@@ -46,6 +46,15 @@ export const collections = pgTable(
     defaultLocale: text('default_locale').notNull().default('de'),
     /** Off switch for a campaign that has ended, without losing the config. */
     active: boolean('active').notNull().default(true),
+    /**
+     * Whether this page offers building and branding a box, or only buying one.
+     *
+     * Some campaigns sell a finished thing: showing a "build your own" route on
+     * those adds a decision the ad did not promise, and a step to lose people
+     * at. Turning it off hides the builder, the customise buttons and the design
+     * editor for everything reached through this page.
+     */
+    allowCustomization: boolean('allow_customization').notNull().default(true),
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()

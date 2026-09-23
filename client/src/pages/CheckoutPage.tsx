@@ -13,6 +13,7 @@ import { loadAttribution } from '@/lib/attribution'
 import { clearFunnelEntry, loadFunnelEntry } from '@/lib/funnel'
 import { getGuestSessionId } from '@/lib/guest-session'
 import { currentLocale } from '@/i18n'
+import { apiErrorMessage } from '@/lib/notify'
 import { formatPrice } from '@/utils/format'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -144,8 +145,7 @@ export function CheckoutPage() {
   }
 
   const error = createOrder.error
-    ? ((createOrder.error as { response?: { data?: { error?: string } } }).response
-        ?.data?.error ?? (createOrder.error as Error).message)
+    ? apiErrorMessage(createOrder.error, t('common.somethingWentWrong'))
     : null
 
   if (items.length === 0 && !reference) {

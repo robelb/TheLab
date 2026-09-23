@@ -18,6 +18,10 @@ const PAGE_TITLES: { match: (path: string) => boolean; title: string }[] = [
   { match: (p) => p.startsWith('/dashboard/company'), title: 'Company' },
   { match: (p) => p.startsWith('/dashboard/admin/users'), title: 'All users' },
   { match: (p) => p.startsWith('/dashboard/admin/companies'), title: 'All companies' },
+  {
+    match: (p) => /^\/dashboard\/admin\/collections\/.+/.test(p),
+    title: 'Landing page',
+  },
   { match: (p) => p.startsWith('/dashboard/admin/collections'), title: 'Landing pages' },
   { match: (p) => p.startsWith('/dashboard/admin/instructions'), title: 'AI instructions' },
 ]

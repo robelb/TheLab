@@ -1,5 +1,5 @@
 import { and, asc, eq } from 'drizzle-orm'
-import { db } from '../../db/index.js'
+import { db, rawSql } from '../../db/index.js'
 import { collections, type Collection } from '../../db/schema/index.js'
 import { getProductsByIds } from '../products/products.service.js'
 import type { ProductWithCategory } from '../../types/product.js'
@@ -33,14 +33,40 @@ export async function getCollectionBySlug(
   return hydrate(rows[0], companyId)
 }
 
+/**
+ * Every collection, with its headline boxes loaded.
+ *
+ * Hydrated like the single read is, because the callers are the same shape of
+ * page: the dashboard lists these to say which boxes each campaign leads with,
+ * and a row without them is a row that cannot answer that. The products are
+ * fetched once for the whole list rather than once per collection — there are
+ * only ever a handful of these, but the N+1 would be for nothing.
+ */
 export async function listCollections(
-  opts: { activeOnly?: boolean } = {},
-): Promise<Collection[]> {
-  return db
+  opts: { activeOnly?: boolean; companyId?: string } = {},
+): Promise<HydratedCollection[]> {
+  const rows = await db
     .select()
     .from(collections)
     .where(opts.activeOnly ? eq(collections.active, true) : undefined)
     .orderBy(asc(collections.sortOrder), asc(collections.slug))
+
+  const ids = [...new Set(rows.flatMap((r) => r.featuredBundleIds ?? []))]
+  if (ids.length === 0) {
+    return rows.map((row) => ({ ...row, featuredBundles: [] }))
+  }
+
+  const products = await getProductsByIds(ids, opts.companyId)
+  const byId = new Map(products.map((p) => [p.id, p]))
+
+  return rows.map((row) => ({
+    ...row,
+    // Configured order wins, and an id that no longer resolves is dropped
+    // rather than left as a gap.
+    featuredBundles: (row.featuredBundleIds ?? [])
+      .map((id) => byId.get(id))
+      .filter((p): p is ProductWithCategory => Boolean(p)),
+  }))
 }
 
 async function hydrate(
@@ -75,6 +101,7 @@ export async function createCollection(
       featuredBundleIds: input.featuredBundleIds,
       defaultLocale: input.defaultLocale,
       active: input.active,
+      allowCustomization: input.allowCustomization,
       sortOrder: input.sortOrder,
     })
     .returning()
@@ -97,6 +124,9 @@ export async function updateCollection(
     values.defaultLocale = input.defaultLocale
   }
   if (input.active !== undefined) values.active = input.active
+  if (input.allowCustomization !== undefined) {
+    values.allowCustomization = input.allowCustomization
+  }
   if (input.sortOrder !== undefined) values.sortOrder = input.sortOrder
 
   const [updated] = await db
@@ -128,4 +158,89 @@ export async function getActiveCollectionBySlug(
 
   if (rows.length === 0) return null
   return hydrate(rows[0], companyId)
+}
+
+// ---------------------------------------------------------------------------
+// What appears on a collection's page
+// ---------------------------------------------------------------------------
+
+/**
+ * A collection's page is filled by its tag, so belonging to one is the same
+ * thing as carrying that tag. Managing it product by product from the catalogue
+ * meant knowing that, and remembering the exact spelling; these two functions
+ * let the collection own the relationship instead.
+ */
+
+async function tagOf(collectionId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ tag: collections.tag })
+    .from(collections)
+    .where(eq(collections.id, collectionId))
+    .limit(1)
+  return row?.tag ?? null
+}
+
+/** Everything currently carrying this collection's tag. */
+export async function listCollectionMembers(
+  collectionId: string,
+  companyId?: string,
+): Promise<ProductWithCategory[]> {
+  const tag = await tagOf(collectionId)
+  if (!tag) return []
+
+  const rows = (await rawSql`
+    SELECT id FROM products
+     WHERE tags @> ${JSON.stringify([tag])}::jsonb
+     ORDER BY kind DESC, name ASC
+  `) as { id: string }[]
+
+  return getProductsByIds(
+    rows.map((r) => r.id),
+    companyId,
+  )
+}
+
+/**
+ * Put products into a collection, or take them out.
+ *
+ * Adding is idempotent and order-preserving: a product already carrying the tag
+ * is left alone rather than ending up with it twice. Removing strips only this
+ * collection's tag, so a product that belongs to Christmas and to Onboarding
+ * keeps the other one.
+ */
+export async function setCollectionMembership(
+  collectionId: string,
+  changes: { add?: string[]; remove?: string[] },
+): Promise<ProductWithCategory[]> {
+  const tag = await tagOf(collectionId)
+  if (!tag) return []
+
+  const add = [...new Set(changes.add ?? [])]
+  const remove = [...new Set(changes.remove ?? [])].filter(
+    (id) => !add.includes(id),
+  )
+
+  if (add.length > 0) {
+    await rawSql`
+      UPDATE products
+         SET tags = tags || ${JSON.stringify([tag])}::jsonb
+       WHERE id = ANY(${add}::uuid[])
+         AND NOT (tags @> ${JSON.stringify([tag])}::jsonb)
+    `
+  }
+
+  if (remove.length > 0) {
+    await rawSql`
+      UPDATE products
+         SET tags = (
+           SELECT COALESCE(jsonb_agg(value), '[]'::jsonb)
+             FROM jsonb_array_elements(tags) AS value
+            WHERE value <> ${JSON.stringify(tag)}::jsonb
+         )
+       WHERE id = ANY(${remove}::uuid[])
+         AND tags @> ${JSON.stringify([tag])}::jsonb
+    `
+  }
+
+  return listCollectionMembers(collectionId)
 }

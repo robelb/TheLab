@@ -26,6 +26,8 @@ export const createCollectionSchema = z.object({
   featuredBundleIds: z.array(z.string().uuid()).max(12).default([]),
   defaultLocale: z.enum(['de', 'en']).default('de'),
   active: z.boolean().default(true),
+  /** False for a page that only sells ready-made boxes. */
+  allowCustomization: z.boolean().default(true),
   sortOrder: z.coerce.number().int().min(0).max(500).default(0),
 })
 
@@ -38,3 +40,15 @@ export const updateCollectionSchema = createCollectionSchema
   })
 
 export type UpdateCollectionBody = z.infer<typeof updateCollectionSchema>
+
+/** Which products belong to a collection. Both lists optional, both bounded. */
+export const collectionMembershipSchema = z
+  .object({
+    add: z.array(z.string().uuid()).max(200).optional(),
+    remove: z.array(z.string().uuid()).max(200).optional(),
+  })
+  .refine((v) => (v.add?.length ?? 0) + (v.remove?.length ?? 0) > 0, {
+    message: 'Nothing to add or remove',
+  })
+
+export type CollectionMembershipBody = z.infer<typeof collectionMembershipSchema>

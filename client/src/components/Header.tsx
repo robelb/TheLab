@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Gift, LayoutDashboard, LogIn, LogOut, ShoppingBag } from 'lucide-react'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { useAuth } from '@/context/AuthContext'
+import { useFunnel } from '@/context/FunnelContext'
 import { useBrand } from '@/context/BrandContext'
 import { useCart } from '@/context/CartContext'
 import { BrandLogo } from '@/components/BrandLogo'
@@ -23,12 +24,25 @@ export function Header() {
   const { itemCount } = useCart()
   const { user, logout, can } = useAuth()
   const { hasExtractedBrand, brands } = useBrand()
+  const { inFunnel, allowCustomization, collectionSlug } = useFunnel()
   const canManage = can('manage_company')
+
+  /**
+   * A campaign that sells finished boxes gets a header with nothing to wander
+   * off into: no shop, no builder, no invitation to make an account. Somebody
+   * who clicked an ad for a Christmas box came to buy a Christmas box, and
+   * every other link is a way to not do that.
+   *
+   * The cart and the language stay, because both are part of buying.
+   */
+  const focused = inFunnel && !allowCustomization
+  // Home, while they are in a campaign, is the campaign — not the whole shop.
+  const homeUrl = focused && collectionSlug ? `/c/${collectionSlug}` : '/'
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/40 bg-background/90 backdrop-blur-md">
       <div className="mx-auto flex h-auto min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:h-16 lg:flex-nowrap lg:py-0 lg:px-8">
-        <BrandLogo />
+        <BrandLogo to={homeUrl} />
 
         {/*
           The build stamp takes the slot the "themed from <domain>" line used to
@@ -39,20 +53,24 @@ export function Header() {
           {/* Theme picking is a signed-in convenience, not something to put in
               front of a visitor who arrived from an ad. */}
           {user && !hasExtractedBrand && brands.length > 1 && <BrandSwitcher />}
-          <VersionBadge />
+          {!focused && <VersionBadge />}
         </div>
 
         <nav className="flex items-center gap-4 sm:gap-6" aria-label="Main">
-          <NavLink to="/" end className={navLinkClass}>
-            {t('common.shop')}
-          </NavLink>
-          <NavLink to="/build-box" className={navLinkClass}>
-            <span className="flex items-center gap-1.5">
-              <Gift className="size-4" />
-              {t('common.buildBox')}
-            </span>
-          </NavLink>
-          {canManage && (
+          {!focused && (
+            <>
+              <NavLink to="/" end className={navLinkClass}>
+                {t('common.shop')}
+              </NavLink>
+              <NavLink to="/build-box" className={navLinkClass}>
+                <span className="flex items-center gap-1.5">
+                  <Gift className="size-4" />
+                  {t('common.buildBox')}
+                </span>
+              </NavLink>
+            </>
+          )}
+          {!focused && canManage && (
             <NavLink to="/dashboard" className={navLinkClass}>
               <span className="flex items-center gap-1.5">
                 <LayoutDashboard className="size-4" />
@@ -74,8 +92,9 @@ export function Header() {
           <LanguageSwitcher />
           {/* Signing in is an offer, not a gate: a visitor with no account can
               do everything on the storefront, so this is the only place the
-              difference shows. */}
-          {user ? (
+              difference shows. Inside a focused campaign it is not even an
+              offer — nothing here needs an account. */}
+          {focused ? null : user ? (
             <Button
               type="button"
               variant="ghost"

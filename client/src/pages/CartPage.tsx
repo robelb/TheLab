@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useFunnel, useFunnelLink } from '@/context/FunnelContext'
 import { useCart } from '@/context/CartContext'
 import { useBrand } from '@/context/BrandContext'
 import {
@@ -18,6 +19,12 @@ import { Separator } from '@/components/ui/separator'
 export function CartPage() {
   const { t } = useTranslation()
   const { brand } = useBrand()
+  const { inFunnel, allowCustomization, collectionSlug } = useFunnel()
+  const funnelLink = useFunnelLink()
+  /** A campaign that sells finished boxes has no editing anywhere in it. */
+  const focused = inFunnel && !allowCustomization
+  // Somewhere to go from an empty basket that is not the whole shop.
+  const browseUrl = focused && collectionSlug ? `/c/${collectionSlug}` : '/'
   const { brandGeneration } = useAuth()
   const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart()
 
@@ -29,7 +36,7 @@ export function CartPage() {
           {t('cart.emptyBody', { company: brand.companyName })}
         </p>
         <Button asChild size="lg">
-          <Link to="/">{t('cart.browse')}</Link>
+          <Link to={browseUrl}>{t('cart.browse')}</Link>
         </Button>
       </div>
     )
@@ -54,11 +61,16 @@ export function CartPage() {
             // its detail page is the box builder, opened on this very box.
             // Boxes added before contents were tracked just open the builder.
             const editBoxUrl = `/build-box?edit=${encodeURIComponent(product.id)}`
-            const productUrl = box
-              ? editBoxUrl
-              : isBoxSku(product.sku)
-                ? '/build-box'
-                : `/product/${product.id}`
+            // In a focused campaign a box line leads to the box it came from,
+            // never to the builder — following the picture into an editor is
+            // exactly the route the campaign was set up to close.
+            const productUrl = focused
+              ? funnelLink(`/product/${product.id}`)
+              : box
+                ? editBoxUrl
+                : isBoxSku(product.sku)
+                  ? '/build-box'
+                  : funnelLink(`/product/${product.id}`)
             // A branded line shows the artwork it will be printed with, not the
             // catalogue photo. Showing stock here meant the one thing the
             // shopper made was invisible at the moment they paid for it.
@@ -243,7 +255,7 @@ export function CartPage() {
                   </Button>
                 </div>
                 <div className="flex items-center gap-1 sm:flex-col sm:items-end">
-                  {box && (
+                  {box && !focused && (
                     <Button
                       asChild
                       variant="ghost"
@@ -259,7 +271,7 @@ export function CartPage() {
                   {/* Same reasoning as the box: whatever the line carries has
                       to be changeable from the line, not only from the page it
                       was added on. Approving comes straight back here. */}
-                  {!box && design && (
+                  {!box && design && !focused && (
                     <Button
                       asChild
                       variant="ghost"

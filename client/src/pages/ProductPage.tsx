@@ -19,12 +19,17 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { ArrowLeft, Palette, Pencil, Trash2 } from 'lucide-react'
 import { bundleToBoxDetails } from '@/lib/box'
+import { useFunnel } from '@/context/FunnelContext'
 
 export function ProductPage() {
   const { t } = useTranslation()
   const { brandGeneration } = useAuth()
   const { setItemDesign, addItem } = useCart()
   const { id } = useParams<{ id: string }>()
+  // Whether the campaign that sent them here offers customisation. Carried on
+  // the link as `?from=<collection>`, so it describes this visit only: a
+  // product opened from anywhere else is unaffected.
+  const { allowCustomization: customizable } = useFunnel()
 
   const { data: product, isLoading, error } = useProduct(id)
   const { data: related, isLoading: relatedLoading } = useRelatedProducts(id, 4)
@@ -212,9 +217,11 @@ export function ProductPage() {
                     </li>
                   ))}
                 </ul>
-                <p className="pt-1 text-xs text-muted-foreground">
-                  {t('product.partsNote')}
-                </p>
+                {customizable && (
+                  <p className="pt-1 text-xs text-muted-foreground">
+                    {t('product.partsNote')}
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
@@ -239,27 +246,31 @@ export function ProductPage() {
                 </Button>
               )}
               {/* A bundle has no surface of its own to print on — the things
-                  inside it do, and those are designed in the builder. */}
-              <Button asChild size="sm" variant="outline">
-                <Link
-                  to={
-                    isBundle
-                      ? `/build-box?bundle=${encodeURIComponent(product.id)}`
-                      : designUrl
-                  }
-                >
-                  {isBundle ? (
-                    <Pencil className="size-4" />
-                  ) : (
-                    <Palette className="size-4" />
-                  )}
-                  {isBundle
-                    ? t('product.customiseBox')
-                    : design
-                      ? t('product.editYourDesign')
-                      : t('product.customize')}
-                </Link>
-              </Button>
+                  inside it do, and those are designed in the builder. Neither
+                  is offered when the campaign this was reached through sells
+                  finished boxes only. */}
+              {customizable && (
+                <Button asChild size="sm" variant="outline">
+                  <Link
+                    to={
+                      isBundle
+                        ? `/build-box?bundle=${encodeURIComponent(product.id)}`
+                        : designUrl
+                    }
+                  >
+                    {isBundle ? (
+                      <Pencil className="size-4" />
+                    ) : (
+                      <Palette className="size-4" />
+                    )}
+                    {isBundle
+                      ? t('product.customiseBox')
+                      : design
+                        ? t('product.editYourDesign')
+                        : t('product.customize')}
+                  </Link>
+                </Button>
+              )}
             </div>
             {isBundle ? (
               <Button

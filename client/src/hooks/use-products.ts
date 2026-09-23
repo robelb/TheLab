@@ -95,11 +95,18 @@ export function useCustomizeProduct(productId: string | undefined) {
   })
 }
 
-export function useProducts(params: FetchProductsParams) {
+export function useProducts(
+  params: FetchProductsParams,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: productsKeys.list(params),
     queryFn: () => fetchProducts(params),
     placeholderData: keepPreviousData,
+    // A caller whose filter is still loading passes false. Without it the first
+    // render asks for the whole catalogue, and `keepPreviousData` then holds
+    // that unfiltered answer on screen after the real filter arrives.
+    enabled: options.enabled ?? true,
   })
 }
 

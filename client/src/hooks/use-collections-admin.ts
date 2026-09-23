@@ -4,6 +4,8 @@ import {
   createCollection,
   deleteCollection,
   fetchAllCollections,
+  fetchCollectionProducts,
+  setCollectionProducts,
   updateCollection,
   type CollectionInput,
 } from '@/api/collections-admin'
@@ -51,5 +53,31 @@ export function useDeleteCollection() {
   return useMutation({
     mutationFn: (id: string) => deleteCollection(id),
     onSuccess: invalidate,
+  })
+}
+
+const memberKey = (id: string) => ['collections', 'products', id] as const
+
+/** What is on this collection's page right now. */
+export function useCollectionProducts(id: string | undefined) {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: memberKey(id ?? ''),
+    queryFn: () => fetchCollectionProducts(id!),
+    enabled: Boolean(id) && Boolean(user),
+  })
+}
+
+export function useSetCollectionProducts(id: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (changes: { add?: string[]; remove?: string[] }) =>
+      setCollectionProducts(id, changes),
+    // The answer is the new membership, so it goes straight into the cache
+    // rather than causing a refetch of what we were just handed.
+    onSuccess: (data) => {
+      client.setQueryData(memberKey(id), data)
+      void client.invalidateQueries({ queryKey: ['products'] })
+    },
   })
 }

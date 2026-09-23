@@ -17,6 +17,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:seed:supplies": "tsx scripts/seed-supplies.ts",
     "db:seed:bundles": "tsx scripts/seed-bundles.ts",
+    "import:christmas": "tsx scripts/import-christmas.ts",
     "import:supplies": "tsx scripts/import-supplies.ts",
     "audit:prompts": "tsx scripts/audit-prompts.ts",
     "embed": "tsx scripts/generate-embeddings.ts",

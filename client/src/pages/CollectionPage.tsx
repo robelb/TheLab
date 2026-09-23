@@ -5,7 +5,7 @@ import { Gift, Loader2 } from 'lucide-react'
 import { usePostHog } from '@posthog/react'
 import { useCollection } from '@/hooks/use-collections'
 import { useProducts } from '@/hooks/use-products'
-import { isLocale, type Locale } from '@/i18n'
+import { hasChosenLocale, isLocale, type Locale } from '@/i18n'
 import { rememberFunnelEntry } from '@/lib/funnel'
 import { BundleCard } from '@/components/BundleCard'
 import { ProductCard } from '@/components/ProductCard'
@@ -29,12 +29,17 @@ export function CollectionPage() {
 
   const { data: collection, isLoading, isError } = useCollection(slug)
 
-  // The collection's own language, unless the link asked for one. A German
-  // campaign landing in English reads as somebody else's shop.
+  // The collection's own language, for a visitor who has not expressed one. A
+  // German campaign landing in English reads as somebody else's shop.
+  //
+  // It is a default, not a rule: a link that names a language has already been
+  // applied by the detector, and somebody who has picked a language before is
+  // telling us something this page does not get to overrule.
   useEffect(() => {
     if (!collection) return
     const asked = searchParams.get('lang')
-    if (asked && isLocale(asked)) return // the detector already applied it
+    if (asked && isLocale(asked)) return
+    if (hasChosenLocale()) return
     if (isLocale(collection.defaultLocale)) {
       void i18n.changeLanguage(collection.defaultLocale)
     }
@@ -43,10 +48,13 @@ export function CollectionPage() {
   // Remembered until checkout, so the request records which campaign it came
   // through and the marketing side can tie it back to the spend.
   useEffect(() => {
-    if (!slug) return
-    rememberFunnelEntry(slug)
-    posthog?.capture('collection opened', { collection: slug })
-  }, [slug, posthog])
+    if (!slug || !collection) return
+    rememberFunnelEntry(slug, collection.allowCustomization)
+    posthog?.capture('collection opened', {
+      collection: slug,
+      allow_customization: collection.allowCustomization,
+    })
+  }, [slug, collection, posthog])
 
   const locale = (i18n.language ?? 'de').split('-')[0] as Locale
   const pick = (text: { de: string; en: string } | null | undefined) =>
@@ -54,12 +62,16 @@ export function CollectionPage() {
 
   // The rest of the catalogue for this occasion, bundles excluded — they are
   // already the headline above.
-  const catalogue = useProducts({
-    page: 1,
-    limit: 20,
-    tag: collection?.tag,
-    kind: 'single',
-  })
+  const catalogue = useProducts(
+    {
+      page: 1,
+      limit: 20,
+      tag: collection?.tag,
+      kind: 'single',
+    },
+    // Held until the collection says which occasion to filter by.
+    { enabled: Boolean(collection?.tag) },
+  )
 
   if (isLoading) {
     return (
@@ -112,24 +124,33 @@ export function CollectionPage() {
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {collection.featuredBundles.map((bundle) => (
-              <BundleCard key={bundle.id} bundle={bundle} />
+              <BundleCard
+                key={bundle.id}
+                bundle={bundle}
+                allowCustomization={collection.allowCustomization}
+                collectionSlug={collection.slug}
+              />
             ))}
           </div>
         </section>
       )}
 
-      <section className="rounded-brand border border-border/40 bg-muted/10 p-6 text-center sm:p-10">
-        <Gift className="mx-auto size-8 text-primary" />
-        <h2 className="mt-3 font-display text-2xl font-semibold">
-          {t('collection.buildYourOwn')}
-        </h2>
-        <p className="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">
-          {t('collection.buildYourOwnBody')}
-        </p>
-        <Button asChild size="lg" className="mt-5">
-          <Link to="/build-box">{t('collection.startBuilding')}</Link>
-        </Button>
-      </section>
+      {/* A page that sells finished boxes does not offer a builder — the ad
+          promised one thing, and a second route is a decision to lose people at. */}
+      {collection.allowCustomization && (
+        <section className="rounded-brand border border-border/40 bg-muted/10 p-6 text-center sm:p-10">
+          <Gift className="mx-auto size-8 text-primary" />
+          <h2 className="mt-3 font-display text-2xl font-semibold">
+            {t('collection.buildYourOwn')}
+          </h2>
+          <p className="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">
+            {t('collection.buildYourOwnBody')}
+          </p>
+          <Button asChild size="lg" className="mt-5">
+            <Link to="/build-box">{t('collection.startBuilding')}</Link>
+          </Button>
+        </section>
+      )}
 
       <section className="space-y-5">
         <div className="space-y-1">
@@ -137,11 +158,13 @@ export function CollectionPage() {
             {t('collection.moreProducts')}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {t('collection.moreProductsBody')}
+            {collection.allowCustomization
+              ? t('collection.moreProductsBody')
+              : t('collection.moreProductsBuyOnly')}
           </p>
         </div>
 
-        {catalogue.isLoading ? (
+        {catalogue.isPending ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <ProductCardSkeleton key={i} />

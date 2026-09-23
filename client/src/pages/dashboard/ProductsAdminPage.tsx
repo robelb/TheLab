@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/table'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useDeleteProduct } from '@/hooks/use-product-mutations'
+import { notifyError, notifySaved } from '@/lib/notify'
 import { useProducts } from '@/hooks/use-products'
 import { isSupplyCategory } from '@/lib/box'
 import { PAGE_SIZE_OPTIONS, type PageSize } from '@/types/product'
@@ -86,8 +87,17 @@ export function ProductsAdminPage() {
 
   const confirmDelete = async () => {
     if (!pendingDelete) return
-    await deleteMutation.mutateAsync(pendingDelete.id)
-    setPendingDelete(null)
+    const { name } = pendingDelete
+    try {
+      await deleteMutation.mutateAsync(pendingDelete.id)
+      setPendingDelete(null)
+      notifySaved(`${name} deleted`)
+    } catch (err) {
+      // A product inside a pre-configured box cannot be deleted, and the
+      // server says so — which was previously swallowed into an unhandled
+      // rejection and looked like nothing happening.
+      notifyError(err, `Could not delete ${name}`)
+    }
   }
 
   return (

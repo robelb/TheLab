@@ -37,7 +37,9 @@
     "addToCart": "In den Warenkorb",
     "customise": "Anpassen",
     "added": "Zum Warenkorb hinzugefügt",
-    "minQuantity": "Ab {{count}} Boxen"
+    "minQuantity": "Ab {{count}} Boxen",
+    "buyOnlyNote": "Direkt bestellbar, wie sie sind.",
+    "moreProductsBuyOnly": "Alles hier unten können Sie einzeln bestellen."
   },
   "product": {
     "addToCart": "In den Warenkorb",

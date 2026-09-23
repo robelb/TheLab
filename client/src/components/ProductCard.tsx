@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/context/AuthContext'
+import { useFunnelLink } from '@/context/FunnelContext'
 import { getProductDisplayImage } from '@/lib/productImage'
 import type { Product } from '@/types/product'
 import { AddToCartButton } from '@/components/AddToCartButton'
@@ -22,7 +23,9 @@ interface ProductCardProps {
 export function ProductCard({ product, index = 0 }: ProductCardProps) {
   const { t } = useTranslation()
   const { brandGeneration } = useAuth()
-  const detailUrl = `/product/${product.id}`
+  // Carries the campaign onward, so the page this opens offers what the page
+  // it was opened from offers — and not what that page withheld.
+  const detailUrl = useFunnelLink()(`/product/${product.id}`)
   const displayImage = getProductDisplayImage(product, brandGeneration)
 
   return (

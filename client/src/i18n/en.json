@@ -37,7 +37,9 @@
     "addToCart": "Add to cart",
     "customise": "Customise",
     "added": "Added to your cart",
-    "minQuantity": "From {{count}} boxes"
+    "minQuantity": "From {{count}} boxes",
+    "buyOnlyNote": "Ready to order as they are.",
+    "moreProductsBuyOnly": "Everything below can be ordered on its own."
   },
   "product": {
     "addToCart": "Add to cart",

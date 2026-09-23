@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useOrder, useSetOrderStatus } from '@/hooks/use-orders'
+import { notifyError, notifySaved } from '@/lib/notify'
 import {
   ORDER_STATUSES,
   type Order,
@@ -495,7 +496,22 @@ export function OrderDetailPage() {
         <Select
           value={order.status}
           onValueChange={(status) =>
-            setStatus.mutate({ id: order.id, status: status as OrderStatus })
+            setStatus.mutate(
+              { id: order.id, status: status as OrderStatus },
+              {
+                onSuccess: (updated) =>
+                  notifySaved(
+                    `${order.reference} marked ${updated.status}`,
+                    // Worth saying: this is the signal the ads side scores on.
+                    updated.status === 'quoted' ||
+                      updated.status === 'confirmed'
+                      ? 'Sent to the campaign feed.'
+                      : undefined,
+                  ),
+                onError: (err) =>
+                  notifyError(err, 'Could not change the status'),
+              },
+            )
           }
           disabled={setStatus.isPending}
         >

@@ -20,7 +20,23 @@ import { Card, CardContent } from '@/components/ui/card'
  * the contents and the button are all on the card, and customising is the
  * second option rather than the only one.
  */
-export function BundleCard({ bundle }: { bundle: Product }) {
+interface BundleCardProps {
+  bundle: Product
+  /**
+   * Whether this page offers building a box. When it does not, the customise
+   * button goes and the card links on with that fact attached, so the product
+   * page does not offer what this page just withheld.
+   */
+  allowCustomization?: boolean
+  /** The collection this card belongs to, carried to the product page. */
+  collectionSlug?: string
+}
+
+export function BundleCard({
+  bundle,
+  allowCustomization = true,
+  collectionSlug,
+}: BundleCardProps) {
   const { t } = useTranslation()
   const { addItem } = useCart()
   const { brandGeneration } = useAuth()
@@ -30,6 +46,10 @@ export function BundleCard({ bundle }: { bundle: Product }) {
   const [added, setAdded] = useState(false)
 
   const contents = (bundle.components ?? []).filter((c) => c.role === 'item')
+  const detailUrl = collectionSlug
+    ? `/product/${bundle.id}?from=${encodeURIComponent(collectionSlug)}`
+    : `/product/${bundle.id}`
+
 
   function handleAdd() {
     const box = bundleToBoxDetails(bundle)
@@ -49,7 +69,7 @@ export function BundleCard({ bundle }: { bundle: Product }) {
 
   return (
     <Card className="flex h-full flex-col overflow-hidden border-border/30">
-      <Link to={`/product/${bundle.id}`} className="block bg-white">
+      <Link to={detailUrl} className="block bg-white">
         <img
           src={getProductDisplayImage(bundle, brandGeneration)}
           alt={bundle.name}
@@ -61,7 +81,7 @@ export function BundleCard({ bundle }: { bundle: Product }) {
       <CardContent className="flex flex-1 flex-col gap-3 p-4">
         <div className="space-y-1">
           <Link
-            to={`/product/${bundle.id}`}
+            to={detailUrl}
             className="font-display text-lg font-semibold hover:text-primary"
           >
             {bundle.name}
@@ -142,12 +162,18 @@ export function BundleCard({ bundle }: { bundle: Product }) {
             </Button>
           </div>
 
-          <Button asChild variant="ghost" size="sm" className="w-full">
-            <Link to={`/build-box?bundle=${encodeURIComponent(bundle.id)}`}>
-              <Pencil className="size-4" />
-              {t('collection.customise')}
-            </Link>
-          </Button>
+          {allowCustomization ? (
+            <Button asChild variant="ghost" size="sm" className="w-full">
+              <Link to={`/build-box?bundle=${encodeURIComponent(bundle.id)}`}>
+                <Pencil className="size-4" />
+                {t('collection.customise')}
+              </Link>
+            </Button>
+          ) : (
+            <p className="text-center text-xs text-muted-foreground">
+              {t('collection.buyOnlyNote')}
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

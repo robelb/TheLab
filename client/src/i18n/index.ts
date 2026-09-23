@@ -40,7 +40,11 @@ void i18n
       order: ['querystring', 'localStorage', 'navigator'],
       lookupQuerystring: 'lang',
       lookupLocalStorage: LANGUAGE_STORAGE_KEY,
-      caches: ['localStorage'],
+      // Nothing is written automatically. Left on, the detector caches whatever
+      // it guessed — the browser's language, or a `lang` off a link somebody
+      // shared — and there is then no way to tell a guess apart from a decision.
+      // What is stored here is only ever a decision; `rememberLocale` writes it.
+      caches: [],
     },
     interpolation: {
       // React escapes for us; doing it twice mangles apostrophes.
@@ -57,6 +61,30 @@ function syncDocumentLanguage(language: string) {
 
 syncDocumentLanguage(i18n.language ?? DEFAULT_LOCALE)
 i18n.on('languageChanged', syncDocumentLanguage)
+
+/**
+ * Record that the visitor picked this language.
+ *
+ * Separate from `changeLanguage`, which also runs for a language nobody chose —
+ * a campaign link's `?lang=`, or a collection's own default. Only what is
+ * written here survives to the next visit and outranks those.
+ */
+export function rememberLocale(locale: Locale): void {
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, locale)
+  } catch {
+    /* Private mode. The choice holds for this page, and no further. */
+  }
+}
+
+/** Whether the visitor has ever picked a language for themselves. */
+export function hasChosenLocale(): boolean {
+  try {
+    return isLocale(localStorage.getItem(LANGUAGE_STORAGE_KEY))
+  } catch {
+    return false
+  }
+}
 
 /** The active language, narrowed to one we actually have words for. */
 export function currentLocale(): Locale {

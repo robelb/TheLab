@@ -2,9 +2,12 @@ import { Outlet } from 'react-router-dom'
 import { Header } from '@/components/Header'
 import { VersionBadge } from '@/components/VersionBadge'
 import { useBrand } from '@/context/BrandContext'
+import { useFunnel } from '@/context/FunnelContext'
 
 export function Layout() {
   const { brand } = useBrand()
+  const { inFunnel, allowCustomization } = useFunnel()
+  const focused = inFunnel && !allowCustomization
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -18,7 +21,8 @@ export function Layout() {
             © {new Date().getFullYear()} {brand.companyName} —{' '}
             {brand.description}
           </p>
-          <VersionBadge />
+          {/* A build stamp is for us, not for somebody buying a gift box. */}
+          {!focused && <VersionBadge />}
         </div>
       </footer>
     </div>

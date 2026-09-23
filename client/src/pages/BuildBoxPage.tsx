@@ -69,6 +69,7 @@ import {
   type BoxDraft,
   type ProductDesign,
 } from '@/lib/boxDraft'
+import { apiErrorMessage as errorMessage } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { formatPrice } from '@/utils/format'
 import type { BoxDetails, BoxLine } from '@/types/box'
@@ -100,15 +101,6 @@ function designsFromBox(box: BoxDetails): Record<string, ProductDesign> {
     }
   }
   return out
-}
-
-function errorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const data = (err as { response?: { data?: { error?: string } } }).response
-      ?.data
-    if (data?.error) return data.error
-  }
-  return err instanceof Error ? err.message : fallback
 }
 
 export function BuildBoxPage() {

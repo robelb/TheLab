@@ -5,19 +5,21 @@ import { cn } from '@/lib/utils'
 
 interface BrandLogoProps {
   className?: string
+  /** Where the logo goes. The shop, unless a campaign owns this visit. */
+  to?: string
 }
 
 const logoBoxClass =
   'h-8 max-w-[10rem] shrink-0 [&_svg]:h-full [&_svg]:max-h-8 [&_svg]:w-auto [&_svg]:max-w-[10rem]'
 
-export function BrandLogo({ className }: BrandLogoProps) {
+export function BrandLogo({ className, to = '/' }: BrandLogoProps) {
   const { brand } = useBrand()
   const kind = resolveLogoKind(brand.logo, brand.logoType)
   const alt = brand.companyName
 
   return (
     <Link
-      to="/"
+      to={to}
       className={cn('flex min-w-0 items-center gap-3 text-foreground', className)}
     >
       {kind === 'none' && (

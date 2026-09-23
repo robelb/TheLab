@@ -30,6 +30,7 @@ import {
   useCreateProduct,
   useUpdateProduct,
 } from '@/hooks/use-product-mutations'
+import { apiErrorMessage, notifyError, notifySaved } from '@/lib/notify'
 import type { ProductComponentInput, ProductInput } from '@/types/dashboard'
 import type { Product } from '@/types/product'
 
@@ -260,13 +261,18 @@ export function ProductFormDialog({
         await createMutation.mutateAsync(payload)
       }
       onClose()
+      notifySaved(
+        product ? `${payload.name} saved` : `${payload.name} added`,
+        form.isBundle
+          ? `Pre-configured box · ${form.contents.items.length} product${form.contents.items.length === 1 ? '' : 's'} inside`
+          : undefined,
+      )
     } catch (err) {
-      const message =
-        (err as { response?: { data?: { error?: string } } })?.response?.data
-          ?.error ??
-        (err as Error)?.message ??
-        'Something went wrong'
+      const message = apiErrorMessage(err, 'Something went wrong')
+      // Kept inline as well: the dialog stays open on a failure, and the
+      // message usually names the field that has to change.
       setError(message)
+      notifyError(err, 'Something went wrong')
     }
   }
 

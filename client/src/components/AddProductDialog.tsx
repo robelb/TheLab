@@ -27,6 +27,8 @@ interface AddProductDialogProps {
    * `CampaignProductTile`.
    */
   plainImages?: boolean
+  /** Narrow the search to ordinary items or to pre-configured boxes. */
+  kind?: 'single' | 'bundle'
 }
 
 /**
@@ -40,11 +42,12 @@ export function AddProductDialog({
   onAdd,
   title,
   plainImages,
+  kind,
 }: AddProductDialogProps) {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const q = useDebounce(search, 400)
-  const { data, isFetching } = useProducts({ page: 1, limit: 20, q })
+  const { data, isFetching } = useProducts({ page: 1, limit: 20, q, kind })
   const products = (data?.data ?? []).filter((p) => !existingIds.includes(p.id))
 
   return (

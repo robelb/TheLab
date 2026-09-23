@@ -6,6 +6,8 @@ import { CartProvider } from '@/context/CartContext'
 import { Layout } from '@/components/Layout'
 import { RequireAuth } from '@/components/RequireAuth'
 import { AttributionCapture } from '@/components/AttributionCapture'
+import { FunnelProvider } from '@/context/FunnelContext'
+import { RequireCustomization } from '@/components/RequireCustomization'
 import { HomePage } from '@/pages/HomePage'
 import { CollectionPage } from '@/pages/CollectionPage'
 import { BuildBoxPage } from '@/pages/BuildBoxPage'
@@ -28,6 +30,7 @@ import { CompanySettingsPage } from '@/pages/dashboard/CompanySettingsPage'
 import { UsersPage as AdminUsersPage } from '@/pages/admin/UsersPage'
 import { CompaniesPage as AdminCompaniesPage } from '@/pages/admin/CompaniesPage'
 import { CollectionsPage as AdminCollectionsPage } from '@/pages/admin/CollectionsPage'
+import { CollectionDetailPage as AdminCollectionDetailPage } from '@/pages/admin/CollectionDetailPage'
 import { SystemInstructionsPage } from '@/pages/admin/SystemInstructionsPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SignupPage } from '@/pages/SignupPage'
@@ -42,6 +45,7 @@ export default function App() {
         <AuthProvider>
           <BrowserRouter>
             <CartProvider>
+              <FunnelProvider>
               <Toaster position="top-center" richColors closeButton />
               <AttributionCapture />
               <Routes>
@@ -51,7 +55,14 @@ export default function App() {
                 <Route path="/share/:slug" element={<SharePage />} />
                 {/* The design editor owns the whole viewport, so it sits
                     outside the site chrome rather than inside `Layout`. */}
-                <Route path="/design/:productId" element={<DesignPage />} />
+                <Route
+                  path="/design/:productId"
+                  element={
+                    <RequireCustomization>
+                      <DesignPage />
+                    </RequireCustomization>
+                  }
+                />
                 {/*
                   The storefront is open to anyone.
 
@@ -66,7 +77,14 @@ export default function App() {
                   <Route index element={<HomePage />} />
                   {/* Campaign landing pages: /c/weihnachten?lang=de&gclid=… */}
                   <Route path="c/:slug" element={<CollectionPage />} />
-                  <Route path="build-box" element={<BuildBoxPage />} />
+                  <Route
+                    path="build-box"
+                    element={
+                      <RequireCustomization>
+                        <BuildBoxPage />
+                      </RequireCustomization>
+                    }
+                  />
                   <Route path="campaign/:id" element={<CampaignPage />} />
                   <Route path="product/:id" element={<ProductPage />} />
                   <Route path="cart" element={<CartPage />} />
@@ -98,11 +116,16 @@ export default function App() {
                     element={<AdminCollectionsPage />}
                   />
                   <Route
+                    path="admin/collections/:id"
+                    element={<AdminCollectionDetailPage />}
+                  />
+                  <Route
                     path="admin/instructions"
                     element={<SystemInstructionsPage />}
                   />
                 </Route>
               </Routes>
+              </FunnelProvider>
             </CartProvider>
           </BrowserRouter>
         </AuthProvider>
