@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { usePostHog } from '@posthog/react'
+import { isAxiosError } from 'axios'
 import { Loader2 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { useBrand } from '@/context/BrandContext'
@@ -9,59 +10,93 @@ import { useAuth } from '@/context/AuthContext'
 import { useCreateOrder } from '@/hooks/use-orders'
 import type { OrderItem } from '@/api/orders'
 import { boxAllLines, shippingFor } from '@/lib/box'
-import { loadAttribution } from '@/lib/attribution'
-import { clearFunnelEntry, loadFunnelEntry } from '@/lib/funnel'
+import {
+  attributionProperties,
+  clearAttribution,
+  loadAttribution,
+} from '@/lib/attribution'
+import { clearCampaignLock, clearFunnelEntry, loadFunnelEntry } from '@/lib/funnel'
+import { useFunnel } from '@/context/FunnelContext'
 import { getGuestSessionId } from '@/lib/guest-session'
 import { currentLocale } from '@/i18n'
 import { apiErrorMessage } from '@/lib/notify'
 import { formatPrice } from '@/utils/format'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { Textarea } from '@/components/ui/textarea'
+import {
+  BillingSection,
+  ContactSection,
+  DeliverySection,
+  emptyCheckoutForm,
+  PaymentSection,
+  PrivacyConsent,
+  type CheckoutForm,
+} from '@/components/checkout/CheckoutSections'
 
 /**
- * Asking for a box, not buying one.
+ * Asking for a box — an order request, not a purchase.
  *
- * Money and invoicing happen outside this app, so nothing here charges anybody
- * and there is no card field — a payment form in a flow that never takes payment
- * teaches the wrong habit and collects details we have no business holding. What
- * this does is record the request, with everything needed to price and print it,
- * and hand back a reference to quote.
+ * Nothing is charged here and nothing is binding yet. The request lands with
+ * everything an invoice needs; a super admin then confirms it in the dashboard,
+ * agreeing the final price, and only then is the invoice issued and emailed.
+ * Payment is by bank transfer against that invoice, which is why there is no
+ * card field: a payment form in a flow that takes no payment teaches the wrong
+ * habit and collects details we have no business holding.
  */
 export function CheckoutPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
+  // A request sent from inside a campaign leaves them in it — and says which.
+  const { shopHome, collectionSlug } = useFunnel()
   const { brand } = useBrand()
   const { user, company } = useAuth()
   const { items, subtotal, clearCart } = useCart()
   const posthog = usePostHog()
   const createOrder = useCreateOrder()
 
-  const [name, setName] = useState(user?.name ?? '')
-  const [email, setEmail] = useState(user?.email ?? '')
-  // A signed-in shopper's company is on their account; a guest has to say.
-  const [companyName, setCompanyName] = useState(company?.name ?? '')
-  const [phone, setPhone] = useState('')
-  const [address, setAddress] = useState('')
-  const [city, setCity] = useState('')
-  const [zip, setZip] = useState('')
-  const [country, setCountry] = useState('')
-  const [neededBy, setNeededBy] = useState('')
-  const [notes, setNotes] = useState('')
+  const [form, setForm] = useState<CheckoutForm>(() =>
+    emptyCheckoutForm({
+      name: user?.name,
+      email: user?.email,
+      // A signed-in shopper's company is on their account; a guest has to say.
+      company: company?.name,
+    }),
+  )
+  const set = <K extends keyof CheckoutForm>(key: K, value: CheckoutForm[K]) =>
+    setForm((prev) => ({ ...prev, [key]: value }))
+  const [formError, setFormError] = useState<string | null>(null)
 
   /** Set once the request is recorded — carries the reference to quote. */
-  const [reference, setReference] = useState<string | null>(null)
+  const [sent, setSent] = useState<{ reference: string; email: string } | null>(null)
 
   const shipping = shippingFor(subtotal)
   const total = subtotal + shipping
   const currency = items[0]?.product.currency ?? 'EUR'
 
+  // Once per visit to the page, so the funnel shows where people drop off.
+  const started = useRef(false)
+  useEffect(() => {
+    if (started.current || items.length === 0) return
+    started.current = true
+    posthog?.capture('checkout started', {
+      collection: collectionSlug,
+      source: collectionSlug ? 'funnel' : 'storefront',
+      estimated_total: total,
+      item_count: items.reduce((sum, i) => sum + i.quantity, 0),
+      is_guest: !user,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (createOrder.isPending) return
+    if (!form.privacyAccepted) {
+      setFormError(t('checkout.privacyRequired'))
+      return
+    }
+    setFormError(null)
 
     const payload: OrderItem[] = items.map(({ product, quantity, box, design }) => ({
       productId: product.id,
@@ -85,38 +120,65 @@ export function CheckoutPage() {
 
     // Where they came from, gathered at the one moment it is worth something.
     const attribution = loadAttribution()
-    const funnel = loadFunnelEntry()
+    const entry = loadFunnelEntry()
+    const trim = (v: string) => v.trim() || null
+    const name = `${form.firstName.trim()} ${form.lastName.trim()}`.trim()
 
     try {
       const order = await createOrder.mutateAsync({
         contact: {
-          name: name.trim(),
-          email: email.trim(),
-          company: companyName.trim() || null,
-          phone: phone.trim() || null,
+          name,
+          firstName: trim(form.firstName),
+          lastName: trim(form.lastName),
+          email: form.email.trim(),
+          company: trim(form.company),
+          phone: trim(form.phone),
+          position: trim(form.position),
+        },
+        billing: {
+          company: form.company.trim(),
+          name,
+          street: form.street.trim(),
+          line2: trim(form.line2),
+          zip: form.zip.trim(),
+          city: form.city.trim(),
+          country: form.country,
+          vatId: trim(form.vatId),
+          poNumber: trim(form.poNumber),
         },
         delivery: {
-          address: address.trim() || null,
-          city: city.trim() || null,
-          zip: zip.trim() || null,
-          country: country.trim() || null,
-          neededBy: neededBy.trim() || null,
-          notes: notes.trim() || null,
+          sameAsBilling: form.sameAsBilling,
+          ...(form.sameAsBilling
+            ? {}
+            : {
+                address: trim(form.deliveryStreet),
+                line2: trim(form.deliveryLine2),
+                zip: trim(form.deliveryZip),
+                city: trim(form.deliveryCity),
+                country: form.country,
+              }),
+          neededBy: trim(form.neededBy),
+          notes: trim(form.notes),
         },
         items: payload,
         currency,
         locale: currentLocale(),
-        source: funnel ? 'funnel' : 'storefront',
-        collectionSlug: funnel?.collectionSlug ?? null,
-        attribution: attribution
-          ? {
-              ...attribution,
-              // Lets the ads side line a request up with the session that
-              // produced it, without us sending anything more about them.
-              posthogDistinctId: posthog?.get_distinct_id() ?? null,
-              guestSessionId: user ? null : getGuestSessionId(),
-            }
-          : null,
+        // The page they are buying in; the server checks it and decides the
+        // source from it.
+        collectionSlug: collectionSlug ?? null,
+        attribution: {
+          ...(attribution ?? {}),
+          // Lets the ads side line a request up with the session that
+          // produced it, without us sending anything more about them.
+          posthogDistinctId: posthog?.get_distinct_id() ?? null,
+          guestSessionId: user ? null : getGuestSessionId(),
+          entrySlug:
+            entry && entry.collectionSlug !== collectionSlug
+              ? entry.collectionSlug
+              : null,
+        },
+        paymentMethod: 'invoice',
+        privacyAccepted: form.privacyAccepted,
       })
 
       posthog?.capture('order requested', {
@@ -128,19 +190,37 @@ export function CheckoutPage() {
         currency: order.currency,
         brand: brand.companyName,
         is_guest: !user,
-        source: funnel ? 'funnel' : 'storefront',
-        collection: funnel?.collectionSlug ?? null,
+        source: order.source ?? (collectionSlug ? 'funnel' : 'storefront'),
+        collection: order.collectionSlug ?? null,
+        collection_name: order.collectionName ?? null,
+        payment_method: 'invoice',
       })
 
       // Only now. Clearing before the request lands would throw the basket away
       // on a failure, and rebuilding a designed box is an afternoon's work.
-      setReference(order.reference)
+      setSent({ reference: order.reference, email: order.contact.email })
       clearCart()
-      // The campaign brought them this far and has been recorded on the
-      // request; a second order is a new visit, not the same click.
+      // The click that brought them has been recorded on the request; a
+      // second order is a new visit, not the same click. Only the attribution
+      // goes — they stay inside the campaign itself.
       clearFunnelEntry()
-    } catch {
-      // The error renders below; the cart and everything typed stay put.
+      clearAttribution()
+      for (const key of Object.keys(attributionProperties(attribution))) {
+        posthog?.unregister(key)
+      }
+    } catch (err) {
+      // The campaign ended while they were checking out: let go of it so the
+      // cart can be sent from the shop. The cart and everything typed stay.
+      if (
+        isAxiosError(err) &&
+        err.response?.status === 409 &&
+        (err.response.data as { code?: string } | undefined)?.code ===
+          'collection_unavailable'
+      ) {
+        clearCampaignLock()
+        clearFunnelEntry()
+      }
+      // The error renders below.
     }
   }
 
@@ -148,20 +228,20 @@ export function CheckoutPage() {
     ? apiErrorMessage(createOrder.error, t('common.somethingWentWrong'))
     : null
 
-  if (items.length === 0 && !reference) {
+  if (items.length === 0 && !sent) {
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-center">
         <h1 className="font-display text-2xl font-bold">
           {t('checkout.nothing')}
         </h1>
         <Button asChild>
-          <Link to="/">{t('checkout.continueShopping')}</Link>
+          <Link to={shopHome}>{t('checkout.continueShopping')}</Link>
         </Button>
       </div>
     )
   }
 
-  if (reference) {
+  if (sent) {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center gap-4 py-20 text-center">
         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
@@ -172,13 +252,21 @@ export function CheckoutPage() {
         </h1>
         <p className="text-muted-foreground">
           {t('checkout.referenceIs')}{' '}
-          <span className="font-medium text-foreground">{reference}</span>.{' '}
-          {t('checkout.receivedBody')}
+          <span className="font-medium text-foreground">{sent.reference}</span>.
         </p>
-        <Button onClick={() => navigate('/')}>{t('checkout.backToShop')}</Button>
+        <p className="text-muted-foreground">
+          {t('checkout.confirmationSent', { email: sent.email })}
+        </p>
+        <p className="text-sm text-muted-foreground">{t('checkout.receivedBody')}</p>
+        <Button onClick={() => navigate(shopHome)}>
+          {t('checkout.backToShop')}
+        </Button>
       </div>
     )
   }
+
+  const pending = createOrder.isPending
+  const shownError = formError ?? error
 
   return (
     <div className="space-y-8">
@@ -200,152 +288,37 @@ export function CheckoutPage() {
 
       <div className="grid gap-8 lg:grid-cols-[1fr_340px] lg:items-start">
         <form className="space-y-8" onSubmit={handleSubmit}>
-          <fieldset className="space-y-4" disabled={createOrder.isPending}>
-            <legend className="font-display text-lg font-semibold">
-              {t('checkout.contact')}
-            </legend>
-            <div className="space-y-2">
-              <Label htmlFor="name">{t('checkout.name')}</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="name"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">{t('checkout.email')}</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                required
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="company">{t('checkout.company')}</Label>
-                <Input
-                  id="company"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  autoComplete="organization"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t('checkout.companyHint')}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">{t('checkout.phone')}</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  autoComplete="tel"
-                />
-              </div>
-            </div>
-          </fieldset>
+          <ContactSection form={form} set={set} disabled={pending} />
+          <BillingSection form={form} set={set} disabled={pending} />
+          <DeliverySection form={form} set={set} disabled={pending} />
+          <PaymentSection disabled={pending} />
 
-          <fieldset className="space-y-4" disabled={createOrder.isPending}>
-            <legend className="font-display text-lg font-semibold">
-              {t('checkout.delivery')}
-            </legend>
-            <div className="space-y-2">
-              <Label htmlFor="address">{t('checkout.address')}</Label>
-              <Input
-                id="address"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                required
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="city">{t('checkout.city')}</Label>
-                <Input
-                  id="city"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="zip">{t('checkout.zip')}</Label>
-                <Input
-                  id="zip"
-                  value={zip}
-                  onChange={(e) => setZip(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="country">{t('checkout.country')}</Label>
-                <Input
-                  id="country"
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  required
-                />
-              </div>
-              {/* The first thing a quote has to answer, and the thing people
-                  forget to mention until it is too late to make. */}
-              <div className="space-y-2">
-                <Label htmlFor="neededBy">{t('checkout.neededBy')}</Label>
-                <Input
-                  id="neededBy"
-                  type="date"
-                  value={neededBy}
-                  onChange={(e) => setNeededBy(e.target.value)}
-                />
-              </div>
-            </div>
-          </fieldset>
+          <PrivacyConsent form={form} set={set} disabled={pending} />
 
-          <fieldset className="space-y-4" disabled={createOrder.isPending}>
-            <legend className="font-display text-lg font-semibold">
-              {t('checkout.anythingElse')}
-            </legend>
-            <div className="space-y-2">
-              <Label htmlFor="notes">{t('checkout.notes')}</Label>
-              <Textarea
-                id="notes"
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder={t('checkout.notesPlaceholder')}
-              />
-            </div>
-          </fieldset>
-
-          {error && (
+          {shownError && (
             <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
+              {shownError}
             </p>
           )}
 
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full sm:w-auto"
-            disabled={createOrder.isPending}
-          >
-            {createOrder.isPending ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                {t('checkout.sending')}
-              </>
-            ) : (
-              t('checkout.send')
-            )}
-          </Button>
+          <div className="space-y-2">
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full sm:w-auto"
+              disabled={pending}
+            >
+              {pending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  {t('checkout.sending')}
+                </>
+              ) : (
+                t('checkout.send')
+              )}
+            </Button>
+            <p className="text-xs text-muted-foreground">{t('checkout.notBinding')}</p>
+          </div>
         </form>
 
         <Card className="sticky top-24 border-border/30">
@@ -379,12 +352,26 @@ export function CheckoutPage() {
               ))}
             </ul>
             <Separator />
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>{t('checkout.subtotal')}</span>
+                <span>{formatPrice(subtotal, currency)}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>{t('checkout.shipping')}</span>
+                <span>
+                  {shipping === 0
+                    ? t('checkout.shippingFree')
+                    : formatPrice(shipping, currency)}
+                </span>
+              </div>
+            </div>
             <div className="flex justify-between font-semibold">
               <span>{t('checkout.estimatedTotal')}</span>
               <span>{formatPrice(total, currency)}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              {t('checkout.indicative')}
+              {t('checkout.plusVat')} {t('checkout.indicative')}
             </p>
           </CardContent>
         </Card>

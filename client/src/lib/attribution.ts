@@ -1,15 +1,18 @@
 /**
- * Where a visit came from, remembered from the first page they landed on.
+ * Where a visit came from, remembered from the last ad click.
  *
  * An ad click arrives carrying a `gclid` and a set of UTM tags. Those are on
- * the URL of the first page only — one click into the shop and they are gone —
- * so they are captured on arrival and kept until a request is sent, which is
- * the moment they become worth something to anybody.
+ * the URL of the landing page only — one click into the shop and they are gone
+ * — so they are captured on arrival and kept until a request is sent, which is
+ * the moment they become worth something to anybody. Sending one clears them.
  *
- * First-touch, deliberately: if somebody clicks a Christmas ad, leaves, and
- * comes back a week later through a search result, the Christmas ad is what
- * earned the lead. Overwriting on the second visit would credit the visit that
- * cost nothing.
+ * Last campaign touch: a new click with tags on it replaces what is stored,
+ * while a visit without tags (a bookmark, a search result) leaves it alone. So
+ * somebody who clicks a Christmas ad, leaves, and comes back through a search
+ * result is still credited to the ad — but somebody who then clicks a second
+ * ad is credited to that one. Google Ads imports conversions against the click
+ * that produced them, and when paid traffic is split between two landing pages
+ * the test is only readable if the request is tied to the page it came from.
  */
 
 const ATTRIBUTION_KEY = 'atelier-attribution'
@@ -75,7 +78,7 @@ function fromUrl(search: string): Attribution {
 }
 
 /**
- * Capture campaign tags if this looks like a first arrival.
+ * Capture campaign tags when this visit arrived with some.
  *
  * Returns whatever is stored afterwards, so a caller can register the same
  * values with analytics without reading twice.
@@ -87,10 +90,8 @@ export function captureAttribution(
   const incoming = fromUrl(location.search)
   const hasCampaign = Object.keys(incoming).length > 0
 
-  // A stored first touch wins. A later click still updates nothing, which is
-  // the point of first-touch.
-  if (stored) return stored
-  if (!hasCampaign) return null
+  // No tags on this visit: whatever the last click left stands.
+  if (!hasCampaign) return stored
 
   const captured: Attribution = {
     ...incoming,
@@ -104,6 +105,15 @@ export function captureAttribution(
 
 export function loadAttribution(): Attribution | null {
   return read()
+}
+
+/** After a request is sent: the next one has to come from a click of its own. */
+export function clearAttribution(): void {
+  try {
+    localStorage.removeItem(ATTRIBUTION_KEY)
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Flat, snake-free copy for analytics properties. */

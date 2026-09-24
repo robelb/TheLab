@@ -29,10 +29,20 @@ export function ProductPage() {
   // Whether the campaign that sent them here offers customisation. Carried on
   // the link as `?from=<collection>`, so it describes this visit only: a
   // product opened from anywhere else is unaffected.
-  const { allowCustomization: customizable } = useFunnel()
+  const {
+    allowCustomization: customizable,
+    shopHome,
+    inFunnel,
+    collectionTag,
+  } = useFunnel()
 
   const { data: product, isLoading, error } = useProduct(id)
-  const { data: related, isLoading: relatedLoading } = useRelatedProducts(id, 4)
+  // Inside a campaign, only more of that campaign — never the whole catalogue.
+  const { data: related, isLoading: relatedLoading } = useRelatedProducts(
+    id,
+    4,
+    inFunnel ? collectionTag : undefined,
+  )
   const [activeIndex, setActiveIndex] = useState(0)
   /**
    * The design this shopper made for this product, if any.
@@ -54,7 +64,9 @@ export function ProductPage() {
           {error instanceof Error ? error.message : t('product.notFound')}
         </h1>
         <Button asChild variant="outline">
-          <Link to="/">{t('product.backToShop')}</Link>
+          <Link to={shopHome}>
+            {inFunnel ? t('common.backToCollection') : t('product.backToShop')}
+          </Link>
         </Button>
       </div>
     )
@@ -118,9 +130,9 @@ export function ProductPage() {
   return (
     <article className="space-y-12">
       <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
-        <Link to="/">
+        <Link to={shopHome}>
           <ArrowLeft className="size-4" />
-          {t('product.backToShop')}
+          {inFunnel ? t('common.backToCollection') : t('product.backToShop')}
         </Link>
       </Button>
 

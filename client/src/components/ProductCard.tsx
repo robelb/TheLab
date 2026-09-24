@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { ProductImage } from '@/components/ProductImage'
 
 interface ProductCardProps {
   product: Product
@@ -51,7 +52,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
               aria-hidden
               className="absolute inset-0 h-full w-full object-cover blur-sm"
             /> */}
-            <img
+            <ProductImage
               src={displayImage}
               alt={product.name}
               className="relative z-10 h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"

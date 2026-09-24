@@ -114,6 +114,7 @@ campaignsRouter.post('/generate', async (req, res) => {
       parsed.data.brief,
       parsed.data.plainUnlessDesigned,
       guestSessionOf(req),
+      parsed.data.tag,
     )
     res.status(201).json(campaign)
   } catch (err) {

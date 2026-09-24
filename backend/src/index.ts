@@ -1,7 +1,11 @@
 import { env } from './config/env.js'
 import { createApp } from './app.js'
 import { isSupabaseStorageConfigured } from './services/supabaseStorage.js'
-import { startOutboundLoop } from './services/leadIntake.js'
+import { startOutbox } from './services/outbox.js'
+// Imported for their side effect: each registers its outbox handler.
+import './services/leadIntake.js'
+import './services/mailer.js'
+import './modules/orders/orders.emails.js'
 
 const app = createApp()
 
@@ -24,7 +28,7 @@ app.listen(env.PORT, '0.0.0.0', () => {
     )
   }
   // Drains anything the last process left queued, then retries on a timer.
-  startOutboundLoop()
+  startOutbox()
   console.log('  GET  /api/health')
   console.log('  GET  /api/products?page=1&limit=20')
   console.log('  POST /api/extract  { "domain": "biglittlethings.de" }')

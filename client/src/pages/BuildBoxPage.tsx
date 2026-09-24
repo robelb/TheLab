@@ -17,6 +17,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Trans, useTranslation } from 'react-i18next'
 import { usePostHog } from '@posthog/react'
 import { AddProductDialog } from '@/components/AddProductDialog'
+import { useFunnel } from '@/context/FunnelContext'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -106,6 +107,8 @@ function designsFromBox(box: BoxDetails): Record<string, ProductDesign> {
 export function BuildBoxPage() {
   const navigate = useNavigate()
   const { t } = useTranslation()
+  // Inside a campaign, "back" is the campaign and the products are its own.
+  const { shopHome, inFunnel, collectionTag } = useFunnel()
   const posthog = usePostHog()
   const { brand } = useBrand()
   const { domain } = useAuth()
@@ -504,6 +507,7 @@ export function BuildBoxPage() {
         brand: brandSignals,
         bundleSize: AI_BOX_SIZE,
         brief: brief.trim() || undefined,
+        tag: inFunnel ? (collectionTag ?? undefined) : undefined,
         // Assembly renders a box photo too, and nothing it has just picked
         // has been designed — so it is photographed plain, like the tiles it
         // lands in. See `HeroImageSupplies.plainUnlessDesigned`.
@@ -719,9 +723,9 @@ export function BuildBoxPage() {
   return (
     <div className="space-y-8">
       <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
-        <Link to="/">
+        <Link to={shopHome}>
           <ArrowLeft className="size-4" />
-          {t('buildBox.backToShop')}
+          {inFunnel ? t('common.backToCollection') : t('buildBox.backToShop')}
         </Link>
       </Button>
 
@@ -1159,6 +1163,10 @@ export function BuildBoxPage() {
         onAdd={addProduct}
         title={t('buildBox.addToYourBox')}
         plainImages
+        // A campaign's builder offers that campaign's products, not the whole
+        // catalogue — the search box would otherwise be a way out of it.
+        tag={inFunnel ? collectionTag : undefined}
+        kind={inFunnel ? 'single' : undefined}
       />
 
 

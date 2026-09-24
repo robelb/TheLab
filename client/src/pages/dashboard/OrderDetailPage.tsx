@@ -1,5 +1,13 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Printer } from 'lucide-react'
+import {
+  ArrowLeft,
+  CheckCircle2,
+  FileDown,
+  Loader2,
+  Mail,
+  Printer,
+} from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,9 +18,17 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useOrder, useSetOrderStatus } from '@/hooks/use-orders'
+import {
+  useOrder,
+  useResendOrderEmail,
+  useSetOrderStatus,
+  useSetPaymentStatus,
+} from '@/hooks/use-orders'
+import { useAuth } from '@/context/AuthContext'
+import { ConfirmOrderDialog } from '@/components/dashboard/ConfirmOrderDialog'
 import { notifyError, notifySaved } from '@/lib/notify'
 import {
+  fetchInvoicePdf,
   ORDER_STATUSES,
   type Order,
   type OrderItem,
@@ -303,6 +319,7 @@ function attributionRows(order: Order): [string, string][] {
   const rows: [string, string | null | undefined][] = [
     ['Source', order.source ?? null],
     ['Landing page', order.collectionSlug],
+    ['Entered through', a?.entrySlug],
     ['Google click id', a?.gclid],
     ['Meta click id', a?.fbclid],
     ['Microsoft click id', a?.msclkid],
@@ -318,10 +335,38 @@ function attributionRows(order: Order): [string, string][] {
   return rows.filter((row): row is [string, string] => Boolean(row[1]))
 }
 
+/** A billing or delivery address as lines. */
+function addressLines(lines: (string | null | undefined)[]): string[] {
+  return lines.filter((l): l is string => Boolean(l && l.trim()))
+}
+
+const COUNTRY_NAMES: Record<string, string> = { DE: 'Germany' }
+
+/** Opens the invoice in a new tab; fetched with the session, not a bare link. */
+async function openInvoice(order: Order) {
+  // Opened before the request so the popup blocker sees the click.
+  const tab = window.open('', '_blank')
+  try {
+    const blob = await fetchInvoicePdf(order.id)
+    const url = URL.createObjectURL(blob)
+    if (tab) tab.location.href = url
+    else window.location.href = url
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  } catch (err) {
+    tab?.close()
+    notifyError(err, 'Could not open the invoice')
+  }
+}
+
 export function OrderDetailPage() {
   const { id = '' } = useParams()
   const { data: order, isLoading, error } = useOrder(id)
   const setStatus = useSetOrderStatus()
+  const setPayment = useSetPaymentStatus()
+  const resend = useResendOrderEmail()
+  const { can } = useAuth()
+  const admin = can('manage_all')
+  const [confirming, setConfirming] = useState(false)
 
   if (isLoading) {
     return (
@@ -417,16 +462,27 @@ export function OrderDetailPage() {
             <dd>{sent.toLocaleString()}</dd>
           </div>
           <div className="flex gap-2">
+            <dt className="text-muted-foreground">Origin</dt>
+            <dd>
+              {order.source === 'funnel'
+                ? `Landing page · ${order.collectionName ?? order.collectionSlug ?? '—'}`
+                : 'Shop'}
+            </dd>
+          </div>
+          <div className="flex gap-2">
             <dt className="text-muted-foreground">Deliver to</dt>
             <dd>
-              {[
-                order.delivery?.address,
-                order.delivery?.zip,
-                order.delivery?.city,
-                order.delivery?.country,
-              ]
-                .filter(Boolean)
-                .join(', ') || 'Not given'}
+              {order.delivery?.sameAsBilling
+                ? 'Billing address'
+                : [
+                    order.delivery?.address,
+                    order.delivery?.line2,
+                    order.delivery?.zip,
+                    order.delivery?.city,
+                    order.delivery?.country,
+                  ]
+                    .filter(Boolean)
+                    .join(', ') || 'Not given'}
             </dd>
           </div>
           <div className="flex gap-2">
@@ -452,6 +508,12 @@ export function OrderDetailPage() {
               <dd>{order.contact.phone}</dd>
             </div>
           )}
+          {order.contact.position && (
+            <div className="flex gap-2">
+              <dt className="text-muted-foreground">Position</dt>
+              <dd>{order.contact.position}</dd>
+            </div>
+          )}
           {order.locale && (
             <div className="flex gap-2">
               <dt className="text-muted-foreground">Reply in</dt>
@@ -459,6 +521,45 @@ export function OrderDetailPage() {
             </div>
           )}
         </dl>
+        {order.billing && (
+          <div className="grid gap-4 rounded-brand border border-border/40 px-3 py-3 text-sm sm:grid-cols-2">
+            <div>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Invoice to
+              </p>
+              {addressLines([
+                order.billing.company,
+                order.billing.name,
+                order.billing.street,
+                order.billing.line2,
+                `${order.billing.zip} ${order.billing.city}`,
+                COUNTRY_NAMES[order.billing.country] ?? order.billing.country,
+              ]).map((line, i) => (
+                <p key={i}>{line}</p>
+              ))}
+            </div>
+            <dl className="space-y-1">
+              <div className="flex gap-2">
+                <dt className="text-muted-foreground">VAT ID</dt>
+                <dd>{order.billing.vatId || '—'}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="text-muted-foreground">PO number</dt>
+                <dd>{order.billing.poNumber || '—'}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="text-muted-foreground">Payment</dt>
+                <dd>{order.paymentMethod === 'invoice' ? 'By invoice' : '—'}</dd>
+              </div>
+              {order.privacyAcceptedAt && (
+                <div className="flex gap-2">
+                  <dt className="text-muted-foreground">Privacy accepted</dt>
+                  <dd>{formatDateTime(order.privacyAcceptedAt)}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
         {order.delivery?.notes && (
           <p className="whitespace-pre-wrap rounded-brand bg-muted/40 px-3 py-2 text-sm">
             <span className="text-muted-foreground">Notes: </span>
@@ -491,7 +592,7 @@ export function OrderDetailPage() {
         )}
       </header>
 
-      <div className="flex items-center gap-2 print:hidden">
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
         <span className="text-xs text-muted-foreground">Status</span>
         <Select
           value={order.status}
@@ -503,8 +604,7 @@ export function OrderDetailPage() {
                   notifySaved(
                     `${order.reference} marked ${updated.status}`,
                     // Worth saying: this is the signal the ads side scores on.
-                    updated.status === 'quoted' ||
-                      updated.status === 'confirmed'
+                    updated.status === 'quoted'
                       ? 'Sent to the campaign feed.'
                       : undefined,
                   ),
@@ -513,20 +613,131 @@ export function OrderDetailPage() {
               },
             )
           }
-          disabled={setStatus.isPending}
+          // An invoiced order's status is settled until a credit note exists.
+          disabled={setStatus.isPending || Boolean(order.invoice)}
         >
           <SelectTrigger className="h-8 w-40 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {ORDER_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
+              // Confirming fixes the price and issues the invoice, so it has
+              // its own button rather than being a dropdown choice.
+              <SelectItem
+                key={s}
+                value={s}
+                disabled={s === 'confirmed' && order.status !== 'confirmed'}
+              >
                 {s}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        {admin && !order.invoice && order.status !== 'cancelled' && (
+          <>
+            <Button
+              size="sm"
+              onClick={() => setConfirming(true)}
+              disabled={!order.billing}
+              title={
+                order.billing
+                  ? undefined
+                  : 'This request has no billing address — ask the customer for one first.'
+              }
+            >
+              <CheckCircle2 className="size-4" />
+              Confirm order…
+            </Button>
+            <ConfirmOrderDialog
+              key={order.updatedAt}
+              order={order}
+              open={confirming}
+              onOpenChange={setConfirming}
+            />
+          </>
+        )}
+        {admin && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={resend.isPending}
+            onClick={() =>
+              resend.mutate(
+                { id: order.id, template: order.invoice ? 'confirmed' : 'received' },
+                {
+                  onSuccess: () =>
+                    notifySaved(
+                      order.invoice
+                        ? 'Confirmation and invoice queued again'
+                        : 'Request confirmation queued again',
+                      `To ${order.contact.email}`,
+                    ),
+                  onError: (err) => notifyError(err, 'Could not queue the email'),
+                },
+              )
+            }
+          >
+            <Mail className="size-4" />
+            Resend email
+          </Button>
+        )}
       </div>
+
+      {order.invoice && (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-brand border border-border/40 bg-muted/10 px-4 py-3 text-sm print:hidden">
+          <div className="space-y-0.5">
+            <p className="font-medium">
+              Invoice <span className="font-mono">{order.invoice.number}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Issued {formatDateTime(order.invoice.issuedAt)} · due{' '}
+              {new Date(order.invoice.dueAt).toLocaleDateString()} ·{' '}
+              {formatPrice(order.invoice.gross, order.invoice.currency)}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge
+              variant="outline"
+              className={
+                order.paymentStatus === 'paid'
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700'
+                  : 'border-amber-500/40 bg-amber-500/10 text-amber-700'
+              }
+            >
+              {order.paymentStatus ?? 'unpaid'}
+            </Badge>
+            {admin && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={setPayment.isPending}
+                onClick={() =>
+                  setPayment.mutate(
+                    {
+                      id: order.id,
+                      paymentStatus: order.paymentStatus === 'paid' ? 'unpaid' : 'paid',
+                    },
+                    {
+                      onSuccess: (updated) =>
+                        notifySaved(`${order.reference} marked ${updated.paymentStatus}`),
+                      onError: (err) => notifyError(err, 'Could not change the payment'),
+                    },
+                  )
+                }
+              >
+                {setPayment.isPending && <Loader2 className="size-4 animate-spin" />}
+                {order.paymentStatus === 'paid' ? 'Mark unpaid' : 'Mark as paid'}
+              </Button>
+            )}
+            {admin && (
+              <Button size="sm" variant="outline" onClick={() => void openInvoice(order)}>
+                <FileDown className="size-4" />
+                Invoice PDF
+              </Button>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -556,15 +767,44 @@ export function OrderDetailPage() {
             {formatPrice(order.shipping, order.currency)}
           </span>
         </div>
-        <div className="flex justify-between text-base font-semibold">
-          <span>Total</span>
-          <span className="tabular-nums">
-            {formatPrice(order.total, order.currency)}
-          </span>
-        </div>
-        <p className="pt-1 text-xs text-muted-foreground">
-          Indicative — the quote is what counts.
-        </p>
+        {order.totalGross != null ? (
+          <>
+            <div className="flex justify-between text-muted-foreground">
+              <span>Net</span>
+              <span className="tabular-nums">
+                {formatPrice(order.total, order.currency)}
+              </span>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>VAT {order.vatRate ?? ''} %</span>
+              <span className="tabular-nums">
+                {formatPrice(order.vat ?? 0, order.currency)}
+              </span>
+            </div>
+            <div className="flex justify-between text-base font-semibold">
+              <span>Total</span>
+              <span className="tabular-nums">
+                {formatPrice(order.totalGross, order.currency)}
+              </span>
+            </div>
+            <p className="pt-1 text-xs text-muted-foreground">
+              Agreed price, confirmed{' '}
+              {order.confirmedAt ? formatDateTime(order.confirmedAt) : ''}.
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="flex justify-between text-base font-semibold">
+              <span>Total (net)</span>
+              <span className="tabular-nums">
+                {formatPrice(order.total, order.currency)}
+              </span>
+            </div>
+            <p className="pt-1 text-xs text-muted-foreground">
+              Estimate, plus VAT — the price is agreed on confirmation.
+            </p>
+          </>
+        )}
       </section>
     </div>
   )

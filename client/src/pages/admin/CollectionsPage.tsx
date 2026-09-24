@@ -1,13 +1,25 @@
 import { useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
-import { Copy, ExternalLink, Pencil, Plus } from 'lucide-react'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Check, Copy, ExternalLink, Pencil, Plus, Search } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useAllCollections } from '@/hooks/use-collections-admin'
 import { NewCollectionDialog } from '@/components/admin/NewCollectionDialog'
+import {
+  TablePagination,
+  paginate,
+} from '@/components/dashboard/TablePagination'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 /**
  * The landing pages the ads point at.
@@ -17,19 +29,36 @@ import { Skeleton } from '@/components/ui/skeleton'
  * underneath. Marketing changes these mid-campaign, which is why they are rows
  * rather than code.
  *
- * A list, and nothing more. Setting one up happens on its own page, which is
- * where the boxes, the products and the copy live.
+ * A table, like the rest of the dashboard, and nothing more. Setting one up
+ * happens on its own page, which is where the boxes, the products and the copy
+ * live. Searched and paged here rather than on the server: there are only ever
+ * a handful, and the list is already loaded whole for the detail page.
  */
 export function CollectionsPage() {
   const { can } = useAuth()
+  const navigate = useNavigate()
   const collectionsQuery = useAllCollections()
 
   const [copied, setCopied] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
 
   if (!can('manage_all')) return <Navigate to="/dashboard" replace />
 
-  const collections = collectionsQuery.data ?? []
+  const all = collectionsQuery.data ?? []
+  const needle = search.trim().toLowerCase()
+  const matching = needle
+    ? all.filter(
+        (c) =>
+          c.slug.includes(needle) ||
+          c.tag.includes(needle) ||
+          c.title.de.toLowerCase().includes(needle) ||
+          c.title.en.toLowerCase().includes(needle),
+      )
+    : all
+  const { rows, pagination } = paginate(matching, page, limit)
 
   /** The link marketing puts on the landing page, ready to paste. */
   function linkFor(collectionSlug: string, defaultLocale: string): string {
@@ -42,123 +71,243 @@ export function CollectionsPage() {
       setCopied(collectionSlug)
       window.setTimeout(() => setCopied(null), 2000)
     } catch {
-      /* Clipboard blocked — the link is on screen to copy by hand. */
+      /* Clipboard blocked — the link is on the page behind "Edit" to copy. */
     }
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1">
           <h1 className="font-display text-2xl font-bold">Landing pages</h1>
           <p className="text-sm text-muted-foreground">
-            Each one is a page an ad can point at. Hand the link to the agency
-            and add the campaign parameters to the end of it.
+            {collectionsQuery.data
+              ? `${all.length} page${all.length === 1 ? '' : 's'} · hand the link to the agency and add the campaign parameters to the end of it`
+              : 'Each one is a page an ad can point at.'}
           </p>
         </div>
         <Button type="button" onClick={() => setCreating(true)}>
           <Plus className="size-4" />
           New landing page
         </Button>
+      </header>
+
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          placeholder="Search by URL, tag or headline…"
+          className="pl-9"
+        />
       </div>
 
-      {collectionsQuery.isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 w-full" />
-          ))}
-        </div>
-      ) : collections.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-brand border border-dashed border-border/60 px-4 py-14 text-center">
-          <p className="text-sm text-muted-foreground">
-            No landing pages yet.
-          </p>
-          <Button type="button" variant="outline" onClick={() => setCreating(true)}>
-            <Plus className="size-4" />
-            Create the first one
-          </Button>
-        </div>
-      ) : (
-        <ul className="space-y-3">
-          {collections.map((collection) => {
-            // Defensive: an older cached response has no bundles on it, and a
-            // dashboard that white-screens is worse than one missing a line.
-            const featured = collection.featuredBundles ?? []
-            return (
-              <li key={collection.id}>
-                <Card className="border-border/30">
-                  <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-1">
-                      <CardTitle className="flex flex-wrap items-center gap-2">
-                        /c/{collection.slug}
-                        <Badge variant="outline" className="uppercase">
-                          {collection.defaultLocale}
-                        </Badge>
-                        <Badge variant="secondary">#{collection.tag}</Badge>
-                        {!collection.allowCustomization && (
-                          <Badge variant="outline">Buy only</Badge>
-                        )}
-                        {!collection.active && (
-                          <Badge
-                            variant="outline"
-                            className="text-muted-foreground"
-                          >
-                            Ended
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        {collection.title.de}
-                      </p>
+      {collectionsQuery.error && (
+        <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Could not load the landing pages. Reload to try again.
+        </p>
+      )}
+
+      <div className="overflow-hidden rounded-brand border border-border/40">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/40">
+              <TableHead>Page</TableHead>
+              <TableHead>Tag</TableHead>
+              <TableHead>Boxes</TableHead>
+              <TableHead>Mode</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {collectionsQuery.isLoading &&
+              Array.from({ length: 4 }).map((_, i) => (
+                <TableRow key={`skeleton-${i}`}>
+                  <TableCell>
+                    <div className="space-y-2">
+                      <Skeleton className="h-3.5 w-36" />
+                      <Skeleton className="h-3 w-52" />
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-20" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-8" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-20" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-12" />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-1">
+                      <Skeleton className="size-8 rounded-brand" />
+                      <Skeleton className="size-8 rounded-brand" />
+                      <Skeleton className="size-8 rounded-brand" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+
+            {!collectionsQuery.isLoading && rows.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="py-12 text-center text-muted-foreground"
+                >
+                  {needle ? (
+                    `No landing page matches “${search.trim()}”.`
+                  ) : (
+                    <div className="flex flex-col items-center gap-3">
+                      No landing pages yet.
                       <Button
                         type="button"
-                        size="sm"
                         variant="outline"
-                        onClick={() =>
-                          copyLink(collection.slug, collection.defaultLocale)
-                        }
+                        size="sm"
+                        onClick={() => setCreating(true)}
                       >
-                        <Copy className="size-4" />
-                        {copied === collection.slug ? 'Copied' : 'Copy link'}
-                      </Button>
-                      <Button asChild size="sm" variant="ghost">
-                        <a
-                          href={`/c/${collection.slug}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          <ExternalLink className="size-4" />
-                          Open
-                        </a>
+                        <Plus className="size-4" />
+                        Create the first one
                       </Button>
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="break-all rounded-brand bg-muted/40 px-3 py-2 font-mono text-xs">
-                      {linkFor(collection.slug, collection.defaultLocale)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {featured.length > 0
-                        ? `Boxes: ${featured.map((b) => b.name).join(', ')}`
-                        : 'No boxes featured — the page shows only the filtered catalogue.'}
-                    </p>
-                    <Button asChild size="sm">
-                      <Link
-                        to={`/dashboard/admin/collections/${collection.id}`}
-                      >
-                        <Pencil className="size-4" />
-                        Edit this page
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+                  )}
+                </TableCell>
+              </TableRow>
+            )}
+
+            {!collectionsQuery.isLoading &&
+              rows.map((collection) => {
+                // Defensive: an older cached response has no bundles on it.
+                const boxes = collection.featuredBundles ?? []
+                const editUrl = `/dashboard/admin/collections/${collection.id}`
+                return (
+                  <TableRow
+                    key={collection.id}
+                    className="cursor-pointer"
+                    onClick={() => navigate(editUrl)}
+                  >
+                    <TableCell>
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to={editUrl}
+                            className="font-medium hover:text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            /c/{collection.slug}
+                          </Link>
+                          <Badge variant="outline" className="text-[10px] uppercase">
+                            {collection.defaultLocale}
+                          </Badge>
+                        </div>
+                        <p className="max-w-xs truncate text-xs text-muted-foreground">
+                          {collection.title.de}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">#{collection.tag}</Badge>
+                    </TableCell>
+                    <TableCell
+                      className="tabular-nums"
+                      title={boxes.map((b) => b.name).join(', ') || undefined}
+                    >
+                      {boxes.length || (
+                        <span className="text-muted-foreground">None</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {collection.allowCustomization ? (
+                        <span className="text-sm">Build &amp; buy</span>
+                      ) : (
+                        <Badge variant="outline">Buy only</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {collection.active ? (
+                        <Badge
+                          variant="outline"
+                          className="border-primary/40 bg-primary/10 text-primary"
+                        >
+                          Live
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="border-border/60 text-muted-foreground"
+                        >
+                          Ended
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Copy the link to /c/${collection.slug}`}
+                          title="Copy link"
+                          onClick={() =>
+                            copyLink(collection.slug, collection.defaultLocale)
+                          }
+                        >
+                          {copied === collection.slug ? (
+                            <Check className="size-4 text-primary" />
+                          ) : (
+                            <Copy className="size-4" />
+                          )}
+                        </Button>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Open /c/${collection.slug}`}
+                          title="Open the page"
+                        >
+                          <a
+                            href={`/c/${collection.slug}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <ExternalLink className="size-4" />
+                          </a>
+                        </Button>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Edit /c/${collection.slug}`}
+                          title="Edit"
+                        >
+                          <Link to={editUrl}>
+                            <Pencil className="size-4" />
+                          </Link>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <TablePagination
+        pagination={pagination}
+        shown={rows.length}
+        onPageChange={setPage}
+        onLimitChange={(next) => {
+          setLimit(next)
+          setPage(1)
+        }}
+      />
 
       <NewCollectionDialog open={creating} onOpenChange={setCreating} />
     </div>

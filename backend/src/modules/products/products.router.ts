@@ -27,6 +27,7 @@ import {
   searchByImage,
   updateProduct,
 } from './products.service.js'
+import { isUniqueViolation, publicErrorMessage } from '../../lib/dbErrors.js'
 
 function firstZodError(error: import('zod').ZodError): string {
   const { fieldErrors, formErrors } = error.flatten()
@@ -100,10 +101,14 @@ productsRouter.post('/', async (req, res) => {
     const product = await createProduct(parsed.data)
     res.status(201).json(product)
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Failed to create product'
-    console.warn('[products] create failed:', message)
-    res.status(500).json({ error: message })
+    if (isUniqueViolation(err, 'products_sku_idx')) {
+      return res.status(409).json({
+        error: `${parsed.data.sku ? `SKU ${parsed.data.sku}` : 'That SKU'} is already used by another product. Choose a different one.`,
+        field: 'sku',
+      })
+    }
+    console.warn('[products] create failed:', err instanceof Error ? err.message : err)
+    res.status(500).json({ error: publicErrorMessage(err, 'Failed to create product') })
   }
 })
 
@@ -124,10 +129,14 @@ productsRouter.patch('/:id', async (req, res) => {
     }
     res.json(product)
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Failed to update product'
-    console.warn('[products] update failed:', message)
-    res.status(500).json({ error: message })
+    if (isUniqueViolation(err, 'products_sku_idx')) {
+      return res.status(409).json({
+        error: `${parsed.data.sku ? `SKU ${parsed.data.sku}` : 'That SKU'} is already used by another product. Choose a different one.`,
+        field: 'sku',
+      })
+    }
+    console.warn('[products] update failed:', err instanceof Error ? err.message : err)
+    res.status(500).json({ error: publicErrorMessage(err, 'Failed to update product') })
   }
 })
 
@@ -310,6 +319,16 @@ productsRouter.get('/:id/related', async (req, res) => {
     12,
   )
 
-  const related = await getRelatedProducts(req.params.id, limit, companyId)
+  const tag =
+    typeof req.query.tag === 'string' && req.query.tag.trim()
+      ? req.query.tag.trim().slice(0, 64)
+      : undefined
+
+  const related = await getRelatedProducts(
+    req.params.id,
+    limit,
+    companyId,
+    tag,
+  )
   res.json({ data: related })
 })

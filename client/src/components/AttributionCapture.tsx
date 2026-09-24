@@ -23,7 +23,7 @@ export function AttributionCapture() {
     // Registered rather than captured: every later event in the session then
     // carries where the visitor came from, so a funnel can be read end to end.
     posthog?.register(attributionProperties(attribution))
-    // First touch only — a later navigation must not re-register.
+    // Once per page load — the tags are only on the URL they landed on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

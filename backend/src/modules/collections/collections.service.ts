@@ -1,6 +1,7 @@
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, ne } from 'drizzle-orm'
 import { db, rawSql } from '../../db/index.js'
 import { collections, type Collection } from '../../db/schema/index.js'
+import { isUniqueViolation } from '../../lib/dbErrors.js'
 import { getProductsByIds } from '../products/products.service.js'
 import type { ProductWithCategory } from '../../types/product.js'
 import type {
@@ -88,9 +89,50 @@ async function hydrate(
   return { ...row, featuredBundles }
 }
 
+/**
+ * A slug another landing page already lives at.
+ *
+ * Its own error so the router can answer 409 and name the field, rather than
+ * the unique index's refusal reaching the screen as a failed INSERT.
+ */
+export class SlugTakenError extends Error {
+  constructor(readonly slug: string) {
+    super(
+      `/c/${slug} is already used by another landing page. Choose a different URL segment — for example ${slug}-2 or ${slug}-${new Date().getFullYear()}.`,
+    )
+    this.name = 'SlugTakenError'
+  }
+}
+
+async function assertSlugFree(slug: string, exceptId?: string): Promise<void> {
+  const rows = await db
+    .select({ id: collections.id })
+    .from(collections)
+    .where(
+      exceptId
+        ? and(eq(collections.slug, slug), ne(collections.id, exceptId))
+        : eq(collections.slug, slug),
+    )
+    .limit(1)
+  if (rows.length > 0) throw new SlugTakenError(slug)
+}
+
+/**
+ * The check above answers the common case with a clear message; the unique
+ * index is still what actually guarantees it, so a write that loses a race
+ * with another one is translated the same way.
+ */
+function rethrowSlugTaken(err: unknown, slug: string | undefined): never {
+  if (slug && isUniqueViolation(err, 'collections_slug_idx')) {
+    throw new SlugTakenError(slug)
+  }
+  throw err
+}
+
 export async function createCollection(
   input: CreateCollectionBody,
 ): Promise<Collection> {
+  await assertSlugFree(input.slug)
   const [created] = await db
     .insert(collections)
     .values({
@@ -105,6 +147,7 @@ export async function createCollection(
       sortOrder: input.sortOrder,
     })
     .returning()
+    .catch((err: unknown) => rethrowSlugTaken(err, input.slug))
   return created
 }
 
@@ -112,6 +155,8 @@ export async function updateCollection(
   id: string,
   input: UpdateCollectionBody,
 ): Promise<Collection | null> {
+  if (input.slug !== undefined) await assertSlugFree(input.slug, id)
+
   const values: Record<string, unknown> = {}
   if (input.slug !== undefined) values.slug = input.slug
   if (input.title !== undefined) values.title = input.title
@@ -134,6 +179,7 @@ export async function updateCollection(
     .set(values)
     .where(eq(collections.id, id))
     .returning()
+    .catch((err: unknown) => rethrowSlugTaken(err, input.slug))
   return updated ?? null
 }
 
@@ -180,24 +226,102 @@ async function tagOf(collectionId: string): Promise<string | null> {
   return row?.tag ?? null
 }
 
-/** Everything currently carrying this collection's tag. */
+export interface CollectionMembersPage {
+  data: ProductWithCategory[]
+  /**
+   * Every id carrying the tag within `kind`, ignoring the search and the page.
+   *
+   * Only uuids, so cheap to send: it is what lets the product picker leave out
+   * what is already here without the screen holding every product.
+   */
+  ids: string[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+    hasNextPage: boolean
+    hasPrevPage: boolean
+  }
+}
+
+/**
+ * What currently carries this collection's tag, a page at a time.
+ *
+ * The ids are found in one indexed query and only the requested page is loaded
+ * in full — a collection filled from an import can hold hundreds of products,
+ * and the table shows twenty.
+ */
 export async function listCollectionMembers(
   collectionId: string,
-  companyId?: string,
-): Promise<ProductWithCategory[]> {
+  opts: {
+    page?: number
+    limit?: number
+    q?: string
+    kind?: 'single' | 'bundle'
+    companyId?: string
+  } = {},
+): Promise<CollectionMembersPage> {
+  const page = opts.page ?? 1
+  const limit = opts.limit ?? 20
+  const empty = {
+    data: [],
+    ids: [],
+    pagination: {
+      page,
+      limit,
+      total: 0,
+      totalPages: 0,
+      hasNextPage: false,
+      hasPrevPage: page > 1,
+    },
+  }
+
   const tag = await tagOf(collectionId)
-  if (!tag) return []
+  if (!tag) return empty
 
+  const tagged = JSON.stringify([tag])
+  const kind = opts.kind ?? null
   const rows = (await rawSql`
-    SELECT id FROM products
-     WHERE tags @> ${JSON.stringify([tag])}::jsonb
+    SELECT id, name, sku FROM products
+     WHERE tags @> ${tagged}::jsonb
+       AND (${kind}::text IS NULL OR kind = ${kind}::text)
      ORDER BY kind DESC, name ASC
-  `) as { id: string }[]
+  `) as { id: string; name: string; sku: string | null }[]
 
-  return getProductsByIds(
-    rows.map((r) => r.id),
-    companyId,
-  )
+  const needle = opts.q?.toLowerCase()
+  const matching = needle
+    ? rows.filter(
+        (r) =>
+          r.name.toLowerCase().includes(needle) ||
+          (r.sku ?? '').toLowerCase().includes(needle),
+      )
+    : rows
+
+  const total = matching.length
+  const totalPages = total === 0 ? 0 : Math.ceil(total / limit)
+  const pageIds = matching
+    .slice((page - 1) * limit, page * limit)
+    .map((r) => r.id)
+
+  const products = await getProductsByIds(pageIds, opts.companyId)
+  // `getProductsByIds` answers in no particular order; keep the query's.
+  const byId = new Map(products.map((p) => [p.id, p]))
+
+  return {
+    data: pageIds
+      .map((id) => byId.get(id))
+      .filter((p): p is ProductWithCategory => Boolean(p)),
+    ids: rows.map((r) => r.id),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    },
+  }
 }
 
 /**
@@ -211,26 +335,31 @@ export async function listCollectionMembers(
 export async function setCollectionMembership(
   collectionId: string,
   changes: { add?: string[]; remove?: string[] },
-): Promise<ProductWithCategory[]> {
+): Promise<{ added: number; removed: number } | null> {
   const tag = await tagOf(collectionId)
-  if (!tag) return []
+  if (!tag) return null
 
   const add = [...new Set(changes.add ?? [])]
   const remove = [...new Set(changes.remove ?? [])].filter(
     (id) => !add.includes(id),
   )
 
+  let added = 0
+  let removed = 0
+
   if (add.length > 0) {
-    await rawSql`
+    const rows = (await rawSql`
       UPDATE products
          SET tags = tags || ${JSON.stringify([tag])}::jsonb
        WHERE id = ANY(${add}::uuid[])
          AND NOT (tags @> ${JSON.stringify([tag])}::jsonb)
-    `
+      RETURNING id
+    `) as { id: string }[]
+    added = rows.length
   }
 
   if (remove.length > 0) {
-    await rawSql`
+    const rows = (await rawSql`
       UPDATE products
          SET tags = (
            SELECT COALESCE(jsonb_agg(value), '[]'::jsonb)
@@ -239,8 +368,12 @@ export async function setCollectionMembership(
          )
        WHERE id = ANY(${remove}::uuid[])
          AND tags @> ${JSON.stringify([tag])}::jsonb
-    `
+      RETURNING id
+    `) as { id: string }[]
+    removed = rows.length
   }
 
-  return listCollectionMembers(collectionId)
+  // Counts rather than the list: the table is paged, so the screen refetches
+  // the page it is on instead of being handed every product in the collection.
+  return { added, removed }
 }

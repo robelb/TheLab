@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import {
   createCollection,
@@ -8,6 +13,7 @@ import {
   setCollectionProducts,
   updateCollection,
   type CollectionInput,
+  type CollectionProductsParams,
 } from '@/api/collections-admin'
 import { collectionKeys } from '@/hooks/use-collections'
 
@@ -58,13 +64,18 @@ export function useDeleteCollection() {
 
 const memberKey = (id: string) => ['collections', 'products', id] as const
 
-/** What is on this collection's page right now. */
-export function useCollectionProducts(id: string | undefined) {
+/** One page of what is on this collection's page right now. */
+export function useCollectionProducts(
+  id: string | undefined,
+  params: CollectionProductsParams,
+) {
   const { user } = useAuth()
   return useQuery({
-    queryKey: memberKey(id ?? ''),
-    queryFn: () => fetchCollectionProducts(id!),
+    queryKey: [...memberKey(id ?? ''), params] as const,
+    queryFn: () => fetchCollectionProducts(id!, params),
     enabled: Boolean(id) && Boolean(user),
+    // Paging keeps the current rows up until the next ones arrive.
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -73,10 +84,9 @@ export function useSetCollectionProducts(id: string) {
   return useMutation({
     mutationFn: (changes: { add?: string[]; remove?: string[] }) =>
       setCollectionProducts(id, changes),
-    // The answer is the new membership, so it goes straight into the cache
-    // rather than causing a refetch of what we were just handed.
-    onSuccess: (data) => {
-      client.setQueryData(memberKey(id), data)
+    // The table is paged, so every page of it is stale now, not just this one.
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: memberKey(id) })
       void client.invalidateQueries({ queryKey: ['products'] })
     },
   })

@@ -5,15 +5,46 @@ import type { BoxDetails } from '@/types/box'
 export const ORDER_STATUSES = ['new', 'quoted', 'confirmed', 'cancelled'] as const
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
 
+export const PAYMENT_STATUSES = ['unpaid', 'paid'] as const
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]
+
 export interface OrderContact {
+  /** First and last name joined. */
   name: string
+  firstName?: string | null
+  lastName?: string | null
   email: string
   /** Guests have no company record behind them, so they type the name. */
   company?: string | null
   phone?: string | null
+  position?: string | null
 }
 
-/** Where the visit came from, captured first-touch by the browser. */
+/** Who the invoice is made out to. */
+export interface OrderBilling {
+  company: string
+  name?: string | null
+  street: string
+  line2?: string | null
+  zip: string
+  city: string
+  /** ISO 3166-1 alpha-2 — only `DE` for now. */
+  country: string
+  vatId?: string | null
+  poNumber?: string | null
+  email?: string | null
+}
+
+export interface InvoiceSummary {
+  id: string
+  number: string
+  issuedAt: string
+  dueAt: string
+  gross: number
+  currency: string
+}
+
+/** Where the visit came from, captured at the last ad click by the browser. */
 export interface OrderAttribution {
   gclid?: string | null
   fbclid?: string | null
@@ -28,10 +59,15 @@ export interface OrderAttribution {
   firstSeenAt?: string | null
   posthogDistinctId?: string | null
   guestSessionId?: string | null
+  /** The first collection this browser landed on, when it differs. */
+  entrySlug?: string | null
 }
 
 export interface OrderDelivery {
+  /** Ships to the billing address; the fields below then copy it. */
+  sameAsBilling?: boolean | null
   address?: string | null
+  line2?: string | null
   city?: string | null
   zip?: string | null
   country?: string | null
@@ -76,7 +112,20 @@ export interface Order {
   source?: 'storefront' | 'funnel'
   locale?: string
   collectionSlug?: string | null
+  collectionId?: string | null
+  /** The collection's title when the request came in. */
+  collectionName?: string | null
   attribution?: OrderAttribution | null
+  billing?: OrderBilling | null
+  paymentMethod?: 'invoice' | null
+  paymentStatus?: PaymentStatus | null
+  privacyAcceptedAt?: string | null
+  /** Set once a super admin has agreed the final price. */
+  confirmedAt?: string | null
+  vatRate?: number | null
+  vat?: number | null
+  totalGross?: number | null
+  invoice?: InvoiceSummary | null
 }
 
 /**
@@ -87,15 +136,30 @@ export interface Order {
  */
 export interface CreateOrderBody {
   contact: OrderContact
+  billing?: OrderBilling | null
   delivery?: OrderDelivery | null
   items: OrderItem[]
   currency?: string
   /** Language the request was written in, so the reply matches it. */
   locale?: 'de' | 'en'
-  /** `funnel` when they came in through a landing page. */
-  source?: 'storefront' | 'funnel'
+  /** The collection they are buying in. The server decides the source from it. */
   collectionSlug?: string | null
   attribution?: OrderAttribution | null
+  paymentMethod?: 'invoice'
+  privacyAccepted?: boolean
+}
+
+export interface OrderFilters {
+  source?: 'storefront' | 'funnel'
+  collectionId?: string
+  status?: OrderStatus
+  paymentStatus?: PaymentStatus
+}
+
+/** The final price a super admin agrees, line by line. */
+export interface ConfirmOrderBody {
+  lines: { index: number; unitPrice: number }[]
+  shipping: number
 }
 
 export async function createOrder(body: CreateOrderBody): Promise<Order> {
@@ -103,8 +167,8 @@ export async function createOrder(body: CreateOrderBody): Promise<Order> {
   return data
 }
 
-export async function fetchOrders(): Promise<Order[]> {
-  const { data } = await apiClient.get<Order[]>('/orders')
+export async function fetchOrders(filters: OrderFilters = {}): Promise<Order[]> {
+  const { data } = await apiClient.get<Order[]>('/orders', { params: filters })
   return data
 }
 
@@ -118,5 +182,33 @@ export async function setOrderStatus(
   status: OrderStatus,
 ): Promise<Order> {
   const { data } = await apiClient.patch<Order>(`/orders/${id}`, { status })
+  return data
+}
+
+export async function setPaymentStatus(
+  id: string,
+  paymentStatus: PaymentStatus,
+): Promise<Order> {
+  const { data } = await apiClient.patch<Order>(`/orders/${id}`, { paymentStatus })
+  return data
+}
+
+export async function confirmOrder(id: string, body: ConfirmOrderBody): Promise<Order> {
+  const { data } = await apiClient.post<Order>(`/orders/${id}/confirm`, body)
+  return data
+}
+
+export async function resendOrderEmail(
+  id: string,
+  template: 'received' | 'confirmed',
+): Promise<void> {
+  await apiClient.post(`/orders/${id}/resend-email`, { template })
+}
+
+/** The invoice PDF, fetched with the session so it can be opened as a blob. */
+export async function fetchInvoicePdf(id: string): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(`/orders/${id}/invoice.pdf`, {
+    responseType: 'blob',
+  })
   return data
 }

@@ -140,6 +140,10 @@ function buildNonTextFilters(params: ListProductsParams) {
     conditions.push(eq(products.kind, params.kind))
   }
 
+  if (params.exclude?.length) {
+    conditions.push(notInArray(products.id, params.exclude))
+  }
+
   return conditions
 }
 
@@ -369,8 +373,21 @@ const SEMANTIC_LIMIT = 10
 export async function searchProductsByText(
   query: string,
   limit = 6,
+  /** Only products carrying this tag — a landing page's own range. */
+  opts: { tag?: string } = {},
 ): Promise<ProductWithCategory[]> {
-  return semanticSearch(query, { page: 1, limit, companyId: undefined }, limit)
+  return semanticSearch(
+    query,
+    {
+      page: 1,
+      limit,
+      companyId: undefined,
+      tag: opts.tag,
+      // A landing page tags its boxes too; a box built out of boxes is not one.
+      kind: opts.tag ? 'single' : undefined,
+    },
+    limit,
+  )
 }
 
 async function semanticSearch(
@@ -405,6 +422,14 @@ async function semanticSearch(
   if (params.kind) {
     const safe = params.kind.replace(/'/g, "''")
     clauses.push(`p.kind = '${safe}'`)
+  }
+  if (params.exclude?.length) {
+    // Validated as uuids by the query schema; re-checked here because this
+    // clause is spliced into the SQL rather than bound.
+    const ids = params.exclude.filter((id) => /^[0-9a-f-]{36}$/i.test(id))
+    if (ids.length > 0) {
+      clauses.push(`p.id NOT IN (${ids.map((id) => `'${id}'`).join(', ')})`)
+    }
   }
 
   const whereClause = clauses.join(' AND ')
@@ -1331,7 +1356,13 @@ export async function getRelatedProducts(
   productId: string,
   limit = 4,
   companyId?: string,
+  /**
+   * Only products carrying this tag. A product opened from a landing page
+   * suggests more of that page, not the rest of the catalogue.
+   */
+  tag?: string,
 ): Promise<ProductWithCategory[]> {
+  const tagged = tag ? JSON.stringify([tag.toLowerCase()]) : null
   const rows = (await rawSql`
     SELECT
       p.id, p.source_id, p.variant_id, p.sku, p.name, p.tagline,
@@ -1349,6 +1380,7 @@ export async function getRelatedProducts(
       AND ${rawSql.unsafe(NOT_SUPPLY_SQL)}
       AND p.embedding IS NOT NULL
       AND ref.embedding IS NOT NULL
+      AND (${tagged}::jsonb IS NULL OR p.tags @> ${tagged}::jsonb)
     ORDER BY p.embedding <=> ref.embedding ASC
     LIMIT ${limit}
   `) as RawProductRow[]

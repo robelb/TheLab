@@ -21,3 +21,44 @@ services:
         sync: false
       - key: SUPABASE_STORAGE_BUCKET
         sync: false
+      # Order emails (Resend) and invoice details — see .env.example.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_REPLY_TO
+        sync: false
+      - key: ORDER_NOTIFY_EMAIL
+        sync: false
+      - key: PUBLIC_SHOP_URL
+        sync: false
+      - key: SELLER_NAME
+        sync: false
+      - key: SELLER_STREET
+        sync: false
+      - key: SELLER_ZIP
+        sync: false
+      - key: SELLER_CITY
+        sync: false
+      - key: SELLER_EMAIL
+        sync: false
+      - key: SELLER_PHONE
+        sync: false
+      - key: SELLER_WEBSITE
+        sync: false
+      - key: SELLER_VAT_ID
+        sync: false
+      - key: SELLER_TAX_NUMBER
+        sync: false
+      - key: SELLER_REGISTER_COURT
+        sync: false
+      - key: SELLER_REGISTER_NUMBER
+        sync: false
+      - key: SELLER_MANAGING_DIRECTORS
+        sync: false
+      - key: SELLER_BANK_NAME
+        sync: false
+      - key: SELLER_IBAN
+        sync: false
+      - key: SELLER_BIC
+        sync: false

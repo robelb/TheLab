@@ -78,7 +78,7 @@ const itemSchema = z.object({
 })
 
 /**
- * Where the visit came from, as the browser captured it at first touch.
+ * Where the visit came from, as the browser captured it at the last ad click.
  *
  * Every field is optional and bounded: this arrives from a URL anyone can
  * write, on an endpoint that no longer requires an account.
@@ -97,19 +97,42 @@ const attributionSchema = z.object({
   firstSeenAt: z.string().trim().max(64).nullish(),
   posthogDistinctId: z.string().trim().max(256).nullish(),
   guestSessionId: z.string().trim().max(64).nullish(),
+  entrySlug: z.string().trim().max(80).nullish(),
+})
+
+const optionalText = (max: number) => z.string().trim().max(max).nullish()
+
+/** Who the invoice is made out to. Only Germany is invoiced for now. */
+const billingSchema = z.object({
+  company: shortText,
+  name: optionalText(200),
+  street: z.string().trim().min(1).max(300),
+  line2: optionalText(300),
+  zip: z.string().trim().min(1).max(32),
+  city: z.string().trim().min(1).max(120),
+  country: z.string().trim().toUpperCase().length(2),
+  vatId: optionalText(32),
+  poNumber: optionalText(64),
+  email: z.string().trim().email().max(320).nullish(),
 })
 
 export const createOrderSchema = z.object({
   contact: z.object({
     name: shortText,
+    firstName: optionalText(100),
+    lastName: optionalText(100),
     email: z.string().trim().email().max(320),
     /** Guests have no company record behind them, so they type the name. */
     company: z.string().trim().max(200).nullish(),
     phone: z.string().trim().max(40).nullish(),
+    position: optionalText(120),
   }),
+  billing: billingSchema.nullish(),
   delivery: z
     .object({
+      sameAsBilling: z.boolean().nullish(),
       address: z.string().trim().max(300).nullish(),
+      line2: z.string().trim().max(300).nullish(),
       city: z.string().trim().max(120).nullish(),
       zip: z.string().trim().max(32).nullish(),
       country: z.string().trim().max(120).nullish(),
@@ -120,7 +143,12 @@ export const createOrderSchema = z.object({
   items: z.array(itemSchema).min(1, 'There is nothing to request').max(100),
   currency: z.string().trim().min(1).max(8).default('EUR'),
   locale: z.enum(['de', 'en']).default('en'),
-  source: z.enum(['storefront', 'funnel']).default('storefront'),
+  /**
+   * Ignored — kept so an older client's payload still validates. Where a
+   * request came from is decided on the server from `collectionSlug`.
+   */
+  source: z.enum(['storefront', 'funnel']).optional(),
+  /** The collection the shopper is buying in, checked against active ones. */
   collectionSlug: z
     .string()
     .trim()
@@ -128,6 +156,10 @@ export const createOrderSchema = z.object({
     .regex(/^[a-z0-9-]+$/)
     .nullish(),
   attribution: attributionSchema.nullish(),
+  /** Invoice is the only way to pay today. */
+  paymentMethod: z.enum(['invoice']).nullish(),
+  /** The privacy notice checkbox. Required from guests, see `guestProblems`. */
+  privacyAccepted: z.boolean().optional(),
   /**
    * Honeypot. A real form leaves this empty because nothing renders it; a bot
    * filling every field in the payload gives itself away.
@@ -141,10 +173,63 @@ export const createOrderSchema = z.object({
 
 export const ORDER_STATUSES = ['new', 'quoted', 'confirmed', 'cancelled'] as const
 
-export const updateOrderSchema = z.object({
-  status: z.enum(ORDER_STATUSES),
+export const PAYMENT_STATUSES = ['unpaid', 'paid'] as const
+
+export const updateOrderSchema = z
+  .object({
+    status: z.enum(ORDER_STATUSES).optional(),
+    paymentStatus: z.enum(PAYMENT_STATUSES).optional(),
+  })
+  .refine((b) => b.status || b.paymentStatus, 'Nothing to change')
+
+/**
+ * The price a super admin agrees to, line by line.
+ *
+ * Each entry names a stored line by its position. Lines left out keep the
+ * price they were requested at.
+ */
+export const confirmOrderSchema = z.object({
+  lines: z
+    .array(
+      z.object({
+        index: z.number().int().min(0).max(99),
+        unitPrice: money,
+      }),
+    )
+    .max(100)
+    .default([]),
+  shipping: money,
+})
+
+export const resendEmailSchema = z.object({
+  template: z.enum(['received', 'confirmed']),
 })
 
 export type CreateOrderBody = z.infer<typeof createOrderSchema>
 export type UpdateOrderBody = z.infer<typeof updateOrderSchema>
+export type ConfirmOrderBody = z.infer<typeof confirmOrderSchema>
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
+export type PaymentStatusValue = (typeof PAYMENT_STATUSES)[number]
+
+/**
+ * What a guest has to give us that a signed-in shopper does not.
+ *
+ * A guest's request is the only record we will ever have of them: no account
+ * to look the rest up in later. So everything an invoice needs is asked for up
+ * front. Returns the first problem, or null.
+ */
+export function guestProblems(body: CreateOrderBody): string | null {
+  const c = body.contact
+  if (!c.firstName?.trim() || !c.lastName?.trim()) return 'First and last name are required'
+  if (!c.phone?.trim()) return 'A phone number is required'
+  if (!body.billing) return 'A billing address is required'
+  if (body.billing.country !== 'DE') return 'We can only invoice to Germany for now'
+  const d = body.delivery
+  if (!d?.sameAsBilling) {
+    if (!d?.address?.trim() || !d.zip?.trim() || !d.city?.trim()) {
+      return 'A delivery address is required'
+    }
+  }
+  if (!body.privacyAccepted) return 'Please accept the privacy notice'
+  return null
+}

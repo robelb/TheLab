@@ -9,15 +9,43 @@ import { toast } from 'sonner'
  * sentence; this is how it reaches them.
  */
 export function apiErrorMessage(err: unknown, fallback: string): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const data = (err as { response?: { data?: { error?: string } } }).response
-      ?.data
-    if (data?.error) return data.error
-  }
-  if (err instanceof Error && err.message && !/^Request failed/.test(err.message)) {
+  const data = responseData(err)
+  // A raw database error ("Failed query: insert into …") is never something
+  // to put in front of a person, whichever endpoint let it through.
+  if (data?.error && !isQueryDump(data.error)) return data.error
+  if (
+    err instanceof Error &&
+    err.message &&
+    !/^Request failed/.test(err.message) &&
+    !isQueryDump(err.message)
+  ) {
     return err.message
   }
   return fallback
+}
+
+/**
+ * Which form field the server says the error is about, when it said.
+ *
+ * Lets a form put the message under the input that needs changing instead of
+ * only at the bottom.
+ */
+export function apiErrorField(err: unknown): string | undefined {
+  return responseData(err)?.field
+}
+
+function responseData(
+  err: unknown,
+): { error?: string; field?: string } | undefined {
+  if (err && typeof err === 'object' && 'response' in err) {
+    return (err as { response?: { data?: { error?: string; field?: string } } })
+      .response?.data
+  }
+  return undefined
+}
+
+function isQueryDump(message: string): boolean {
+  return /^Failed query:/.test(message)
 }
 
 /**

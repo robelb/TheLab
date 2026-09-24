@@ -7,15 +7,18 @@ import {
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core'
+import { collections } from './collections.js'
 import { companies } from './companies.js'
 import { users } from './users.js'
 
 /**
  * A request to have a box made.
  *
- * Not a paid order: money and invoicing live outside this app, so what lands
- * here is everything a person needs to price the job and print it — never a
- * charge. The wording in the shop says "request" for the same reason.
+ * Nothing is charged when it arrives: the shopper asks, and the price they saw
+ * is an estimate. A super admin then confirms it — at which point the final
+ * price and its VAT are written onto the row and an invoice is issued (see
+ * `invoices`). Payment is by bank transfer against that invoice; no money moves
+ * through this app. The wording in the shop says "request" for that reason.
  *
  * Until this table existed, a shopper could spend an afternoon and several paid
  * renders designing a box, press the button, and leave nothing behind but an
@@ -63,7 +66,35 @@ export const orders = pgTable(
     /** The `/c/:slug` they came through, when they came through one. */
     collectionSlug: text('collection_slug'),
     /**
-     * Where the visit came from: click ids and UTM tags, captured first-touch.
+     * The same collection by id, resolved on the server when the request lands.
+     * Null for the shop, and after the collection is deleted.
+     */
+    collectionId: uuid('collection_id').references(() => collections.id, {
+      onDelete: 'set null',
+    }),
+    /** The collection's title at the time, so the origin reads after renames. */
+    collectionName: text('collection_name'),
+    /** Who the invoice is made out to. Null on requests sent before checkout asked. */
+    billing: jsonb('billing').$type<OrderBilling | null>(),
+    /** `invoice` is the only method today; card payments will add to it. */
+    paymentMethod: text('payment_method').$type<PaymentMethod | null>(),
+    /** Set to `unpaid` on confirmation, then `paid` by hand once money arrives. */
+    paymentStatus: text('payment_status').$type<PaymentStatus | null>(),
+    /** When the shopper ticked the privacy notice. */
+    privacyAcceptedAt: timestamp('privacy_accepted_at', { withTimezone: true }),
+    /**
+     * Confirmation fixes the price. Until then `subtotal`, `shipping` and
+     * `total` are the estimate the shop showed, and the VAT columns are empty.
+     */
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+    confirmedBy: uuid('confirmed_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    vatRate: numeric('vat_rate', { precision: 5, scale: 2 }),
+    vat: numeric('vat', { precision: 10, scale: 2 }),
+    totalGross: numeric('total_gross', { precision: 10, scale: 2 }),
+    /**
+     * Where the visit came from: click ids and UTM tags from the last ad click.
      *
      * This is what the ads side needs back to learn which clicks turn into
      * money. Null for anyone who arrived without a campaign on them.
@@ -79,20 +110,45 @@ export const orders = pgTable(
   (table) => [
     index('orders_company_created_idx').on(table.companyId, table.createdAt),
     index('orders_source_created_idx').on(table.source, table.createdAt),
+    index('orders_collection_idx').on(table.collectionId),
   ],
 )
 
 export type OrderSource = 'storefront' | 'funnel'
+export type PaymentMethod = 'invoice'
+export type PaymentStatus = 'unpaid' | 'paid'
 
 export interface OrderContact {
+  /** First and last name joined — what every older row and the webhook use. */
   name: string
+  firstName?: string | null
+  lastName?: string | null
   email: string
   /** Guests have no company record, so they type the name instead. */
   company?: string | null
   phone?: string | null
+  position?: string | null
 }
 
-/** First-touch campaign data, exactly as the browser saw it. */
+/** Who the invoice is made out to. */
+export interface OrderBilling {
+  company: string
+  /** The person it is for the attention of. */
+  name?: string | null
+  street: string
+  line2?: string | null
+  zip: string
+  city: string
+  /** ISO 3166-1 alpha-2. Only `DE` today. */
+  country: string
+  vatId?: string | null
+  /** Their own purchase order number, printed on the invoice. */
+  poNumber?: string | null
+  /** Where the invoice goes, when that is not the contact's address. */
+  email?: string | null
+}
+
+/** Campaign data from the last ad click, exactly as the browser saw it. */
 export interface OrderAttribution {
   gclid?: string | null
   fbclid?: string | null
@@ -107,10 +163,16 @@ export interface OrderAttribution {
   firstSeenAt?: string | null
   posthogDistinctId?: string | null
   guestSessionId?: string | null
+  /** The first collection this browser ever landed on, when it differs. */
+  entrySlug?: string | null
 }
 
 export interface OrderDelivery {
+  /** True when it ships to the billing address; the fields below then copy it. */
+  sameAsBilling?: boolean | null
+  /** Street and number. */
   address?: string | null
+  line2?: string | null
   city?: string | null
   zip?: string | null
   country?: string | null

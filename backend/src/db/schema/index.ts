@@ -34,14 +34,26 @@ export {
   type NewDesignVersion,
 } from './design-versions.js'
 export {
+  invoiceCounters,
+  invoices,
+  type Invoice,
+  type InvoiceBuyer,
+  type InvoiceLine,
+  type InvoiceSeller,
+  type NewInvoice,
+} from './invoices.js'
+export {
   orders,
   type Order,
   type NewOrder,
   type OrderAttribution,
+  type OrderBilling,
   type OrderContact,
   type OrderDelivery,
   type OrderItem,
   type OrderSource,
+  type PaymentMethod,
+  type PaymentStatus,
 } from './orders.js'
 export {
   outboundEvents,

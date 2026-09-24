@@ -9,6 +9,9 @@ const optionalPrice = z.coerce
   .min(0, 'Price must be 0 or greater')
   .optional()
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export const productsQuerySchema = z
   .object({
     page: z.coerce.number().int().min(1).default(1),
@@ -75,6 +78,25 @@ export const productsQuerySchema = z
       .transform((v) => (v ? v.toLowerCase() : undefined)),
     // `bundle` narrows to pre-configured boxes; `single` to ordinary items.
     kind: z.enum(['single', 'bundle']).optional(),
+    // Comma-separated ids to leave out: a picker's already-chosen products.
+    // Filtered here rather than after the fetch, so a page of 20 is 20 the
+    // caller can use. Anything that is not a uuid is dropped, not refused.
+    exclude: z
+      .string()
+      .max(8000)
+      .optional()
+      .transform((v) =>
+        v
+          ? [
+              ...new Set(
+                v
+                  .split(',')
+                  .map((id) => id.trim())
+                  .filter((id) => UUID_RE.test(id)),
+              ),
+            ].slice(0, 200)
+          : undefined,
+      ),
   })
   .refine(
     (data) =>

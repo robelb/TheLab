@@ -1,4 +1,9 @@
-import { useMutation, useQuery, keepPreviousData } from '@tanstack/react-query'
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  keepPreviousData,
+} from '@tanstack/react-query'
 import { useMemo } from 'react'
 import {
   customizeBox,
@@ -107,6 +112,29 @@ export function useProducts(
     // render asks for the whole catalogue, and `keepPreviousData` then holds
     // that unfiltered answer on screen after the real filter arrives.
     enabled: options.enabled ?? true,
+  })
+}
+
+/**
+ * Every product for one occasion, a page at a time.
+ *
+ * For the landing page's catalogue, which only ever showed the first 20: a
+ * collection with more than that had the rest on it in the editor and nowhere
+ * on the page. Under `['products']` like every other read, so signing in and
+ * the branded images arriving refresh it too.
+ */
+export function useTaggedProducts(
+  tag: string | undefined,
+  kind: 'single' | 'bundle' = 'single',
+) {
+  return useInfiniteQuery({
+    queryKey: ['products', 'tagged', tag ?? '', kind] as const,
+    queryFn: ({ pageParam }) =>
+      fetchProducts({ page: pageParam, limit: 20, tag, kind }),
+    initialPageParam: 1,
+    getNextPageParam: (last) =>
+      last.pagination.hasNextPage ? last.pagination.page + 1 : undefined,
+    enabled: Boolean(tag),
   })
 }
 

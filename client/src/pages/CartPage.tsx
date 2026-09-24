@@ -15,16 +15,17 @@ import { formatPrice } from '@/utils/format'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { ProductImage } from '@/components/ProductImage'
 
 export function CartPage() {
   const { t } = useTranslation()
   const { brand } = useBrand()
-  const { inFunnel, allowCustomization, collectionSlug } = useFunnel()
+  const { inFunnel, allowCustomization, shopHome } = useFunnel()
   const funnelLink = useFunnelLink()
   /** A campaign that sells finished boxes has no editing anywhere in it. */
   const focused = inFunnel && !allowCustomization
   // Somewhere to go from an empty basket that is not the whole shop.
-  const browseUrl = focused && collectionSlug ? `/c/${collectionSlug}` : '/'
+  const browseUrl = shopHome
   const { brandGeneration } = useAuth()
   const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart()
 
@@ -90,7 +91,7 @@ export function CartPage() {
                 to={productUrl}
                 className="overflow-hidden rounded-brand"
               >
-                <img
+                <ProductImage
                   src={lineImage}
                   alt=""
                   className="aspect-[4/5] w-full object-cover sm:aspect-square sm:h-[100px] sm:w-[100px]"
@@ -157,7 +158,7 @@ export function CartPage() {
                           key={line.productId}
                           className="flex items-center gap-2.5 text-sm"
                         >
-                          <img
+                          <ProductImage
                             src={getProductDisplayImage(line, brandGeneration)}
                             alt=""
                             className="size-9 shrink-0 rounded-brand border border-border/40 bg-background object-contain"
@@ -193,7 +194,7 @@ export function CartPage() {
                               {/* A box the shopper designed shows the design —
                                   it's what they're actually buying. */}
                               {line!.customPrint && (
-                                <img
+                                <ProductImage
                                   src={getProductDisplayImage(line!)}
                                   alt=""
                                   className="size-9 shrink-0 rounded-brand border border-primary/40 bg-background object-contain"

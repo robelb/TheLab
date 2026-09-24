@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CategoryFilter } from '@/components/dashboard/CategoryFilter'
 import { ProductFormDialog } from '@/components/dashboard/ProductFormDialog'
+import { TablePagination } from '@/components/dashboard/TablePagination'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,13 +17,6 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -280,65 +274,18 @@ export function ProductsAdminPage() {
         </Table>
       </div>
 
-      {pagination && pagination.total > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Rows per page</span>
-              <Select
-                value={String(limit)}
-                onValueChange={(v) => {
-                  setLimit(Number(v) as PageSize)
-                  setPage(1)
-                }}
-              >
-                <SelectTrigger size="sm" className="w-[4.5rem]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map((size) => (
-                    <SelectItem key={size} value={String(size)}>
-                      {size}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Showing{' '}
-              <span className="font-medium text-foreground">
-                {(pagination.page - 1) * pagination.limit + 1}–
-                {(pagination.page - 1) * pagination.limit + products.length}
-              </span>{' '}
-              of{' '}
-              <span className="font-medium text-foreground">
-                {pagination.total}
-              </span>
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              Page {pagination.page} of {pagination.totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!pagination.hasPrevPage || isFetching}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!pagination.hasNextPage || isFetching}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+      {pagination && (
+        <TablePagination
+          pagination={pagination}
+          shown={products.length}
+          pageSizes={PAGE_SIZE_OPTIONS}
+          disabled={isFetching}
+          onPageChange={setPage}
+          onLimitChange={(next) => {
+            setLimit(next as PageSize)
+            setPage(1)
+          }}
+        />
       )}
 
       <ProductFormDialog

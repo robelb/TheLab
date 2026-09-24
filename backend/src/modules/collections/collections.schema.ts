@@ -16,7 +16,7 @@ const slug = z
   .trim()
   .min(1)
   .max(80)
-  .regex(/^[a-z0-9-]+$/, 'slug may contain lowercase letters, digits and hyphens')
+  .regex(/^[a-z0-9-]+$/, 'may only contain lowercase letters, digits and hyphens — for example weihnachten-2026')
 
 export const createCollectionSchema = z.object({
   slug,
@@ -50,5 +50,15 @@ export const collectionMembershipSchema = z
   .refine((v) => (v.add?.length ?? 0) + (v.remove?.length ?? 0) > 0, {
     message: 'Nothing to add or remove',
   })
+
+/** One page of what is in a collection, as the editor's table asks for it. */
+export const collectionMembersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  q: z.string().trim().max(200).optional(),
+  kind: z.enum(['single', 'bundle']).optional(),
+})
+
+export type CollectionMembersQuery = z.infer<typeof collectionMembersQuerySchema>
 
 export type CollectionMembershipBody = z.infer<typeof collectionMembershipSchema>

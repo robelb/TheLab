@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Gift, LayoutDashboard, LogIn, LogOut, ShoppingBag } from 'lucide-react'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { useAuth } from '@/context/AuthContext'
-import { useFunnel } from '@/context/FunnelContext'
+import { useFunnel, useFunnelLink } from '@/context/FunnelContext'
 import { useBrand } from '@/context/BrandContext'
 import { useCart } from '@/context/CartContext'
 import { BrandLogo } from '@/components/BrandLogo'
@@ -24,7 +24,8 @@ export function Header() {
   const { itemCount } = useCart()
   const { user, logout, can } = useAuth()
   const { hasExtractedBrand, brands } = useBrand()
-  const { inFunnel, allowCustomization, collectionSlug } = useFunnel()
+  const { inFunnel, allowCustomization, shopHome } = useFunnel()
+  const funnelLink = useFunnelLink()
   const canManage = can('manage_company')
 
   /**
@@ -36,13 +37,12 @@ export function Header() {
    * The cart and the language stay, because both are part of buying.
    */
   const focused = inFunnel && !allowCustomization
-  // Home, while they are in a campaign, is the campaign — not the whole shop.
-  const homeUrl = focused && collectionSlug ? `/c/${collectionSlug}` : '/'
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/40 bg-background/90 backdrop-blur-md">
       <div className="mx-auto flex h-auto min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:h-16 lg:flex-nowrap lg:py-0 lg:px-8">
-        <BrandLogo to={homeUrl} />
+        {/* Home, while they are in a campaign, is the campaign — not the shop. */}
+        <BrandLogo to={shopHome} />
 
         {/*
           The build stamp takes the slot the "themed from <domain>" line used to
@@ -57,20 +57,22 @@ export function Header() {
         </div>
 
         <nav className="flex items-center gap-4 sm:gap-6" aria-label="Main">
-          {!focused && (
-            <>
-              <NavLink to="/" end className={navLinkClass}>
-                {t('common.shop')}
-              </NavLink>
-              <NavLink to="/build-box" className={navLinkClass}>
-                <span className="flex items-center gap-1.5">
-                  <Gift className="size-4" />
-                  {t('common.buildBox')}
-                </span>
-              </NavLink>
-            </>
+          {/* Inside any campaign there is no "shop" to go to: the campaign is
+              it, and the logo already leads there. */}
+          {!inFunnel && (
+            <NavLink to="/" end className={navLinkClass}>
+              {t('common.shop')}
+            </NavLink>
           )}
-          {!focused && canManage && (
+          {allowCustomization && (
+            <NavLink to={funnelLink('/build-box')} className={navLinkClass}>
+              <span className="flex items-center gap-1.5">
+                <Gift className="size-4" />
+                {t('common.buildBox')}
+              </span>
+            </NavLink>
+          )}
+          {!inFunnel && canManage && (
             <NavLink to="/dashboard" className={navLinkClass}>
               <span className="flex items-center gap-1.5">
                 <LayoutDashboard className="size-4" />

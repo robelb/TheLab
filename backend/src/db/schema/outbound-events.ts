@@ -8,11 +8,16 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 
-export type OutboundEventKind = 'order.created' | 'order.status_changed'
+export type OutboundEventKind =
+  | 'order.created'
+  | 'order.status_changed'
+  | 'email.order_received'
+  | 'email.order_notify'
+  | 'email.order_confirmed'
 export type OutboundEventStatus = 'pending' | 'sending' | 'sent' | 'failed'
 
 /**
- * Outbound webhook deliveries, queued instead of fired.
+ * Outbound deliveries — webhooks and emails — queued instead of fired.
  *
  * The marketing side feeds these into Google Ads, so a lead that is dropped
  * because their endpoint was restarting is a lead that never optimises a
@@ -27,7 +32,7 @@ export const outboundEvents = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     kind: text('kind').$type<OutboundEventKind>().notNull(),
-    /** Which integration this is bound for — `lead_intake` today. */
+    /** Which integration this is bound for: `lead_intake` or `email`. */
     target: text('target').notNull(),
     payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
     status: text('status')

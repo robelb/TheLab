@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { CheckCircle2, ExternalLink, ShieldCheck } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
+import { useFunnel, useFunnelLink } from '@/context/FunnelContext'
 import { getShare } from '@/api/share'
 import { Button } from '@/components/ui/button'
 import { resolveLogoKind, sanitizeSvgMarkup } from '@/lib/logo'
@@ -45,6 +46,8 @@ function BrandMark({
 
 export function SharePage() {
   const { slug } = useParams<{ slug: string }>()
+  const { shopHome } = useFunnel()
+  const funnelLink = useFunnelLink()
   const {
     data: share,
     isLoading,
@@ -154,7 +157,13 @@ export function SharePage() {
                   : undefined
               }
             >
-              <Link to={share.product ? `/product/${share.product.id}` : '/'}>
+              <Link
+                to={
+                  share.product
+                    ? funnelLink(`/product/${share.product.id}`)
+                    : shopHome
+                }
+              >
                 <ExternalLink className="size-4" />
                 Open in shop
               </Link>

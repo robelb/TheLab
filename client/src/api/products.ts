@@ -30,6 +30,8 @@ export interface FetchProductsParams {
   tag?: string
   /** Narrow to ordinary items or to pre-configured boxes. */
   kind?: 'single' | 'bundle'
+  /** Ids to leave out of the results, e.g. what a picker already holds. */
+  exclude?: string[]
 }
 
 export interface ImageSearchParams {
@@ -107,6 +109,9 @@ export async function fetchProducts(
   }
   if (params.kind) {
     search.kind = params.kind
+  }
+  if (params.exclude?.length) {
+    search.exclude = params.exclude.join(',')
   }
 
   const { data } = await apiClient.get<ProductsResponse>('/products', {
@@ -241,10 +246,12 @@ export async function deleteProduct(id: string): Promise<void> {
 export async function fetchRelatedProducts(
   id: string,
   limit = 4,
+  /** Only products carrying this tag — a landing page's range. */
+  tag?: string,
 ): Promise<Product[]> {
   const { data } = await apiClient.get<{ data: Product[] }>(
     `/products/${encodeURIComponent(id)}/related`,
-    { params: { limit } },
+    { params: { limit, ...(tag ? { tag } : {}) } },
   )
   return data.data
 }

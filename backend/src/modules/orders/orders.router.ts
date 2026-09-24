@@ -1,16 +1,34 @@
 import { Router } from 'express'
 import { routeParam } from '../../lib/routeParam.js'
 import type { ZodError } from 'zod'
-import type { Request } from 'express'
-import { optionalAuth, requireAuth } from '../../middleware/auth.js'
-import { ROLES } from '../../lib/roles.js'
-import { createOrderSchema, updateOrderSchema } from './orders.schema.js'
+import type { Request, Response } from 'express'
 import {
+  optionalAuth,
+  requireAuth,
+  requireCapability,
+} from '../../middleware/auth.js'
+import { ROLES } from '../../lib/roles.js'
+import {
+  confirmOrderSchema,
+  createOrderSchema,
+  guestProblems,
+  ORDER_STATUSES,
+  PAYMENT_STATUSES,
+  resendEmailSchema,
+  updateOrderSchema,
+} from './orders.schema.js'
+import {
+  confirmOrder,
   createOrder,
   getOrder,
   listOrders,
-  setOrderStatus,
+  OrderError,
+  resendOrderEmail,
+  updateOrder,
+  type OrderFilters,
 } from './orders.service.js'
+import { getInvoiceByOrder } from './invoices.service.js'
+import { renderInvoicePdf } from '../../services/invoicePdf.js'
 
 function firstZodError(error: ZodError): string {
   const { fieldErrors, formErrors } = error.flatten()
@@ -85,6 +103,39 @@ function scopeFor(req: {
 
 const NO_COMPANY = 'A company account is needed to work with requests.'
 
+/** Known refusals keep their status; anything else is a 500. */
+function fail(res: Response, err: unknown, fallback: string, what: string) {
+  if (err instanceof OrderError) {
+    return res.status(err.status).json({ error: err.message, code: err.code })
+  }
+  const message = err instanceof Error ? err.message : fallback
+  console.warn(`[orders] ${what} failed:`, message)
+  return res.status(500).json({ error: message })
+}
+
+function queryString(req: Request, key: string): string | undefined {
+  const value = req.query[key]
+  return typeof value === 'string' && value ? value : undefined
+}
+
+function filtersFrom(req: Request): OrderFilters {
+  const source = queryString(req, 'source')
+  const status = queryString(req, 'status')
+  const paymentStatus = queryString(req, 'paymentStatus')
+  const collectionId = queryString(req, 'collectionId')
+  return {
+    source: source === 'storefront' || source === 'funnel' ? source : undefined,
+    status: (ORDER_STATUSES as readonly string[]).includes(status ?? '')
+      ? (status as OrderFilters['status'])
+      : undefined,
+    paymentStatus: (PAYMENT_STATUSES as readonly string[]).includes(paymentStatus ?? '')
+      ? (paymentStatus as OrderFilters['paymentStatus'])
+      : undefined,
+    collectionId:
+      collectionId && /^[0-9a-f-]{36}$/i.test(collectionId) ? collectionId : undefined,
+  }
+}
+
 ordersRouter.post('/', async (req, res) => {
   if (rateLimited(req)) {
     return res
@@ -103,6 +154,13 @@ ordersRouter.post('/', async (req, res) => {
     return res.status(201).json({ reference: 'BLT-000000', status: 'new' })
   }
 
+  // A signed-in shopper's details live on their account; a guest's live only
+  // on this request, so everything an invoice needs has to be on it.
+  if (!req.authUser) {
+    const problem = guestProblems(parsed.data)
+    if (problem) return res.status(400).json({ error: problem })
+  }
+
   try {
     const order = await createOrder({
       // A guest files under nobody. A super admin has no company of their own
@@ -113,10 +171,7 @@ ordersRouter.post('/', async (req, res) => {
     })
     res.status(201).json(order)
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Could not send the request'
-    console.warn('[orders] create failed:', message)
-    res.status(500).json({ error: message })
+    fail(res, err, 'Could not send the request', 'create')
   }
 })
 
@@ -125,7 +180,7 @@ ordersRouter.get('/', requireAuth, async (req, res) => {
   if (!scope) return res.status(403).json({ error: NO_COMPANY })
 
   try {
-    res.json(await listOrders(scope))
+    res.json(await listOrders({ ...scope, filters: filtersFrom(req) }))
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Could not load requests'
     console.warn('[orders] list failed:', message)
@@ -158,18 +213,94 @@ ordersRouter.patch('/:id', requireAuth, async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
   }
+  // Money is a super admin's call: a company can withdraw its own request,
+  // but only we mark an invoice paid.
+  if (parsed.data.paymentStatus && req.authUser?.role !== ROLES.SUPER_ADMIN) {
+    return res.status(403).json({ error: 'Forbidden' })
+  }
 
   try {
-    const order = await setOrderStatus({
+    const order = await updateOrder({
       ...scope,
       orderId: routeParam(req, 'id'),
       status: parsed.data.status,
+      paymentStatus: parsed.data.paymentStatus,
     })
     if (!order) return res.status(404).json({ error: 'Request not found' })
     res.json(order)
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Could not update the request'
-    console.warn('[orders] update failed:', message)
-    res.status(500).json({ error: message })
+    fail(res, err, 'Could not update the request', 'update')
   }
 })
+
+/**
+ * Confirm a request: agree its final price, issue the invoice, email it.
+ * Super admins only — this is the point an order becomes something owed.
+ */
+ordersRouter.post(
+  '/:id/confirm',
+  requireAuth,
+  requireCapability('manage_all'),
+  async (req, res) => {
+    const parsed = confirmOrderSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: firstZodError(parsed.error) })
+    }
+    try {
+      const order = await confirmOrder({
+        orderId: routeParam(req, 'id'),
+        confirmedBy: req.authUser!.id,
+        body: parsed.data,
+      })
+      if (!order) return res.status(404).json({ error: 'Request not found' })
+      res.json(order)
+    } catch (err) {
+      fail(res, err, 'Could not confirm the order', 'confirm')
+    }
+  },
+)
+
+/** The invoice as a PDF, rendered from what was issued. */
+ordersRouter.get(
+  '/:id/invoice.pdf',
+  requireAuth,
+  requireCapability('manage_all'),
+  async (req, res) => {
+    try {
+      const invoice = await getInvoiceByOrder(routeParam(req, 'id'))
+      if (!invoice) return res.status(404).json({ error: 'No invoice for this order' })
+      const pdf = await renderInvoicePdf(invoice)
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${invoice.number}.pdf"`,
+      )
+      res.send(pdf)
+    } catch (err) {
+      fail(res, err, 'Could not render the invoice', 'invoice')
+    }
+  },
+)
+
+/** Send a customer email again. */
+ordersRouter.post(
+  '/:id/resend-email',
+  requireAuth,
+  requireCapability('manage_all'),
+  async (req, res) => {
+    const parsed = resendEmailSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: firstZodError(parsed.error) })
+    }
+    try {
+      const found = await resendOrderEmail({
+        orderId: routeParam(req, 'id'),
+        template: parsed.data.template,
+      })
+      if (!found) return res.status(404).json({ error: 'Request not found' })
+      res.status(202).json({ queued: true })
+    } catch (err) {
+      fail(res, err, 'Could not queue the email', 'resend-email')
+    }
+  },
+)

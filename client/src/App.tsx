@@ -6,7 +6,7 @@ import { CartProvider } from '@/context/CartContext'
 import { Layout } from '@/components/Layout'
 import { RequireAuth } from '@/components/RequireAuth'
 import { AttributionCapture } from '@/components/AttributionCapture'
-import { FunnelProvider } from '@/context/FunnelContext'
+import { FunnelProvider, ShopGate } from '@/context/FunnelContext'
 import { RequireCustomization } from '@/components/RequireCustomization'
 import { HomePage } from '@/pages/HomePage'
 import { CollectionPage } from '@/pages/CollectionPage'
@@ -74,7 +74,14 @@ export default function App() {
                   data.
                 */}
                 <Route element={<Layout />}>
-                  <Route index element={<HomePage />} />
+                  <Route
+                    index
+                    element={
+                      <ShopGate>
+                        <HomePage />
+                      </ShopGate>
+                    }
+                  />
                   {/* Campaign landing pages: /c/weihnachten?lang=de&gclid=… */}
                   <Route path="c/:slug" element={<CollectionPage />} />
                   <Route

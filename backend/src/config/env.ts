@@ -56,6 +56,39 @@ export const env = {
   LEAD_INTAKE_TOKEN: process.env.LEAD_INTAKE_TOKEN?.trim() ?? '',
   LEAD_INTAKE_TIMEOUT_MS: Number(process.env.LEAD_INTAKE_TIMEOUT_MS) || 10_000,
 
+  // Email via Resend. Leave RESEND_API_KEY blank to keep emails queued in
+  // `outbound_events` without sending; setting it later sends the backlog.
+  RESEND_API_KEY: process.env.RESEND_API_KEY?.trim() ?? '',
+  MAIL_FROM:
+    process.env.MAIL_FROM?.trim() || 'big little things <bestellung@biglittlethings.de>',
+  MAIL_REPLY_TO: process.env.MAIL_REPLY_TO?.trim() ?? '',
+  // Internal inbox told about every new request. Comma-separated; blank = none.
+  ORDER_NOTIFY_EMAIL: process.env.ORDER_NOTIFY_EMAIL?.trim() ?? '',
+  // Where the shop and dashboard live, for links in emails.
+  PUBLIC_SHOP_URL:
+    process.env.PUBLIC_SHOP_URL?.trim().replace(/\/+$/, '') || 'http://localhost:5173',
+
+  // Invoicing — see src/config/seller.ts for what each one prints as.
+  VAT_RATE: Number(process.env.VAT_RATE ?? 19),
+  PAYMENT_TERM_DAYS: Number(process.env.PAYMENT_TERM_DAYS) || 14,
+  INVOICE_NUMBER_PREFIX: process.env.INVOICE_NUMBER_PREFIX?.trim() || 'RE',
+  SELLER_NAME: process.env.SELLER_NAME?.trim() ?? '',
+  SELLER_STREET: process.env.SELLER_STREET?.trim() ?? '',
+  SELLER_ZIP: process.env.SELLER_ZIP?.trim() ?? '',
+  SELLER_CITY: process.env.SELLER_CITY?.trim() ?? '',
+  SELLER_COUNTRY: process.env.SELLER_COUNTRY?.trim() || 'Deutschland',
+  SELLER_EMAIL: process.env.SELLER_EMAIL?.trim() ?? '',
+  SELLER_PHONE: process.env.SELLER_PHONE?.trim() ?? '',
+  SELLER_WEBSITE: process.env.SELLER_WEBSITE?.trim() ?? '',
+  SELLER_VAT_ID: process.env.SELLER_VAT_ID?.trim() ?? '',
+  SELLER_TAX_NUMBER: process.env.SELLER_TAX_NUMBER?.trim() ?? '',
+  SELLER_REGISTER_COURT: process.env.SELLER_REGISTER_COURT?.trim() ?? '',
+  SELLER_REGISTER_NUMBER: process.env.SELLER_REGISTER_NUMBER?.trim() ?? '',
+  SELLER_MANAGING_DIRECTORS: process.env.SELLER_MANAGING_DIRECTORS?.trim() ?? '',
+  SELLER_BANK_NAME: process.env.SELLER_BANK_NAME?.trim() ?? '',
+  SELLER_IBAN: process.env.SELLER_IBAN?.trim() ?? '',
+  SELLER_BIC: process.env.SELLER_BIC?.trim() ?? '',
+
   // Supabase Storage — when configured, uploaded/generated images are stored
   // there instead of on local disk. Leave blank to keep local storage.
   SUPABASE_URL: process.env.SUPABASE_URL?.trim() ?? '',

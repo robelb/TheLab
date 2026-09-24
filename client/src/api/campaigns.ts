@@ -41,12 +41,15 @@ export async function generateCampaign(
   brief?: string,
   /** See `HeroImageSupplies.plainUnlessDesigned` — assembly renders too. */
   plainUnlessDesigned?: boolean,
+  /** Pick only from products carrying this tag — a landing page's range. */
+  tag?: string,
 ): Promise<Campaign> {
   const { data } = await apiClient.post<Campaign>('/campaigns/generate', {
     brand,
     bundleSize,
     brief,
     plainUnlessDesigned,
+    ...(tag ? { tag } : {}),
   })
   return data
 }

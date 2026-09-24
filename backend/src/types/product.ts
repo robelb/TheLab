@@ -148,6 +148,8 @@ export interface ListProductsParams {
   tag?: string
   /** Narrow to ordinary items or to pre-configured boxes. */
   kind?: ProductKind
+  /** Product ids to leave out — the ones a picker already holds. */
+  exclude?: string[]
 }
 
 /** How the server understood a free-text query (price bound extracted by the LLM). */

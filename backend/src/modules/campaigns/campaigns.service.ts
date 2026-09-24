@@ -619,13 +619,14 @@ export async function generateCampaign(
   brief?: string | null,
   plainUnlessDesigned = false,
   guestSessionId?: string | null,
+  tag?: string,
 ): Promise<HydratedCampaign> {
   const query = buildSemanticQuery(brand, brief)
 
   // Vector search may fail OR hang if embeddings are unavailable — a copy-only
   // draft is still valid, so bound it and continue with an empty bundle.
   const products = await withTimeout(
-    searchProductsByText(query, bundleSize),
+    searchProductsByText(query, bundleSize, { tag }),
     SEARCH_TIMEOUT_MS,
     'semantic search',
   ).catch((err) => {

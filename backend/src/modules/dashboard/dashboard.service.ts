@@ -68,18 +68,22 @@ const EMPTY_REQUESTS: RequestStats = {
 
 /**
  * A guest, or an account with no company, has no requests of its own — so it
- * gets zeros rather than somebody else's numbers.
+ * gets zeros rather than somebody else's numbers. A super admin sees every
+ * request, guests' included: that is who works them.
  */
 async function getRequestStats(
   companyId: string | null,
+  allCompanies = false,
 ): Promise<RequestStats> {
-  if (!companyId) return EMPTY_REQUESTS
+  if (!companyId && !allCompanies) return EMPTY_REQUESTS
 
-  const rows = await db
-    .select()
-    .from(orders)
-    .where(eq(orders.companyId, companyId))
-    .orderBy(desc(orders.createdAt))
+  const rows = allCompanies
+    ? await db.select().from(orders).orderBy(desc(orders.createdAt))
+    : await db
+        .select()
+        .from(orders)
+        .where(eq(orders.companyId, companyId!))
+        .orderBy(desc(orders.createdAt))
 
   const byStatus = (status: string) => rows.filter((r) => r.status === status).length
   return {
@@ -106,6 +110,7 @@ async function getRequestStats(
 
 export async function getDashboardStats(
   companyId: string | null = null,
+  allCompanies = false,
 ): Promise<DashboardStats> {
   const [
     [productCount],
@@ -167,7 +172,7 @@ export async function getDashboardStats(
       .innerJoin(categories, eq(products.categoryId, categories.id))
       .orderBy(desc(products.createdAt))
       .limit(5),
-    getRequestStats(companyId),
+    getRequestStats(companyId, allCompanies),
   ])
 
   return {

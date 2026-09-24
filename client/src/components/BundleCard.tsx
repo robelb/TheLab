@@ -11,6 +11,7 @@ import { formatPrice } from '@/utils/format'
 import type { Product } from '@/types/product'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { ProductImage } from '@/components/ProductImage'
 
 /**
  * A pre-configured box, ready to buy.
@@ -70,7 +71,7 @@ export function BundleCard({
   return (
     <Card className="flex h-full flex-col overflow-hidden border-border/30">
       <Link to={detailUrl} className="block bg-white">
-        <img
+        <ProductImage
           src={getProductDisplayImage(bundle, brandGeneration)}
           alt={bundle.name}
           className="aspect-4/3 w-full object-contain"

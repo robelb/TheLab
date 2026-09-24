@@ -4,17 +4,19 @@ import { ProductCard } from '@/components/ProductCard'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCampaign } from '@/hooks/use-campaigns'
+import { useFunnel } from '@/context/FunnelContext'
 
 export function CampaignPage() {
   const { id } = useParams<{ id: string }>()
   const { data: campaign, isLoading, error } = useCampaign(id)
+  const { shopHome, inFunnel } = useFunnel()
 
   return (
     <div className="space-y-10">
       <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
-        <Link to="/">
+        <Link to={shopHome}>
           <ArrowLeft className="size-4" />
-          Back to shop
+          {inFunnel ? 'Back to the collection' : 'Back to shop'}
         </Link>
       </Button>
 

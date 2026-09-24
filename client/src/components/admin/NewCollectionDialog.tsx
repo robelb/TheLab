@@ -18,8 +18,47 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useCreateCollection } from '@/hooks/use-collections-admin'
-import { apiErrorMessage, notifyError, notifySaved } from '@/lib/notify'
+import {
+  useAllCollections,
+  useCreateCollection,
+} from '@/hooks/use-collections-admin'
+import {
+  apiErrorField,
+  apiErrorMessage,
+  notifyError,
+  notifySaved,
+} from '@/lib/notify'
+import { cn } from '@/lib/utils'
+
+/**
+ * What the URL segment will actually be.
+ *
+ * The server only takes lowercase letters, digits and hyphens. Rather than
+ * refusing "Weihnachten 2026", it becomes weihnachten-2026 — the preview line
+ * under the field shows the result, so nothing is changed behind anyone's back.
+ */
+function toSlug(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/** The first free variant of a taken slug: christmas-2, christmas-3, … */
+function freeSlug(base: string, taken: Set<string>): string {
+  for (let n = 2; n < 100; n++) {
+    const candidate = `${base}-${n}`
+    if (!taken.has(candidate)) return candidate
+  }
+  return `${base}-${Date.now().toString(36)}`
+}
 
 /**
  * Naming a landing page, and nothing else.
@@ -38,6 +77,9 @@ export function NewCollectionDialog({
 }) {
   const navigate = useNavigate()
   const createCollection = useCreateCollection()
+  // Already loaded by the list behind this dialog, so checking a slug against
+  // it costs nothing and answers before anybody presses the button.
+  const { data: existing } = useAllCollections()
 
   const [slug, setSlug] = useState('')
   const [tag, setTag] = useState('')
@@ -45,6 +87,18 @@ export function NewCollectionDialog({
   const [titleEn, setTitleEn] = useState('')
   const [locale, setLocale] = useState<'de' | 'en'>('de')
   const [error, setError] = useState<string | null>(null)
+  // A problem with the URL segment specifically — shown under that field.
+  const [slugError, setSlugError] = useState<string | null>(null)
+
+  const cleanSlug = toSlug(slug)
+  const takenSlugs = new Set((existing ?? []).map((c) => c.slug))
+  const clash = cleanSlug ? existing?.find((c) => c.slug === cleanSlug) : undefined
+  const suggestion = clash ? freeSlug(cleanSlug, takenSlugs) : null
+  const slugProblem =
+    slugError ??
+    (clash
+      ? `/c/${cleanSlug} is already taken by “${clash.title.de}”${clash.active ? '' : ' (ended)'}. Each landing page needs its own URL.`
+      : null)
 
   function reset() {
     setSlug('')
@@ -53,14 +107,23 @@ export function NewCollectionDialog({
     setTitleEn('')
     setLocale('de')
     setError(null)
+    setSlugError(null)
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    setSlugError(null)
+    if (!cleanSlug) {
+      setSlugError('Enter a URL segment using letters or digits, e.g. weihnachten.')
+      return
+    }
+    // Caught here rather than by the server so the answer comes with a
+    // suggestion and the rest of the form stays as it was typed.
+    if (clash) return
     try {
       const created = await createCollection.mutateAsync({
-        slug: slug.trim().toLowerCase(),
+        slug: cleanSlug,
         tag: tag.trim().toLowerCase(),
         title: { de: titleDe.trim(), en: titleEn.trim() || titleDe.trim() },
         subtitle: null,
@@ -80,10 +143,17 @@ export function NewCollectionDialog({
       // Straight into filling it — an empty landing page is never the goal.
       navigate(`/dashboard/admin/collections/${created.id}`)
     } catch (err) {
-      // Stays open: the message usually names the field to change, and the
-      // likeliest one is a slug somebody has already used.
-      setError(apiErrorMessage(err, 'Could not create the collection'))
-      notifyError(err, 'Could not create the collection')
+      // Stays open so nothing typed is lost. A refusal about the URL goes
+      // under the URL field — the likeliest one is a slug somebody used
+      // between this list loading and the button being pressed.
+      const message = apiErrorMessage(err, 'Could not create the landing page')
+      if (apiErrorField(err) === 'slug') {
+        setSlugError(message)
+        document.getElementById('new-slug')?.focus()
+      } else {
+        setError(message)
+        notifyError(err, 'Could not create the landing page')
+      }
     }
   }
 
@@ -110,14 +180,41 @@ export function NewCollectionDialog({
               <Input
                 id="new-slug"
                 value={slug}
-                onChange={(e) => setSlug(e.target.value)}
+                onChange={(e) => {
+                  setSlug(e.target.value)
+                  setSlugError(null)
+                }}
                 placeholder="weihnachten"
                 autoFocus
                 required
+                aria-invalid={slugProblem ? true : undefined}
+                aria-describedby="new-slug-hint"
+                className={cn(
+                  slugProblem &&
+                    'border-destructive focus-visible:ring-destructive/40',
+                )}
               />
-              <p className="text-xs text-muted-foreground">
-                The page will be at /c/{slug.trim().toLowerCase() || '…'}
-              </p>
+              {slugProblem ? (
+                <div id="new-slug-hint" className="space-y-1" role="alert">
+                  <p className="text-xs text-destructive">{slugProblem}</p>
+                  {suggestion && (
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+                      onClick={() => {
+                        setSlug(suggestion)
+                        setSlugError(null)
+                      }}
+                    >
+                      Use /c/{suggestion} instead
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <p id="new-slug-hint" className="text-xs text-muted-foreground">
+                  The page will be at /c/{cleanSlug || '…'}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -187,7 +284,10 @@ export function NewCollectionDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={createCollection.isPending}>
+            <Button
+              type="submit"
+              disabled={createCollection.isPending || Boolean(clash)}
+            >
               {createCollection.isPending ? 'Creating…' : 'Create and add boxes'}
             </Button>
           </DialogFooter>

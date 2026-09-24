@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { optionalAuth } from '../../middleware/auth.js'
+import { ROLES } from '../../lib/roles.js'
 import { getDashboardStats } from './dashboard.service.js'
 
 export const dashboardRouter = Router()
@@ -10,7 +11,10 @@ dashboardRouter.use(optionalAuth)
 
 dashboardRouter.get('/stats', async (req, res) => {
   try {
-    const stats = await getDashboardStats(req.authUser?.companyId ?? null)
+    const stats = await getDashboardStats(
+      req.authUser?.companyId ?? null,
+      req.authUser?.role === ROLES.SUPER_ADMIN,
+    )
     res.json(stats)
   } catch (err) {
     const message =

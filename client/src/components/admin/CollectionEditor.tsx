@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { ArrowDown, ArrowUp, Loader2, Plus, Star, Trash2, X } from 'lucide-react'
 import { AddProductDialog } from '@/components/AddProductDialog'
-import { Badge } from '@/components/ui/badge'
+import { CollectionBoxesTable } from '@/components/admin/CollectionBoxesTable'
+import { CollectionProductsTable } from '@/components/admin/CollectionProductsTable'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -13,17 +13,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  useCollectionProducts,
   useSetCollectionProducts,
   useUpdateCollection,
 } from '@/hooks/use-collections-admin'
 import { apiErrorMessage, notifyError, notifySaved } from '@/lib/notify'
-import { formatPrice } from '@/utils/format'
 import type { Collection } from '@/api/collections'
 import type { Product } from '@/types/product'
+
+/** The server's cap on headline boxes; past it, saving would be refused. */
+const MAX_FEATURED = 12
 
 const brandTabClass =
   'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm'
@@ -37,12 +37,11 @@ const brandTabClass =
  */
 export function CollectionEditor({ collection }: { collection: Collection }) {
   const updateCollection = useUpdateCollection()
-  const membersQuery = useCollectionProducts(collection.id)
   const setMembers = useSetCollectionProducts(collection.id)
 
   const [tab, setTab] = useState<'content' | 'copy'>('content')
   const [error, setError] = useState<string | null>(null)
-  const [picking, setPicking] = useState<'featured' | 'member' | null>(null)
+  const [pickingBoxes, setPickingBoxes] = useState(false)
 
   // The headline boxes, held locally so they can be reordered before saving.
   const [featured, setFeatured] = useState<Product[]>(
@@ -59,11 +58,15 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
     collection.allowCustomization,
   )
 
+  // Keyed on the saved ids, not the array: any refetch of the list (ending the
+  // campaign, say) hands back a new array with the same boxes, and resetting
+  // on that threw away a running order somebody had not saved yet.
+  const savedFeaturedKey = (collection.featuredBundleIds ?? []).join(',')
   useEffect(() => {
     setFeatured(collection.featuredBundles ?? [])
-  }, [collection.id, collection.featuredBundles])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collection.id, savedFeaturedKey])
 
-  const members = membersQuery.data ?? []
   const featuredIds = featured.map((p) => p.id)
   const dirty =
     titleDe !== collection.title.de ||
@@ -116,45 +119,36 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
     }
   }
 
-  /**
-   * Membership saves on the spot, unlike the rest of this form, so each change
-   * says so — otherwise adding a product and pressing nothing feels unsaved.
-   */
-  function addMember(product: Product) {
-    setMembers.mutate(
-      { add: [product.id] },
-      {
-        onSuccess: () =>
-          notifySaved(`${product.name} added to /c/${collection.slug}`),
-        onError: (err) => notifyError(err, `Could not add ${product.name}`),
-      },
-    )
-  }
-
-  function removeMember(product: Product) {
-    setMembers.mutate(
-      { remove: [product.id] },
-      {
-        onSuccess: () =>
-          notifySaved(`${product.name} removed from /c/${collection.slug}`),
-        onError: (err) => notifyError(err, `Could not remove ${product.name}`),
-      },
-    )
-  }
-
   /** Featuring something implies it belongs on the page at all. */
-  function addFeatured(product: Product) {
-    setFeatured((prev) =>
-      prev.some((p) => p.id === product.id) ? prev : [...prev, product],
-    )
-    if (!members.some((m) => m.id === product.id)) {
-      addMember(product)
-    } else {
-      // Already on the page; only the running order changed, and that is saved
-      // with the button like the rest of the form.
-      notifySaved(`${product.name} moved to the top of the page`, 'Save to apply')
+  async function addFeatured(products: Product[]) {
+    const room = MAX_FEATURED - featured.length
+    const picked = products
+      .filter((p) => !featured.some((f) => f.id === p.id))
+      .slice(0, Math.max(room, 0))
+    if (picked.length === 0) return
+
+    // Tag them first, in one request: if that fails, nothing is listed as a
+    // headline box that the page would not actually carry. Tagging one that
+    // already has the tag is a no-op on the server.
+    try {
+      await setMembers.mutateAsync({ add: picked.map((p) => p.id) })
+    } catch (err) {
+      notifyError(err, 'Could not add those boxes')
+      throw err
     }
-    setPicking(null)
+
+    setFeatured((prev) => [
+      ...prev,
+      ...picked.filter((p) => !prev.some((f) => f.id === p.id)),
+    ])
+    // The running order is saved with the button like the rest of the form.
+    notifySaved(
+      picked.length === 1
+        ? `${picked[0].name} added to the boxes shown first`
+        : `${picked.length} boxes added to the boxes shown first`,
+      'Save changes to publish the new running order.',
+    )
+    setPickingBoxes(false)
   }
 
   return (
@@ -193,164 +187,21 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
             </div>
           </section>
 
-          <section className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <Label className="flex items-center gap-1.5">
-                  <Star className="size-4 text-primary" />
-                  Boxes shown first
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  The offers at the top of the page, in this order.
-                </p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setPicking('featured')}
-              >
-                <Plus className="size-4" />
-                Add a box
-              </Button>
-            </div>
+          <CollectionBoxesTable
+            boxes={featured}
+            max={MAX_FEATURED}
+            unsaved={
+              featuredIds.join(',') !==
+              (collection.featuredBundleIds ?? []).join(',')
+            }
+            onAdd={() => setPickingBoxes(true)}
+            onMove={move}
+            onRemove={(box) =>
+              setFeatured((prev) => prev.filter((p) => p.id !== box.id))
+            }
+          />
 
-            {featured.length === 0 ? (
-              <p className="rounded-brand border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
-                No boxes yet — the page will show only the products below.
-              </p>
-            ) : (
-              <ul className="divide-y divide-border/40 rounded-brand border border-border/40">
-                {featured.map((product, i) => (
-                  <li key={product.id} className="flex items-center gap-3 p-2.5">
-                    <span className="w-5 shrink-0 text-center text-xs tabular-nums text-muted-foreground">
-                      {i + 1}
-                    </span>
-                    <img
-                      src={product.image}
-                      alt=""
-                      className="size-10 shrink-0 rounded-brand border border-border/40 bg-background object-contain"
-                      loading="lazy"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm">{product.name}</p>
-                      <p className="text-xs tabular-nums text-muted-foreground">
-                        {formatPrice(product.price, product.currency)}
-                        {product.kind === 'bundle' &&
-                          ` · ${product.components?.length ?? 0} items`}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      aria-label="Move up"
-                      disabled={i === 0}
-                      onClick={() => move(i, -1)}
-                    >
-                      <ArrowUp className="size-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      aria-label="Move down"
-                      disabled={i === featured.length - 1}
-                      onClick={() => move(i, 1)}
-                    >
-                      <ArrowDown className="size-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground"
-                      aria-label={`Remove ${product.name}`}
-                      onClick={() =>
-                        setFeatured((prev) =>
-                          prev.filter((p) => p.id !== product.id),
-                        )
-                      }
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <Label>Everything else on the page</Label>
-                <p className="text-xs text-muted-foreground">
-                  Shown under the offers, and what a shopper can put in a box of
-                  their own. Saved the moment you add or remove one.
-                </p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={setMembers.isPending}
-                onClick={() => setPicking('member')}
-              >
-                {setMembers.isPending ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Plus className="size-4" />
-                )}
-                Add products
-              </Button>
-            </div>
-
-            {membersQuery.isPending ? (
-              <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-11 w-full" />
-                ))}
-              </div>
-            ) : members.length === 0 ? (
-              <p className="rounded-brand border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
-                Nothing in this collection yet.
-              </p>
-            ) : (
-              <ul className="flex flex-wrap gap-2">
-                {members.map((product) => (
-                  <li
-                    key={product.id}
-                    className="flex items-center gap-2 rounded-brand border border-border/40 bg-background/60 py-1 pl-1 pr-1.5"
-                  >
-                    <img
-                      src={product.image}
-                      alt=""
-                      className="size-7 shrink-0 rounded-brand bg-background object-contain"
-                      loading="lazy"
-                    />
-                    <span className="max-w-52 truncate text-xs">
-                      {product.name}
-                    </span>
-                    {product.kind === 'bundle' && (
-                      <Badge variant="secondary" className="px-1 text-[0.65rem]">
-                        Box
-                      </Badge>
-                    )}
-                    <button
-                      type="button"
-                      aria-label={`Remove ${product.name} from this collection`}
-                      className="text-muted-foreground transition-colors hover:text-destructive"
-                      onClick={() => removeMember(product)}
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <CollectionProductsTable collection={collection} />
         </TabsContent>
 
         <TabsContent value="copy" className="mt-4">
@@ -442,25 +293,13 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
       </div>
 
       <AddProductDialog
-        open={picking !== null}
-        onOpenChange={(open) => !open && setPicking(null)}
-        existingIds={
-          picking === 'featured' ? featuredIds : members.map((m) => m.id)
-        }
-        onAdd={(product) => {
-          if (picking === 'featured') {
-            addFeatured(product)
-          } else {
-            addMember(product)
-            setPicking(null)
-          }
-        }}
-        title={
-          picking === 'featured'
-            ? 'Which box should lead this page?'
-            : 'Add to this collection'
-        }
-        kind={picking === 'featured' ? 'bundle' : undefined}
+        open={pickingBoxes}
+        onOpenChange={setPickingBoxes}
+        existingIds={featuredIds}
+        onAddMany={addFeatured}
+        maxSelect={MAX_FEATURED - featured.length}
+        title="Which boxes should lead this page?"
+        kind="bundle"
       />
     </div>
   )

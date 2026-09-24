@@ -92,13 +92,16 @@ export function useGenerateCampaign() {
       bundleSize,
       brief,
       plainUnlessDesigned,
+      tag,
     }: {
       brand: CampaignBrandSignals
       bundleSize?: number
       brief?: string
       /** See `HeroImageSupplies.plainUnlessDesigned`. */
       plainUnlessDesigned?: boolean
-    }) => generateCampaign(brand, bundleSize, brief, plainUnlessDesigned),
+      /** Pick only from this landing page's range. */
+      tag?: string
+    }) => generateCampaign(brand, bundleSize, brief, plainUnlessDesigned, tag),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: campaignsKeys.all }),
   })

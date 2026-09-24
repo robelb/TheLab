@@ -28,6 +28,17 @@ export const generateCampaignSchema = z.object({
    * every item, and the builder it lands in then shows those same items plain.
    */
   plainUnlessDesigned: z.boolean().optional(),
+  /**
+   * Pick only from products carrying this tag. Sent by the builder when the
+   * visitor came through a landing page, so "pick for me" stays inside that
+   * page's range instead of reaching into the whole catalogue.
+   */
+  tag: z
+    .string()
+    .trim()
+    .max(64)
+    .optional()
+    .transform((v) => (v ? v.toLowerCase() : undefined)),
 })
 
 /**

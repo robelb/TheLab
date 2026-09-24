@@ -1,17 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import {
+  confirmOrder,
   createOrder,
   fetchOrder,
   fetchOrders,
+  resendOrderEmail,
   setOrderStatus,
+  setPaymentStatus,
+  type ConfirmOrderBody,
   type CreateOrderBody,
+  type OrderFilters,
   type OrderStatus,
+  type PaymentStatus,
 } from '@/api/orders'
 
 export const orderKeys = {
   all: ['orders'] as const,
-  list: () => ['orders', 'list'] as const,
+  list: (filters: OrderFilters = {}) => ['orders', 'list', filters] as const,
   detail: (id: string) => ['orders', 'detail', id] as const,
 }
 
@@ -22,11 +28,11 @@ export const orderKeys = {
  * storefront is now browsable without an account, so an ungated read would fire
  * a guaranteed failure on every visit.
  */
-export function useOrders() {
+export function useOrders(filters: OrderFilters = {}) {
   const { user } = useAuth()
   return useQuery({
-    queryKey: orderKeys.list(),
-    queryFn: fetchOrders,
+    queryKey: orderKeys.list(filters),
+    queryFn: () => fetchOrders(filters),
     enabled: Boolean(user),
   })
 }
@@ -54,5 +60,30 @@ export function useSetOrderStatus() {
     mutationFn: (vars: { id: string; status: OrderStatus }) =>
       setOrderStatus(vars.id, vars.status),
     onSuccess: () => client.invalidateQueries({ queryKey: orderKeys.all }),
+  })
+}
+
+export function useSetPaymentStatus() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { id: string; paymentStatus: PaymentStatus }) =>
+      setPaymentStatus(vars.id, vars.paymentStatus),
+    onSuccess: () => client.invalidateQueries({ queryKey: orderKeys.all }),
+  })
+}
+
+export function useConfirmOrder() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { id: string; body: ConfirmOrderBody }) =>
+      confirmOrder(vars.id, vars.body),
+    onSuccess: () => client.invalidateQueries({ queryKey: orderKeys.all }),
+  })
+}
+
+export function useResendOrderEmail() {
+  return useMutation({
+    mutationFn: (vars: { id: string; template: 'received' | 'confirmed' }) =>
+      resendOrderEmail(vars.id, vars.template),
   })
 }
