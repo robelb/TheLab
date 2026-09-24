@@ -23,7 +23,9 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormAlert, FormField } from '@/components/ui/form-field'
+import { useZodForm } from '@/lib/form'
+import { newUserSchema } from '@/lib/schemas/dashboard'
 
 export function UsersPage() {
   const { can } = useAuth()
@@ -38,11 +40,8 @@ export function UsersPage() {
   const setVerified = useSetUserEmailVerification()
   const deleteUser = useDeleteUser()
 
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [role, setRole] = useState<Role>('member')
-  const [companyId, setCompanyId] = useState<string>('')
+  const emptyUser = { name: '', email: '', password: '', role: 'member', companyId: '' }
+  const f = useZodForm({ schema: newUserSchema, initialValues: emptyUser, idPrefix: 'u-' })
   const [formError, setFormError] = useState<string | null>(null)
 
   if (!can('manage_all')) return <Navigate to="/dashboard" replace />
@@ -50,22 +49,29 @@ export function UsersPage() {
   const users = usersQuery.data?.data ?? []
   const companies = companiesQuery.data?.data ?? []
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleCreate({
+    name,
+    email,
+    password,
+    role,
+    companyId,
+  }: {
+    name: string
+    email: string
+    password: string
+    role: string
+    companyId: string
+  }) {
     setFormError(null)
     try {
       await createUser.mutateAsync({
         name,
         email,
         password,
-        role,
+        role: role as Role,
         companyId: companyId || null,
       })
-      setName('')
-      setEmail('')
-      setPassword('')
-      setRole('member')
-      setCompanyId('')
+      f.reset(emptyUser)
     } catch (err) {
       setFormError(
         err instanceof AxiosError
@@ -91,44 +97,35 @@ export function UsersPage() {
         </CardHeader>
         <CardContent>
           <form
-            onSubmit={handleCreate}
-            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 lg:items-end"
+            onSubmit={f.handleSubmit(handleCreate)}
+            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 lg:items-start"
+            noValidate
           >
-            <div className="space-y-1.5">
-              <Label htmlFor="u-name">Name</Label>
-              <Input id="u-name" value={name} onChange={(e) => setName(e.target.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="u-email">Email</Label>
-              <Input id="u-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="u-pass">Password</Label>
-              <Input id="u-pass" type="text" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="u-role">Role</Label>
-              <select
-                id="u-role"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={role}
-                onChange={(e) => setRole(e.target.value as Role)}
-              >
+            <FormField id="u-name" label="Name" error={f.errors.name}>
+              <Input {...f.register('name')} autoComplete="off" />
+            </FormField>
+            <FormField id="u-email" label="Email" error={f.errors.email}>
+              <Input {...f.register('email')} type="email" autoComplete="off" />
+            </FormField>
+            <FormField
+              id="u-password"
+              label="Password"
+              error={f.errors.password}
+              hint="At least 8 characters."
+            >
+              <Input {...f.register('password')} type="text" autoComplete="off" />
+            </FormField>
+            <FormField id="u-role" label="Role" error={f.errors.role}>
+              <select {...f.register('role')} className="h-10 w-full rounded-brand border border-input bg-background px-3 text-sm">
                 {ASSIGNABLE_ROLES.map((r) => (
                   <option key={r} value={r}>
                     {ROLE_LABELS[r]}
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="u-company">Company</Label>
-              <select
-                id="u-company"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={companyId}
-                onChange={(e) => setCompanyId(e.target.value)}
-              >
+            </FormField>
+            <FormField id="u-companyId" label="Company" error={f.errors.companyId} optional>
+              <select {...f.register('companyId')} className="h-10 w-full rounded-brand border border-input bg-background px-3 text-sm">
                 <option value="">— None —</option>
                 {companies.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -136,12 +133,18 @@ export function UsersPage() {
                   </option>
                 ))}
               </select>
+            </FormField>
+            {/* Lines the button up with the inputs, under their labels. */}
+            <div className="space-y-2">
+              <span className="hidden h-4 lg:block" aria-hidden />
+              <Button type="submit" className="w-full" disabled={createUser.isPending}>
+                {createUser.isPending ? 'Creating…' : 'Create'}
+              </Button>
             </div>
-            <Button type="submit" disabled={createUser.isPending}>
-              {createUser.isPending ? 'Creating…' : 'Create'}
-            </Button>
           </form>
-          {formError && <p className="mt-3 text-sm text-destructive">{formError}</p>}
+          <div className="mt-3">
+            <FormAlert>{formError}</FormAlert>
+          </div>
         </CardContent>
       </Card>
 

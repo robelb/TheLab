@@ -135,7 +135,7 @@
     "privacyBefore": "Ich habe die",
     "privacyLink": "Datenschutzerklärung",
     "privacyAfter": "gelesen und bin einverstanden, dass meine Angaben zur Bearbeitung meiner Anfrage verwendet werden.",
-    "privacyRequired": "Bitte bestätigen Sie die Datenschutzerklärung.",
+    "privacyRequired": "Bitte stimmen Sie der Datenschutzerklärung zu, damit wir Ihre Anfrage bearbeiten können.",
     "send": "Bestellung anfragen",
     "sending": "Wird gesendet…",
     "notBinding": "Unverbindlich — verbindlich wird es erst mit unserer Auftragsbestätigung.",
@@ -146,7 +146,12 @@
     "estimatedTotal": "Voraussichtlich gesamt",
     "plusVat": "Alle Preise netto, zzgl. MwSt.",
     "indicative": "Den Endpreis bestätigen wir Ihnen.",
-    "noAccountNeeded": "Kein Konto nötig — einfach Angaben ausfüllen und absenden."
+    "noAccountNeeded": "Kein Konto nötig — einfach Angaben ausfüllen und absenden.",
+    "emailPlaceholder": "name@firma.de",
+    "companyHint": "Auf diese Firma stellen wir die Rechnung aus.",
+    "streetPlaceholder": "Hauptstraße 12",
+    "vatIdHint": "Nur falls vorhanden. Wir drucken sie auf die Rechnung.",
+    "neededByHint": "Dann sagen wir Ihnen gleich, ob der Termin klappt."
   },
   "status": {
     "new": "Neu",
@@ -233,7 +238,8 @@
     "brandNote": "Wenn Sie die erste Person aus Ihrem Unternehmen sind, übernehmen wir Ihr Markendesign sofort; Ihre Produktbilder mit Ihrem Logo entstehen im Hintergrund und erscheinen, sobald sie fertig sind.",
     "haveAccount": "Sie haben bereits ein Konto?",
     "signInFailed": "Anmeldung nicht möglich",
-    "createFailed": "Konto konnte nicht angelegt werden"
+    "createFailed": "Konto konnte nicht angelegt werden",
+    "workEmailHint": "Über die Domain richten wir die Marke Ihrer Firma ein."
   },
   "buildBox": {
     "backToShop": "Zurück zum Shop",
@@ -430,5 +436,28 @@
     "embossed": "Geprägt",
     "engraved": "Graviert",
     "pictureCouldNotLoad": "Dieses Bild konnte nicht geladen werden. Ihr Design ist sicher — schließen Sie das Fenster und öffnen Sie es erneut."
+  },
+  "validation": {
+    "summary_one": "Fast geschafft. Bitte prüfen Sie das markierte Feld oben.",
+    "summary_other": "Fast geschafft. Bitte prüfen Sie die {{count}} markierten Felder oben.",
+    "tooLong": "Bitte höchstens {{max}} Zeichen.",
+    "firstName": "Bitte geben Sie Ihren Vornamen ein.",
+    "lastName": "Bitte geben Sie Ihren Nachnamen ein.",
+    "name": "Bitte geben Sie Ihren Namen ein.",
+    "emailRequired": "Bitte geben Sie Ihre E-Mail-Adresse ein.",
+    "email": "Das sieht nicht nach einer E-Mail-Adresse aus. Beispiel: name@firma.de",
+    "phoneRequired": "Bitte geben Sie eine Telefonnummer an, falls wir Fragen zur Lieferung haben.",
+    "phone": "Bitte geben Sie eine gültige Telefonnummer ein. Beispiel: +49 30 1234567",
+    "company": "Bitte geben Sie Ihren Firmennamen ein. Auf ihn stellen wir die Rechnung aus.",
+    "street": "Bitte geben Sie Straße und Hausnummer ein.",
+    "houseNumber": "Bitte ergänzen Sie die Hausnummer. Beispiel: Hauptstraße 12",
+    "zipRequired": "Bitte geben Sie die Postleitzahl ein.",
+    "zip": "Die PLZ hat 5 Ziffern, z. B. 10115.",
+    "city": "Bitte geben Sie den Ort ein.",
+    "vatId": "Eine deutsche USt-IdNr. besteht aus DE und 9 Ziffern. Beispiel: DE123456789",
+    "neededByPast": "Bitte wählen Sie heute oder ein späteres Datum.",
+    "passwordRequired": "Bitte geben Sie Ihr Passwort ein.",
+    "passwordShort": "Ihr Passwort braucht mindestens 8 Zeichen.",
+    "workEmail": "Bitte nutzen Sie Ihre geschäftliche E-Mail. Wir richten die Marke Ihrer Firma anhand der Domain ein, private Adressen wie {{domain}} gehen daher nicht."
   }
 }

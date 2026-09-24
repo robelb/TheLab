@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AxiosError } from 'axios'
 import { useAuth } from '@/context/AuthContext'
 import { useReExtractCompany, useUpdateCompany } from '@/hooks/use-companies'
 import { Button } from '@/components/ui/button'
@@ -10,7 +11,9 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormAlert, FormField } from '@/components/ui/form-field'
+import { useZodForm } from '@/lib/form'
+import { companyNameSchema } from '@/lib/schemas/dashboard'
 import { Badge } from '@/components/ui/badge'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -24,8 +27,13 @@ export function CompanySettingsPage() {
   const { company } = useAuth()
   const updateCompany = useUpdateCompany()
   const reExtract = useReExtractCompany()
-  const [name, setName] = useState(company?.name ?? '')
+  const f = useZodForm({
+    schema: companyNameSchema,
+    initialValues: { name: company?.name ?? '' },
+    idPrefix: 'c-',
+  })
   const [notice, setNotice] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   if (!company) {
     return (
@@ -35,11 +43,19 @@ export function CompanySettingsPage() {
     )
   }
 
-  async function handleSaveName(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSaveName({ name }: { name: string }) {
     setNotice(null)
-    await updateCompany.mutateAsync({ id: company!.id, body: { name } })
-    setNotice('Company name saved.')
+    setSaveError(null)
+    try {
+      await updateCompany.mutateAsync({ id: company!.id, body: { name } })
+      setNotice('Company name saved.')
+    } catch (err) {
+      setSaveError(
+        err instanceof AxiosError
+          ? (err.response?.data?.error ?? 'Could not save the name. Please try again.')
+          : 'Could not save the name. Please try again.',
+      )
+    }
   }
 
   async function handleReExtract() {
@@ -65,20 +81,25 @@ export function CompanySettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSaveName} className="flex items-end gap-3">
-            <div className="flex-1 space-y-1.5">
-              <Label htmlFor="c-name">Company name</Label>
-              <Input
-                id="c-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
+          <form
+            onSubmit={f.handleSubmit(handleSaveName)}
+            className="flex items-start gap-3"
+            noValidate
+          >
+            <FormField id="c-name" label="Company name" error={f.errors.name} className="flex-1">
+              <Input {...f.register('name')} />
+            </FormField>
+            {/* Lines the button up with the input, under its label. */}
+            <div className="space-y-2">
+              <span className="block h-4" aria-hidden />
+              <Button type="submit" disabled={updateCompany.isPending}>
+                {updateCompany.isPending ? 'Saving…' : 'Save'}
+              </Button>
             </div>
-            <Button type="submit" disabled={updateCompany.isPending}>
-              Save
-            </Button>
           </form>
+          <div className="mt-3">
+            <FormAlert>{saveError}</FormAlert>
+          </div>
         </CardContent>
       </Card>
 

@@ -18,7 +18,9 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormAlert, FormField } from '@/components/ui/form-field'
+import { useZodForm } from '@/lib/form'
+import { newCompanySchema } from '@/lib/schemas/dashboard'
 import { Badge } from '@/components/ui/badge'
 
 export function CompaniesPage() {
@@ -30,21 +32,22 @@ export function CompaniesPage() {
   const deleteCompany = useDeleteCompany()
   const reExtract = useReExtractCompany()
 
-  const [name, setName] = useState('')
-  const [domain, setDomain] = useState('')
+  const f = useZodForm({
+    schema: newCompanySchema,
+    initialValues: { name: '', domain: '' },
+    idPrefix: 'co-',
+  })
   const [formError, setFormError] = useState<string | null>(null)
 
   if (!can('manage_all')) return <Navigate to="/dashboard" replace />
 
   const companies = companiesQuery.data?.data ?? []
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleCreate({ name, domain }: { name: string; domain: string }) {
     setFormError(null)
     try {
       await createCompany.mutateAsync({ name, domain })
-      setName('')
-      setDomain('')
+      f.reset({ name: '', domain: '' })
     } catch (err) {
       setFormError(
         err instanceof AxiosError
@@ -72,26 +75,34 @@ export function CompaniesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="co-name">Name</Label>
-              <Input id="co-name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <form
+            onSubmit={f.handleSubmit(handleCreate)}
+            className="flex flex-wrap items-start gap-3"
+            noValidate
+          >
+            <FormField id="co-name" label="Name" error={f.errors.name} className="w-64">
+              <Input {...f.register('name')} autoComplete="off" />
+            </FormField>
+            <FormField
+              id="co-domain"
+              label="Domain"
+              error={f.errors.domain}
+              hint="Its brand is extracted from this website."
+              className="w-64"
+            >
+              <Input {...f.register('domain')} placeholder="acme.com" autoComplete="off" />
+            </FormField>
+            {/* Lines the button up with the inputs, under their labels. */}
+            <div className="space-y-2">
+              <span className="block h-4" aria-hidden />
+              <Button type="submit" disabled={createCompany.isPending}>
+                {createCompany.isPending ? 'Creating…' : 'Create'}
+              </Button>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="co-domain">Domain</Label>
-              <Input
-                id="co-domain"
-                placeholder="acme.com"
-                value={domain}
-                onChange={(e) => setDomain(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" disabled={createCompany.isPending}>
-              {createCompany.isPending ? 'Creating…' : 'Create'}
-            </Button>
           </form>
-          {formError && <p className="mt-3 text-sm text-destructive">{formError}</p>}
+          <div className="mt-3">
+            <FormAlert>{formError}</FormAlert>
+          </div>
         </CardContent>
       </Card>
 

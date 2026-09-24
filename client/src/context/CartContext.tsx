@@ -4,9 +4,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
+import { usePostHog } from '@posthog/react'
 import { useProductsByIds } from '@/hooks/use-products'
 import { boxAllLines } from '@/lib/box'
 import type { ProductDesign } from '@/lib/boxDraft'
@@ -75,6 +77,35 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
   }, [items])
+
+  // Removals and quantity changes are tracked here, where every button that
+  // makes one ends up; adding is tracked at the call sites, which know whether
+  // it was a product, a ready-made box or a built one. Read through a ref so
+  // the callbacks stay stable and the event goes out once, outside the state
+  // updater (which StrictMode runs twice).
+  const posthog = usePostHog()
+  const itemsRef = useRef(items)
+  useEffect(() => {
+    itemsRef.current = items
+  }, [items])
+  const trackLine = useCallback(
+    (event: string, productId: string, extra: Record<string, unknown> = {}) => {
+      const item = itemsRef.current.find((i) => i.product.id === productId)
+      if (!item) return
+      posthog?.capture(event, {
+        product_id: item.product.id,
+        product_name: item.product.name,
+        product_sku: item.product.sku,
+        price: item.product.price,
+        currency: item.product.currency,
+        is_box: Boolean(item.box),
+        has_design: Boolean(item.design),
+        previous_quantity: item.quantity,
+        ...extra,
+      })
+    },
+    [posthog],
+  )
 
   // A cart item is a snapshot taken when it was added, so its images freeze at
   // that moment — an item added as a guest, or before the company's branded
@@ -189,21 +220,30 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  const removeItem = useCallback((productId: string) => {
-    setItems((prev) => prev.filter((i) => i.product.id !== productId))
-  }, [])
-
-  const updateQuantity = useCallback((productId: string, quantity: number) => {
-    if (quantity < 1) {
+  const removeItem = useCallback(
+    (productId: string) => {
+      trackLine('product removed from cart', productId)
       setItems((prev) => prev.filter((i) => i.product.id !== productId))
-      return
-    }
-    setItems((prev) =>
-      prev.map((i) =>
-        i.product.id === productId ? { ...i, quantity } : i,
-      ),
-    )
-  }, [])
+    },
+    [trackLine],
+  )
+
+  const updateQuantity = useCallback(
+    (productId: string, quantity: number) => {
+      if (quantity < 1) {
+        trackLine('product removed from cart', productId)
+        setItems((prev) => prev.filter((i) => i.product.id !== productId))
+        return
+      }
+      trackLine('cart quantity changed', productId, { quantity })
+      setItems((prev) =>
+        prev.map((i) =>
+          i.product.id === productId ? { ...i, quantity } : i,
+        ),
+      )
+    },
+    [trackLine],
+  )
 
   // An edited box replaces its line in place: the id, the position and how many
   // of the box the shopper ordered all survive, only the contents change.

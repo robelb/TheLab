@@ -23,6 +23,10 @@ import {
 } from '@/components/ui/dialog'
 import { GenerateCampaignDialog } from '@/components/dashboard/GenerateCampaignDialog'
 import { Input } from '@/components/ui/input'
+import { FormAlert, FormField } from '@/components/ui/form-field'
+import { useZodForm } from '@/lib/form'
+import { apiErrorMessage } from '@/lib/notify'
+import { newCampaignSchema } from '@/lib/schemas/dashboard'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -57,59 +61,62 @@ function NewCampaignDialog({
   const navigate = useNavigate()
   const posthog = usePostHog()
   const create = useCreateCampaign()
-  const [title, setTitle] = useState('')
+  const f = useZodForm({
+    schema: newCampaignSchema,
+    initialValues: { title: '' },
+    idPrefix: 'campaign-',
+  })
 
-  const submit = async () => {
-    if (!title.trim()) return
-    const created = await create.mutateAsync({
-      title: title.trim(),
-      domain,
-    })
+  const submit = async ({ title }: { title: string }) => {
+    const created = await create.mutateAsync({ title, domain })
     posthog?.capture('campaign created', {
       campaign_id: created.id,
       title: created.title,
       domain,
     })
     onOpenChange(false)
-    setTitle('')
+    f.reset({ title: '' })
     navigate(`/dashboard/campaign/${created.id}`)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) f.reset({ title: '' })
+        onOpenChange(next)
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>New campaign</DialogTitle>
         </DialogHeader>
-        <div className="space-y-1.5">
-          <span className="text-xs font-medium text-muted-foreground">
-            Name
-          </span>
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Summer essentials"
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submit()
-            }}
-          />
-          <p className="text-xs text-muted-foreground">
-            You'll add products to the bundle on the next screen.
-          </p>
-        </div>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={create.isPending}
+        <form onSubmit={f.handleSubmit(submit)} className="space-y-4" noValidate>
+          <FormField
+            id="campaign-title"
+            label="Name"
+            error={f.errors.title}
+            hint="You'll add products to the bundle on the next screen."
           >
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={!title.trim() || create.isPending}>
-            {create.isPending ? 'Creating…' : 'Create campaign'}
-          </Button>
-        </DialogFooter>
+            <Input {...f.register('title')} placeholder="Summer essentials" autoFocus />
+          </FormField>
+          {create.error && (
+            <FormAlert>{apiErrorMessage(create.error, 'Could not create the campaign.')}</FormAlert>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={create.isPending}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={create.isPending}>
+              {create.isPending ? 'Creating…' : 'Create campaign'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

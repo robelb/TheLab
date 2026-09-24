@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { ImageManager } from '@/components/dashboard/ImageManager'
 import {
   BundleContentsEditor,
@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { FieldMessage, FormAlert, FormField } from '@/components/ui/form-field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -31,6 +32,8 @@ import {
   useUpdateProduct,
 } from '@/hooks/use-product-mutations'
 import { apiErrorMessage, notifyError, notifySaved } from '@/lib/notify'
+import { useZodForm, type FormErrors } from '@/lib/form'
+import { productSchema } from '@/lib/schemas/dashboard'
 import type { ProductComponentInput, ProductInput } from '@/types/dashboard'
 import type { Product } from '@/types/product'
 
@@ -112,6 +115,13 @@ function contentsOf(product: Product): BundleContentsValue {
   }
 }
 
+/** The tab a field lives on — where a failed save has to take you. */
+function tabOf(field: string): Tab {
+  if (field === 'images') return 'images'
+  if (field === 'contents') return 'contents'
+  return 'details'
+}
+
 /** Gallery for an existing product, falling back to its single cover image. */
 function galleryOf(product: Product): string[] {
   if (product.images && product.images.length > 0) return product.images
@@ -130,7 +140,9 @@ export function ProductFormDialog({
   const mutation = isEditing ? updateMutation : createMutation
 
   const [tab, setTab] = useState<Tab>('details')
-  const [form, setForm] = useState<FormState>(EMPTY)
+  const f = useZodForm({ schema: productSchema, initialValues: EMPTY })
+  const form = f.values
+  const { reset } = f
   const [error, setError] = useState<string | null>(null)
 
   // Reset the form whenever the dialog opens for a different product.
@@ -140,7 +152,7 @@ export function ProductFormDialog({
     setTab('details')
     if (product) {
       const matched = categories.find((c) => c.name === product.category)
-      setForm({
+      reset({
         name: product.name,
         tagline: product.tagline ?? '',
         price: String(product.price),
@@ -158,43 +170,17 @@ export function ProductFormDialog({
         contents: contentsOf(product),
       })
     } else {
-      setForm(EMPTY)
+      reset(EMPTY)
     }
-  }, [open, product, categories])
+  }, [open, product, categories, reset])
 
-  const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
-    setForm((prev) => ({ ...prev, [key]: value }))
+  const update = f.set
+  /** Which tabs have something to fix, for the dot on their label. */
+  const tabsWithErrors = new Set(Object.keys(f.errors).map(tabOf))
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
+  /** Runs only once the schema has passed — see `useZodForm`. */
+  const save = async () => {
     setError(null)
-
-    if (!form.name.trim()) {
-      setTab('details')
-      setError('Name is required')
-      return
-    }
-    if (form.price === '' || Number.isNaN(Number(form.price))) {
-      setTab('details')
-      setError('A valid price is required')
-      return
-    }
-    if (!form.categoryId) {
-      setTab('details')
-      setError('Please choose a category')
-      return
-    }
-    if (form.images.length === 0) {
-      setTab('images')
-      setError('Add at least one image')
-      return
-    }
-
-    if (form.isBundle && form.contents.items.length === 0) {
-      setTab('contents')
-      setError('A box needs at least one product in it')
-      return
-    }
 
     // Sent only for a bundle. An ordinary product has no parts list, and
     // sending an empty one would wipe the contents of anything converted back.
@@ -288,14 +274,24 @@ export function ProductFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form
+          onSubmit={f.handleSubmit(save, (errors: FormErrors) => {
+            // Open the tab the first problem is on, so it can be seen.
+            const first = Object.keys(errors)[0]
+            if (first) setTab(tabOf(first))
+          })}
+          className="space-y-5"
+          noValidate
+        >
           <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
             <TabsList>
               <TabsTrigger value="details" className={brandTabClass}>
                 Details
+                <ErrorDot show={tabsWithErrors.has('details')} />
               </TabsTrigger>
               <TabsTrigger value="images" className={brandTabClass}>
                 Images{form.images.length > 0 && ` (${form.images.length})`}
+                <ErrorDot show={tabsWithErrors.has('images')} />
               </TabsTrigger>
               {/* Only a pre-configured box has anything inside it. */}
               {form.isBundle && (
@@ -303,70 +299,50 @@ export function ProductFormDialog({
                   Box contents
                   {form.contents.items.length > 0 &&
                     ` (${form.contents.items.length})`}
+                  <ErrorDot show={tabsWithErrors.has('contents')} />
                 </TabsTrigger>
               )}
             </TabsList>
 
             <TabsContent value="details" className="mt-4">
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    value={form.name}
-                    onChange={(e) => update('name', e.target.value)}
-                  />
-                </div>
+                <FormField id="name" label="Name" error={f.errors.name} className="sm:col-span-2">
+                  <Input {...f.register('name')} />
+                </FormField>
 
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="tagline">Tagline</Label>
-                  <Input
-                    id="tagline"
-                    value={form.tagline}
-                    onChange={(e) => update('tagline', e.target.value)}
-                  />
-                </div>
+                <FormField
+                  id="tagline"
+                  label="Tagline"
+                  error={f.errors.tagline}
+                  optional
+                  className="sm:col-span-2"
+                >
+                  <Input {...f.register('tagline')} />
+                </FormField>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="price">Price</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.price}
-                    onChange={(e) => update('price', e.target.value)}
-                  />
-                </div>
+                <FormField id="price" label="Price" error={f.errors.price} hint="Net, before VAT.">
+                  <Input {...f.register('price')} type="number" min="0" step="0.01" inputMode="decimal" />
+                </FormField>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="currency">Currency</Label>
-                  <Input
-                    id="currency"
-                    value={form.currency}
-                    onChange={(e) => update('currency', e.target.value)}
-                  />
-                </div>
+                <FormField id="currency" label="Currency" error={f.errors.currency}>
+                  <Input {...f.register('currency')} maxLength={3} placeholder="EUR" />
+                </FormField>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="stock">Stock</Label>
-                  <Input
-                    id="stock"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={form.stock}
-                    onChange={(e) => update('stock', e.target.value)}
-                  />
-                </div>
+                <FormField id="stock" label="Stock" error={f.errors.stock}>
+                  <Input {...f.register('stock')} type="number" min="0" step="1" inputMode="numeric" />
+                </FormField>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="category">Category</Label>
+                <FormField id="categoryId" label="Category" error={f.errors.categoryId}>
                   <Select
                     value={form.categoryId}
                     onValueChange={(v) => update('categoryId', v)}
                   >
-                    <SelectTrigger id="category" className="w-full">
+                    <SelectTrigger
+                      id="categoryId"
+                      className="w-full"
+                      aria-invalid={f.errors.categoryId ? true : undefined}
+                      aria-describedby={f.errors.categoryId ? 'categoryId-error' : undefined}
+                    >
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -377,65 +353,61 @@ export function ProductFormDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </FormField>
 
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    rows={3}
-                    value={form.description}
-                    onChange={(e) => update('description', e.target.value)}
-                  />
-                </div>
+                <FormField
+                  id="description"
+                  label="Description"
+                  error={f.errors.description}
+                  optional
+                  className="sm:col-span-2"
+                >
+                  <Textarea {...f.register('description')} rows={3} />
+                </FormField>
 
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="details">Details (one per line)</Label>
-                  <Textarea
-                    id="details"
-                    rows={3}
-                    value={form.details}
-                    onChange={(e) => update('details', e.target.value)}
-                  />
-                </div>
+                <FormField
+                  id="details"
+                  label="Details"
+                  error={f.errors.details}
+                  hint="One per line."
+                  optional
+                  className="sm:col-span-2"
+                >
+                  <Textarea {...f.register('details')} rows={3} />
+                </FormField>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="sku">SKU (optional)</Label>
-                  <Input
-                    id="sku"
-                    value={form.sku}
-                    onChange={(e) => update('sku', e.target.value)}
-                    placeholder="Auto-generated if blank"
-                  />
-                </div>
+                <FormField
+                  id="sku"
+                  label="SKU"
+                  error={f.errors.sku}
+                  hint="Generated for you if left blank."
+                  optional
+                >
+                  <Input {...f.register('sku')} />
+                </FormField>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="minQuantity">Minimum order</Label>
-                  <Input
-                    id="minQuantity"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={form.minQuantity}
-                    onChange={(e) => update('minQuantity', e.target.value)}
-                  />
-                </div>
+                <FormField
+                  id="minQuantity"
+                  label="Minimum order"
+                  error={f.errors.minQuantity}
+                  hint="The fewest a customer can order."
+                >
+                  <Input {...f.register('minQuantity')} type="number" min="1" step="1" inputMode="numeric" />
+                </FormField>
 
                 {/* What a landing page filters on. Free text rather than a
                     fixed list: marketing invents an occasion long before
                     anybody gets round to adding it to a menu. */}
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="tags">Occasions (comma separated)</Label>
-                  <Input
-                    id="tags"
-                    value={form.tags}
-                    onChange={(e) => update('tags', e.target.value)}
-                    placeholder="christmas, welcome"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    A collection page shows everything carrying its occasion.
-                  </p>
-                </div>
+                <FormField
+                  id="tags"
+                  label="Occasions"
+                  error={f.errors.tags}
+                  hint="Comma separated. A collection page shows everything carrying its occasion."
+                  optional
+                  className="sm:col-span-2"
+                >
+                  <Input {...f.register('tags')} placeholder="christmas, welcome" />
+                </FormField>
 
                 <div className="flex items-center gap-2 self-end pb-2">
                   <Checkbox
@@ -468,7 +440,11 @@ export function ProductFormDialog({
               </div>
             </TabsContent>
 
-            <TabsContent value="images" className="mt-4">
+            <TabsContent value="images" className="mt-4 space-y-3">
+              {/* Focusable, so a failed save can bring the cursor here. */}
+              <div id="images" tabIndex={-1} className="outline-none">
+                <FieldMessage id="images" error={f.errors.images} />
+              </div>
               <ImageManager
                 images={form.images}
                 onChange={(images) => update('images', images)}
@@ -476,7 +452,10 @@ export function ProductFormDialog({
             </TabsContent>
 
             {form.isBundle && (
-              <TabsContent value="contents" className="mt-4">
+              <TabsContent value="contents" className="mt-4 space-y-3">
+                <div id="contents" tabIndex={-1} className="outline-none">
+                  <FieldMessage id="contents" error={f.errors.contents} />
+                </div>
                 <BundleContentsEditor
                   value={form.contents}
                   onChange={(contents) => update('contents', contents)}
@@ -487,10 +466,14 @@ export function ProductFormDialog({
             )}
           </Tabs>
 
-          {error && (
-            <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </p>
+          {f.errorCount > 0 ? (
+            <FormAlert>
+              {f.errorCount === 1
+                ? 'One thing to fix before saving. It is marked above.'
+                : `${f.errorCount} things to fix before saving. They are marked above.`}
+            </FormAlert>
+          ) : (
+            <FormAlert>{error}</FormAlert>
           )}
 
           <DialogFooter>
@@ -508,5 +491,16 @@ export function ProductFormDialog({
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** A small red dot on a tab that has something to fix. */
+function ErrorDot({ show }: { show: boolean }) {
+  if (!show) return null
+  return (
+    <span
+      className="ml-1.5 inline-block size-1.5 rounded-full bg-destructive"
+      aria-label="has errors"
+    />
   )
 }

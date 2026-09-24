@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { usePostHog } from '@posthog/react'
@@ -24,6 +24,9 @@ import { formatPrice } from '@/utils/format'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { FormAlert } from '@/components/ui/form-field'
+import { useZodForm } from '@/lib/form'
+import { makeCheckoutSchema, type CheckoutValues } from '@/lib/schemas/checkout'
 import {
   BillingSection,
   ContactSection,
@@ -31,7 +34,6 @@ import {
   emptyCheckoutForm,
   PaymentSection,
   PrivacyConsent,
-  type CheckoutForm,
 } from '@/components/checkout/CheckoutSections'
 
 /**
@@ -46,7 +48,7 @@ import {
  */
 export function CheckoutPage() {
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   // A request sent from inside a campaign leaves them in it — and says which.
   const { shopHome, collectionSlug } = useFunnel()
   const { brand } = useBrand()
@@ -55,17 +57,22 @@ export function CheckoutPage() {
   const posthog = usePostHog()
   const createOrder = useCreateOrder()
 
-  const [form, setForm] = useState<CheckoutForm>(() =>
-    emptyCheckoutForm({
-      name: user?.name,
-      email: user?.email,
-      // A signed-in shopper's company is on their account; a guest has to say.
-      company: company?.name,
-    }),
+  // Rebuilt when the language changes, so the messages follow it.
+  const schema = useMemo(
+    () => makeCheckoutSchema(t),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t, i18n.language],
   )
-  const set = <K extends keyof CheckoutForm>(key: K, value: CheckoutForm[K]) =>
-    setForm((prev) => ({ ...prev, [key]: value }))
-  const [formError, setFormError] = useState<string | null>(null)
+  const f = useZodForm({
+    schema,
+    initialValues: () =>
+      emptyCheckoutForm({
+        name: user?.name,
+        email: user?.email,
+        // A signed-in shopper's company is on their account; a guest has to say.
+        company: company?.name,
+      }),
+  })
 
   /** Set once the request is recorded — carries the reference to quote. */
   const [sent, setSent] = useState<{ reference: string; email: string } | null>(null)
@@ -89,14 +96,9 @@ export function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
+  /** Only ever called with values that passed the schema — see `useZodForm`. */
+  async function submit(form: CheckoutValues) {
     if (createOrder.isPending) return
-    if (!form.privacyAccepted) {
-      setFormError(t('checkout.privacyRequired'))
-      return
-    }
-    setFormError(null)
 
     const payload: OrderItem[] = items.map(({ product, quantity, box, design }) => ({
       productId: product.id,
@@ -209,6 +211,18 @@ export function CheckoutPage() {
         posthog?.unregister(key)
       }
     } catch (err) {
+      // A request that did not go through is a shopper we are about to lose,
+      // so it is counted — without anything they typed.
+      posthog?.capture('order request failed', {
+        http_status: isAxiosError(err) ? (err.response?.status ?? null) : null,
+        error_code: isAxiosError(err)
+          ? ((err.response?.data as { code?: string } | undefined)?.code ?? null)
+          : null,
+        item_count: items.reduce((sum, i) => sum + i.quantity, 0),
+        estimated_total: total,
+        collection: collectionSlug,
+        is_guest: !user,
+      })
       // The campaign ended while they were checking out: let go of it so the
       // cart can be sent from the shop. The cart and everything typed stay.
       if (
@@ -266,7 +280,6 @@ export function CheckoutPage() {
   }
 
   const pending = createOrder.isPending
-  const shownError = formError ?? error
 
   return (
     <div className="space-y-8">
@@ -287,18 +300,20 @@ export function CheckoutPage() {
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_340px] lg:items-start">
-        <form className="space-y-8" onSubmit={handleSubmit}>
-          <ContactSection form={form} set={set} disabled={pending} />
-          <BillingSection form={form} set={set} disabled={pending} />
-          <DeliverySection form={form} set={set} disabled={pending} />
+        {/* `noValidate`: the schema checks everything, in the shopper's
+            language, instead of the browser's own bubbles. */}
+        <form className="space-y-8" onSubmit={f.handleSubmit(submit)} noValidate>
+          <ContactSection f={f} disabled={pending} />
+          <BillingSection f={f} disabled={pending} />
+          <DeliverySection f={f} disabled={pending} />
           <PaymentSection disabled={pending} />
 
-          <PrivacyConsent form={form} set={set} disabled={pending} />
+          <PrivacyConsent f={f} disabled={pending} />
 
-          {shownError && (
-            <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {shownError}
-            </p>
+          {f.errorCount > 0 ? (
+            <FormAlert>{t('validation.summary', { count: f.errorCount })}</FormAlert>
+          ) : (
+            error && <FormAlert>{error}</FormAlert>
           )}
 
           <div className="space-y-2">

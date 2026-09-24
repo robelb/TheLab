@@ -135,7 +135,7 @@
     "privacyBefore": "I have read the",
     "privacyLink": "privacy policy",
     "privacyAfter": "and agree that my details are used to handle my request.",
-    "privacyRequired": "Please accept the privacy policy.",
+    "privacyRequired": "Please accept the privacy policy so we can handle your request.",
     "send": "Request order",
     "sending": "Sending…",
     "notBinding": "Not binding — it only becomes binding with our order confirmation.",
@@ -146,7 +146,12 @@
     "estimatedTotal": "Estimated total",
     "plusVat": "All prices net, plus VAT.",
     "indicative": "We'll confirm the final price.",
-    "noAccountNeeded": "No account needed — just fill in your details and send."
+    "noAccountNeeded": "No account needed — just fill in your details and send.",
+    "emailPlaceholder": "name@company.com",
+    "companyHint": "The invoice is made out to this company.",
+    "streetPlaceholder": "Main Street 12",
+    "vatIdHint": "Only if you have one. We print it on the invoice.",
+    "neededByHint": "So we can tell you straight away if the date works."
   },
   "status": {
     "new": "New",
@@ -233,7 +238,8 @@
     "brandNote": "If you're the first from your company, we apply your brand theme right away; your product mockups with your logo then generate in the background and appear when ready.",
     "haveAccount": "Already have an account?",
     "signInFailed": "Could not sign you in",
-    "createFailed": "Could not create your account"
+    "createFailed": "Could not create your account",
+    "workEmailHint": "We use its domain to set up your company's brand."
   },
   "buildBox": {
     "backToShop": "Back to shop",
@@ -430,5 +436,28 @@
     "embossed": "Embossed",
     "engraved": "Engraved",
     "pictureCouldNotLoad": "That picture could not be loaded. Your design is safe — close this and open it again."
+  },
+  "validation": {
+    "summary_one": "Almost there. Please check the highlighted field above.",
+    "summary_other": "Almost there. Please check the {{count}} highlighted fields above.",
+    "tooLong": "Please keep this under {{max}} characters.",
+    "firstName": "Please enter your first name.",
+    "lastName": "Please enter your last name.",
+    "name": "Please enter your name.",
+    "emailRequired": "Please enter your email address.",
+    "email": "This doesn't look like an email address. Example: name@company.com",
+    "phoneRequired": "Please enter a phone number, in case we have a question about the delivery.",
+    "phone": "Please enter a valid phone number. Example: +49 30 1234567",
+    "company": "Please enter your company name. The invoice is made out to it.",
+    "street": "Please enter the street and house number.",
+    "houseNumber": "Please add the house number. Example: Main Street 12",
+    "zipRequired": "Please enter the postcode.",
+    "zip": "Postcodes have 5 digits, e.g. 10115.",
+    "city": "Please enter the city.",
+    "vatId": "A German VAT ID is DE followed by 9 digits. Example: DE123456789",
+    "neededByPast": "Please choose today or a later date.",
+    "passwordRequired": "Please enter your password.",
+    "passwordShort": "Your password needs at least 8 characters.",
+    "workEmail": "Please use your work email. We set up your company's brand from its domain, so personal addresses like {{domain}} can't be used."
   }
 }

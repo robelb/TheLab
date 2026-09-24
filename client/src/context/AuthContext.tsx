@@ -144,6 +144,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         company: bundle.company?.domain ?? null,
         role: bundle.user.role,
       })
+      // On every event, so the dashboards can leave out our own team opening
+      // pages to check them — see `scripts/posthog-dashboard.ts`.
+      // `register` throws when PostHog never initialised (no token set).
+      if (posthog?.__loaded) {
+        posthog.register({ is_staff: bundle.user.role === 'super_admin' })
+      }
       // Theme is applied above; featured-product images may still be generating
       // in the background → watch for completion and refresh when ready.
       if (bundle.company?.imagesStatus === 'pending') {

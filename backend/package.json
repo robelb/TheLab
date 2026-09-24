@@ -30,7 +30,8 @@
     "reset:images": "tsx scripts/reset-generated-images.ts",
     "strip:gallery": "tsx scripts/strip-global-gallery.ts",
     "regenerate:images": "tsx scripts/regenerate-brand-images.ts",
-    "demo:user": "tsx scripts/create-demo-user.ts"
+    "demo:user": "tsx scripts/create-demo-user.ts",
+    "analytics:dashboard": "tsx scripts/posthog-dashboard.ts"
   },
   "dependencies": {
     "@google/genai": "^1.5.0",
@@ -46,6 +47,7 @@
     "multer": "^2.2.0",
     "openai": "^4.104.0",
     "pdfkit": "^0.20.2",
+    "posthog-node": "^5.52.5",
     "resend": "^6.28.1",
     "sharp": "^0.34.5",
     "zod": "^3.25.76"

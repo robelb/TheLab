@@ -2,9 +2,13 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileText } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
+import { FieldMessage, FormField } from '@/components/ui/form-field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import type { ZodForm } from '@/lib/form'
+import type { CheckoutValues } from '@/lib/schemas/checkout'
+import { todayIso } from '@/lib/schemas/common'
 
 /**
  * The checkout form's sections.
@@ -73,46 +77,53 @@ export function emptyCheckoutForm(prefill: {
 export const PRIVACY_URL =
   import.meta.env.VITE_PRIVACY_URL?.trim() || 'https://biglittlethings.de/datenschutz/'
 
+/** The checkout form, as `useZodForm` hands it to each section. */
+export type CheckoutFormState = ZodForm<CheckoutForm, CheckoutValues>
+
 interface SectionProps {
-  form: CheckoutForm
-  set: <K extends keyof CheckoutForm>(key: K, value: CheckoutForm[K]) => void
+  f: CheckoutFormState
   disabled?: boolean
 }
 
+type TextField = {
+  [K in keyof CheckoutForm]: CheckoutForm[K] extends string ? K : never
+}[keyof CheckoutForm]
+
 function Field(props: {
-  id: string
+  f: CheckoutFormState
+  name: TextField
   label: string
-  value: string
-  onChange: (value: string) => void
-  required?: boolean
+  optional?: boolean
   type?: string
   autoComplete?: string
+  inputMode?: 'text' | 'numeric' | 'tel' | 'email'
+  maxLength?: number
+  min?: string
   hint?: ReactNode
   placeholder?: string
 }) {
   const { t } = useTranslation()
+  const field = props.f.register(props.name)
   return (
-    <div className="space-y-2">
-      <Label htmlFor={props.id}>
-        {props.label}
-        {!props.required && (
-          <span className="font-normal text-muted-foreground">
-            {' '}
-            {t('checkout.optional')}
-          </span>
-        )}
-      </Label>
+    <FormField
+      id={field.id}
+      label={props.label}
+      error={props.f.errors[props.name]}
+      hint={props.hint}
+      optional={props.optional}
+      optionalLabel={t('checkout.optional')}
+    >
       <Input
-        id={props.id}
+        {...field}
         type={props.type ?? 'text'}
-        value={props.value}
-        onChange={(e) => props.onChange(e.target.value)}
         autoComplete={props.autoComplete}
+        inputMode={props.inputMode}
+        maxLength={props.maxLength}
+        min={props.min}
         placeholder={props.placeholder}
-        required={props.required}
+        aria-required={props.optional ? undefined : true}
       />
-      {props.hint && <p className="text-xs text-muted-foreground">{props.hint}</p>}
-    </div>
+    </FormField>
   )
 }
 
@@ -133,105 +144,83 @@ function Section({
   )
 }
 
-export function ContactSection({ form, set, disabled }: SectionProps) {
+export function ContactSection({ f, disabled }: SectionProps) {
   const { t } = useTranslation()
   return (
     <Section title={t('checkout.contact')} disabled={disabled}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          id="firstName"
-          label={t('checkout.firstName')}
-          value={form.firstName}
-          onChange={(v) => set('firstName', v)}
-          autoComplete="given-name"
-          required
-        />
-        <Field
-          id="lastName"
-          label={t('checkout.lastName')}
-          value={form.lastName}
-          onChange={(v) => set('lastName', v)}
-          autoComplete="family-name"
-          required
-        />
+        <Field f={f} name="firstName" label={t('checkout.firstName')} autoComplete="given-name" />
+        <Field f={f} name="lastName" label={t('checkout.lastName')} autoComplete="family-name" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
-          id="email"
+          f={f}
+          name="email"
           type="email"
+          inputMode="email"
           label={t('checkout.email')}
-          value={form.email}
-          onChange={(v) => set('email', v)}
           autoComplete="email"
+          placeholder={t('checkout.emailPlaceholder')}
           hint={t('checkout.emailHint')}
-          required
         />
         <Field
-          id="phone"
+          f={f}
+          name="phone"
           type="tel"
+          inputMode="tel"
           label={t('checkout.phone')}
-          value={form.phone}
-          onChange={(v) => set('phone', v)}
           autoComplete="tel"
+          placeholder="+49 30 1234567"
           hint={t('checkout.phoneHint')}
-          required
         />
       </div>
       <Field
-        id="position"
+        f={f}
+        name="position"
         label={t('checkout.position')}
-        value={form.position}
-        onChange={(v) => set('position', v)}
         autoComplete="organization-title"
+        optional
       />
     </Section>
   )
 }
 
-export function BillingSection({ form, set, disabled }: SectionProps) {
+export function BillingSection({ f, disabled }: SectionProps) {
   const { t } = useTranslation()
   return (
     <Section title={t('checkout.billing')} disabled={disabled}>
       <Field
-        id="company"
+        f={f}
+        name="company"
         label={t('checkout.company')}
-        value={form.company}
-        onChange={(v) => set('company', v)}
         autoComplete="organization"
-        required
+        hint={t('checkout.companyHint')}
       />
       <Field
-        id="street"
+        f={f}
+        name="street"
         label={t('checkout.street')}
-        value={form.street}
-        onChange={(v) => set('street', v)}
         autoComplete="billing address-line1"
-        required
+        placeholder={t('checkout.streetPlaceholder')}
       />
       <Field
-        id="line2"
+        f={f}
+        name="line2"
         label={t('checkout.line2')}
-        value={form.line2}
-        onChange={(v) => set('line2', v)}
         autoComplete="billing address-line2"
+        optional
       />
       <div className="grid gap-4 sm:grid-cols-[140px_1fr]">
         <Field
-          id="zip"
+          f={f}
+          name="zip"
           label={t('checkout.zip')}
-          value={form.zip}
-          onChange={(v) => set('zip', v)}
           autoComplete="billing postal-code"
-          required
+          inputMode="numeric"
+          maxLength={5}
+          placeholder="10115"
         />
-        <Field
-          id="city"
-          label={t('checkout.city')}
-          value={form.city}
-          onChange={(v) => set('city', v)}
-          autoComplete="billing address-level2"
-          required
-        />
+        <Field f={f} name="city" label={t('checkout.city')} autoComplete="billing address-level2" />
       </div>
       <div className="space-y-2">
         <Label htmlFor="country">{t('checkout.country')}</Label>
@@ -240,68 +229,65 @@ export function BillingSection({ form, set, disabled }: SectionProps) {
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
-          id="vatId"
+          f={f}
+          name="vatId"
           label={t('checkout.vatId')}
-          value={form.vatId}
-          onChange={(v) => set('vatId', v)}
           placeholder="DE123456789"
+          hint={t('checkout.vatIdHint')}
+          optional
         />
         <Field
-          id="poNumber"
+          f={f}
+          name="poNumber"
           label={t('checkout.poNumber')}
-          value={form.poNumber}
-          onChange={(v) => set('poNumber', v)}
           hint={t('checkout.poNumberHint')}
+          optional
         />
       </div>
     </Section>
   )
 }
 
-export function DeliverySection({ form, set, disabled }: SectionProps) {
+export function DeliverySection({ f, disabled }: SectionProps) {
   const { t } = useTranslation()
+  const notes = f.register('notes')
   return (
     <Section title={t('checkout.delivery')} disabled={disabled}>
       <label className="flex items-center gap-2.5 text-sm">
-        <Checkbox
-          checked={form.sameAsBilling}
-          onCheckedChange={(v) => set('sameAsBilling', v === true)}
-        />
+        <Checkbox {...f.registerCheckbox('sameAsBilling')} />
         {t('checkout.sameAsBilling')}
       </label>
-      {!form.sameAsBilling && (
+      {!f.values.sameAsBilling && (
         <div className="space-y-4 rounded-brand border border-border/40 p-4">
           <Field
-            id="deliveryStreet"
+            f={f}
+            name="deliveryStreet"
             label={t('checkout.street')}
-            value={form.deliveryStreet}
-            onChange={(v) => set('deliveryStreet', v)}
             autoComplete="shipping address-line1"
-            required
+            placeholder={t('checkout.streetPlaceholder')}
           />
           <Field
-            id="deliveryLine2"
+            f={f}
+            name="deliveryLine2"
             label={t('checkout.line2')}
-            value={form.deliveryLine2}
-            onChange={(v) => set('deliveryLine2', v)}
             autoComplete="shipping address-line2"
+            optional
           />
           <div className="grid gap-4 sm:grid-cols-[140px_1fr]">
             <Field
-              id="deliveryZip"
+              f={f}
+              name="deliveryZip"
               label={t('checkout.zip')}
-              value={form.deliveryZip}
-              onChange={(v) => set('deliveryZip', v)}
               autoComplete="shipping postal-code"
-              required
+              inputMode="numeric"
+              maxLength={5}
+              placeholder="10115"
             />
             <Field
-              id="deliveryCity"
+              f={f}
+              name="deliveryCity"
               label={t('checkout.city')}
-              value={form.deliveryCity}
-              onChange={(v) => set('deliveryCity', v)}
               autoComplete="shipping address-level2"
-              required
             />
           </div>
         </div>
@@ -310,26 +296,24 @@ export function DeliverySection({ form, set, disabled }: SectionProps) {
           to mention until it is too late to make. */}
       <div className="sm:max-w-[240px]">
         <Field
-          id="neededBy"
+          f={f}
+          name="neededBy"
           type="date"
+          min={todayIso()}
           label={t('checkout.neededBy')}
-          value={form.neededBy}
-          onChange={(v) => set('neededBy', v)}
+          hint={t('checkout.neededByHint')}
+          optional
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="notes">
-          {t('checkout.notes')}
-          <span className="font-normal text-muted-foreground"> {t('checkout.optional')}</span>
-        </Label>
-        <Textarea
-          id="notes"
-          rows={3}
-          value={form.notes}
-          onChange={(e) => set('notes', e.target.value)}
-          placeholder={t('checkout.notesPlaceholder')}
-        />
-      </div>
+      <FormField
+        id={notes.id}
+        label={t('checkout.notes')}
+        error={f.errors.notes}
+        optional
+        optionalLabel={t('checkout.optional')}
+      >
+        <Textarea {...notes} rows={3} placeholder={t('checkout.notesPlaceholder')} />
+      </FormField>
     </Section>
   )
 }
@@ -350,30 +334,27 @@ export function PaymentSection({ disabled }: { disabled?: boolean }) {
   )
 }
 
-export function PrivacyConsent({ form, set, disabled }: SectionProps) {
+export function PrivacyConsent({ f, disabled }: SectionProps) {
   const { t } = useTranslation()
+  const checkbox = f.registerCheckbox('privacyAccepted')
   return (
-    <label className="flex items-start gap-2.5 text-sm">
-      <Checkbox
-        className="mt-0.5"
-        checked={form.privacyAccepted}
-        onCheckedChange={(v) => set('privacyAccepted', v === true)}
-        disabled={disabled}
-        required
-        aria-required
-      />
-      <span className="text-muted-foreground">
-        {t('checkout.privacyBefore')}{' '}
-        <a
-          href={PRIVACY_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="text-foreground underline underline-offset-2"
-        >
-          {t('checkout.privacyLink')}
-        </a>{' '}
-        {t('checkout.privacyAfter')}
-      </span>
-    </label>
+    <div className="space-y-2">
+      <label className="flex items-start gap-2.5 text-sm">
+        <Checkbox className="mt-0.5" {...checkbox} disabled={disabled} aria-required />
+        <span className="text-muted-foreground">
+          {t('checkout.privacyBefore')}{' '}
+          <a
+            href={PRIVACY_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="text-foreground underline underline-offset-2"
+          >
+            {t('checkout.privacyLink')}
+          </a>{' '}
+          {t('checkout.privacyAfter')}
+        </span>
+      </label>
+      <FieldMessage id={checkbox.id} error={f.errors.privacyAccepted} />
+    </div>
   )
 }

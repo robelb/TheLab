@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { usePostHog } from '@posthog/react'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
 import { cn } from '@/lib/utils'
@@ -34,7 +35,9 @@ export function ProductPage() {
     shopHome,
     inFunnel,
     collectionTag,
+    collectionSlug,
   } = useFunnel()
+  const posthog = usePostHog()
 
   const { data: product, isLoading, error } = useProduct(id)
   // Inside a campaign, only more of that campaign — never the whole catalogue.
@@ -52,6 +55,24 @@ export function ProductPage() {
    * and re-reads it. Held in state purely so removing one updates the screen.
    */
   const [design, setDesign] = useState(() => readProductDesign(id ?? ''))
+
+  // Once per product, once it has loaded — what "most viewed" is counted from.
+  // `collection` says which campaign it was seen inside, if any.
+  const viewedId = product?.id
+  useEffect(() => {
+    if (!product) return
+    posthog?.capture('product viewed', {
+      product_id: product.id,
+      product_name: product.name,
+      product_sku: product.sku,
+      product_kind: product.kind ?? 'single',
+      price: product.price,
+      currency: product.currency,
+      category_id: product.category,
+      collection: collectionSlug,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewedId])
 
   if (isLoading) {
     return <ProductDetailSkeleton />

@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { usePostHog } from '@posthog/react'
 import { ChevronRight, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useFunnel, useFunnelLink } from '@/context/FunnelContext'
@@ -28,6 +30,23 @@ export function CartPage() {
   const browseUrl = shopHome
   const { brandGeneration } = useAuth()
   const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart()
+  const posthog = usePostHog()
+
+  // Once per visit to the page: the step between "added" and "checkout
+  // started", and how often people open the basket to find it empty.
+  const viewed = useRef(false)
+  useEffect(() => {
+    if (viewed.current) return
+    viewed.current = true
+    posthog?.capture('cart viewed', {
+      item_count: itemCount,
+      line_count: items.length,
+      subtotal,
+      has_box: items.some((i) => Boolean(i.box)),
+      is_empty: items.length === 0,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (items.length === 0) {
     return (

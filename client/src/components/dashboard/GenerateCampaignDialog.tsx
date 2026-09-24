@@ -1,5 +1,5 @@
 import { Sparkles } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -10,6 +10,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import { FormField } from '@/components/ui/form-field'
+import { useZodForm } from '@/lib/form'
+import { CAMPAIGN_BRIEF_MAX, campaignBriefSchema } from '@/lib/schemas/dashboard'
 
 interface GenerateCampaignDialogProps {
   open: boolean
@@ -32,12 +35,18 @@ export function GenerateCampaignDialog({
   pending,
   title = 'Generate campaign',
 }: GenerateCampaignDialogProps) {
-  const [brief, setBrief] = useState('')
+  const f = useZodForm({
+    schema: campaignBriefSchema,
+    initialValues: { brief: '' },
+    idPrefix: 'generate-',
+  })
+  const { reset } = f
+  const length = f.values.brief.length
 
   // Reset the field each time the dialog opens.
   useEffect(() => {
-    if (open) setBrief('')
-  }, [open])
+    if (open) reset({ brief: '' })
+  }, [open, reset])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -50,27 +59,46 @@ export function GenerateCampaignDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Textarea
-          rows={4}
-          value={brief}
-          onChange={(e) => setBrief(e.target.value)}
-          placeholder="e.g. A summer outdoor kit for young hikers — bright, energetic, adventure vibe."
-          autoFocus
-        />
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={pending}
+        <form
+          onSubmit={f.handleSubmit(({ brief }) => onSubmit(brief))}
+          className="space-y-4"
+          noValidate
+        >
+          <FormField
+            id="generate-brief"
+            label="Brief"
+            optional
+            error={f.errors.brief}
+            // Counted down near the limit, so it is never a surprise.
+            hint={
+              length > CAMPAIGN_BRIEF_MAX * 0.8
+                ? `${CAMPAIGN_BRIEF_MAX - length} characters left.`
+                : undefined
+            }
           >
-            Cancel
-          </Button>
-          <Button onClick={() => onSubmit(brief.trim())} disabled={pending}>
-            <Sparkles className="size-4" />
-            {pending ? 'Generating…' : 'Generate'}
-          </Button>
-        </DialogFooter>
+            <Textarea
+              {...f.register('brief')}
+              rows={4}
+              placeholder="e.g. A summer outdoor kit for young hikers — bright, energetic, adventure vibe."
+              autoFocus
+            />
+          </FormField>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending}>
+              <Sparkles className="size-4" />
+              {pending ? 'Generating…' : 'Generate'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

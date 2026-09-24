@@ -20,6 +20,7 @@ import { missingSellerDetails } from '../../config/seller.js'
 import { getBundleComponents } from '../products/products.service.js'
 import { enqueueLeadEvent } from '../../services/leadIntake.js'
 import { enqueueEmail } from '../../services/mailer.js'
+import { trackPaymentChange, trackStatusChange } from './orders.analytics.js'
 import type { BundleComponent } from '../../types/product.js'
 import type {
   ConfirmOrderBody,
@@ -390,6 +391,7 @@ export async function createOrder(params: {
   // Queued, never awaited: the shopper is waiting on this response, and
   // neither the marketing endpoint nor Resend is ours to depend on.
   void enqueueLeadEvent('order.created', leadPayload(dto, 'order.created'))
+  trackStatusChange(dto, null)
   void enqueueEmail('email.order_received', { orderId: dto.id })
   void enqueueEmail('email.order_notify', { orderId: dto.id })
   return dto
@@ -565,6 +567,8 @@ export async function updateOrder(params: {
       leadPayload(dto, 'order.status_changed', previous.status),
     )
   }
+  trackStatusChange(dto, previous.status)
+  trackPaymentChange(dto, previous.paymentStatus)
   return dto
 }
 
@@ -663,6 +667,7 @@ export async function confirmOrder(params: {
       'order.status_changed',
       leadPayload(dto, 'order.status_changed', row.status as OrderStatus),
     )
+    trackStatusChange(dto, row.status as OrderStatus)
   }
   return dto
 }

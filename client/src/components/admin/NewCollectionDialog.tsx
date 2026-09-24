@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { FieldMessage, FormAlert, FormField } from '@/components/ui/form-field'
 import {
   Select,
   SelectContent,
@@ -28,28 +29,8 @@ import {
   notifyError,
   notifySaved,
 } from '@/lib/notify'
-import { cn } from '@/lib/utils'
-
-/**
- * What the URL segment will actually be.
- *
- * The server only takes lowercase letters, digits and hyphens. Rather than
- * refusing "Weihnachten 2026", it becomes weihnachten-2026 — the preview line
- * under the field shows the result, so nothing is changed behind anyone's back.
- */
-function toSlug(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/ä/g, 'ae')
-    .replace(/ö/g, 'oe')
-    .replace(/ü/g, 'ue')
-    .replace(/ß/g, 'ss')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
+import { useZodForm } from '@/lib/form'
+import { newCollectionSchema, toSlug } from '@/lib/schemas/dashboard'
 
 /** The first free variant of a taken slug: christmas-2, christmas-3, … */
 function freeSlug(base: string, taken: Set<string>): string {
@@ -81,11 +62,9 @@ export function NewCollectionDialog({
   // it costs nothing and answers before anybody presses the button.
   const { data: existing } = useAllCollections()
 
-  const [slug, setSlug] = useState('')
-  const [tag, setTag] = useState('')
-  const [titleDe, setTitleDe] = useState('')
-  const [titleEn, setTitleEn] = useState('')
-  const [locale, setLocale] = useState<'de' | 'en'>('de')
+  const empty = { slug: '', tag: '', titleDe: '', titleEn: '', locale: 'de' as 'de' | 'en' }
+  const f = useZodForm({ schema: newCollectionSchema, initialValues: empty, idPrefix: 'new-' })
+  const { slug, locale } = f.values
   const [error, setError] = useState<string | null>(null)
   // A problem with the URL segment specifically — shown under that field.
   const [slugError, setSlugError] = useState<string | null>(null)
@@ -98,37 +77,35 @@ export function NewCollectionDialog({
     slugError ??
     (clash
       ? `/c/${cleanSlug} is already taken by “${clash.title.de}”${clash.active ? '' : ' (ended)'}. Each landing page needs its own URL.`
-      : null)
+      : f.errors.slug)
 
   function reset() {
-    setSlug('')
-    setTag('')
-    setTitleDe('')
-    setTitleEn('')
-    setLocale('de')
+    f.reset(empty)
     setError(null)
     setSlugError(null)
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
+  /** Runs once the schema has passed — see `useZodForm`. */
+  async function submit(values: {
+    slug: string
+    tag: string
+    titleDe: string
+    titleEn: string
+    locale: 'de' | 'en'
+  }) {
     setError(null)
     setSlugError(null)
-    if (!cleanSlug) {
-      setSlugError('Enter a URL segment using letters or digits, e.g. weihnachten.')
-      return
-    }
     // Caught here rather than by the server so the answer comes with a
     // suggestion and the rest of the form stays as it was typed.
     if (clash) return
     try {
       const created = await createCollection.mutateAsync({
-        slug: cleanSlug,
-        tag: tag.trim().toLowerCase(),
-        title: { de: titleDe.trim(), en: titleEn.trim() || titleDe.trim() },
+        slug: values.slug,
+        tag: values.tag.toLowerCase(),
+        title: { de: values.titleDe, en: values.titleEn || values.titleDe },
         subtitle: null,
         featuredBundleIds: [],
-        defaultLocale: locale,
+        defaultLocale: values.locale,
         active: true,
         // On by default; turned off per page in the editor.
         allowCustomization: true,
@@ -173,91 +150,70 @@ export function NewCollectionDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={f.handleSubmit(submit)} className="space-y-4" noValidate>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="new-slug">URL segment</Label>
               <Input
-                id="new-slug"
-                value={slug}
+                {...f.register('slug')}
                 onChange={(e) => {
-                  setSlug(e.target.value)
+                  f.set('slug', e.target.value)
                   setSlugError(null)
                 }}
                 placeholder="weihnachten"
                 autoFocus
-                required
                 aria-invalid={slugProblem ? true : undefined}
-                aria-describedby="new-slug-hint"
-                className={cn(
-                  slugProblem &&
-                    'border-destructive focus-visible:ring-destructive/40',
-                )}
+                aria-describedby={slugProblem ? 'new-slug-error' : 'new-slug-hint'}
               />
-              {slugProblem ? (
-                <div id="new-slug-hint" className="space-y-1" role="alert">
-                  <p className="text-xs text-destructive">{slugProblem}</p>
-                  {suggestion && (
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-primary underline-offset-2 hover:underline"
-                      onClick={() => {
-                        setSlug(suggestion)
-                        setSlugError(null)
-                      }}
-                    >
-                      Use /c/{suggestion} instead
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <p id="new-slug-hint" className="text-xs text-muted-foreground">
-                  The page will be at /c/{cleanSlug || '…'}
-                </p>
+              <FieldMessage
+                id="new-slug"
+                error={slugProblem ?? undefined}
+                hint={`The page will be at /c/${cleanSlug || '…'}`}
+              />
+              {slugProblem && suggestion && (
+                <button
+                  type="button"
+                  className="text-xs font-medium text-primary underline-offset-2 hover:underline"
+                  onClick={() => {
+                    f.set('slug', suggestion)
+                    setSlugError(null)
+                  }}
+                >
+                  Use /c/{suggestion} instead
+                </button>
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="new-tag">Occasion tag</Label>
-              <Input
-                id="new-tag"
-                value={tag}
-                onChange={(e) => setTag(e.target.value)}
-                placeholder="christmas"
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Products carrying this tag fill the page.
-              </p>
-            </div>
+            <FormField
+              id="new-tag"
+              label="Occasion tag"
+              error={f.errors.tag}
+              hint="Products carrying this tag fill the page."
+            >
+              <Input {...f.register('tag')} placeholder="christmas" />
+            </FormField>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="new-title-de">Headline (German)</Label>
-            <Input
-              id="new-title-de"
-              value={titleDe}
-              onChange={(e) => setTitleDe(e.target.value)}
-              required
-            />
-          </div>
+          <FormField id="new-titleDe" label="Headline (German)" error={f.errors.titleDe}>
+            <Input {...f.register('titleDe')} />
+          </FormField>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="new-title-en">Headline (English)</Label>
-              <Input
-                id="new-title-en"
-                value={titleEn}
-                onChange={(e) => setTitleEn(e.target.value)}
-                placeholder="Falls back to the German one"
-              />
-            </div>
+            <FormField
+              id="new-titleEn"
+              label="Headline (English)"
+              error={f.errors.titleEn}
+              hint="Falls back to the German one if left blank."
+              optional
+            >
+              <Input {...f.register('titleEn')} />
+            </FormField>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label htmlFor="new-locale">Language visitors get</Label>
               <Select
                 value={locale}
-                onValueChange={(v) => setLocale(v as 'de' | 'en')}
+                onValueChange={(v) => f.set('locale', v as 'de' | 'en')}
               >
                 <SelectTrigger id="new-locale" className="w-full">
                   <SelectValue />
@@ -270,11 +226,7 @@ export function NewCollectionDialog({
             </div>
           </div>
 
-          {error && (
-            <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </p>
-          )}
+          <FormAlert>{error}</FormAlert>
 
           <DialogFooter>
             <Button

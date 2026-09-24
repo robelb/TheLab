@@ -89,6 +89,12 @@ export const env = {
   SELLER_IBAN: process.env.SELLER_IBAN?.trim() ?? '',
   SELLER_BIC: process.env.SELLER_BIC?.trim() ?? '',
 
+  // PostHog — what only the server sees: a request's life after the shopper
+  // has gone (quoted, confirmed, paid, cancelled). The same project token the
+  // client uses. Blank = nothing is sent.
+  POSTHOG_PROJECT_TOKEN: process.env.POSTHOG_PROJECT_TOKEN?.trim() ?? '',
+  POSTHOG_HOST: process.env.POSTHOG_HOST?.trim() || 'https://eu.i.posthog.com',
+
   // Supabase Storage — when configured, uploaded/generated images are stored
   // there instead of on local disk. Leave blank to keep local storage.
   SUPABASE_URL: process.env.SUPABASE_URL?.trim() ?? '',

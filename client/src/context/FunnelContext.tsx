@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { isAxiosError } from 'axios'
+import { usePostHog } from '@posthog/react'
 import { useAuth } from '@/context/AuthContext'
 import { useCollection } from '@/hooks/use-collections'
 import { clearCampaignLock, loadCampaignLock } from '@/lib/funnel'
@@ -68,6 +69,7 @@ export function FunnelProvider({ children }: { children: ReactNode }) {
   const [searchParams] = useSearchParams()
   const { can, isLoading: authLoading } = useAuth()
   const staff = can('manage_all')
+  const posthog = usePostHog()
 
   // Read off the path rather than from route params: this sits above the route
   // table so it can wrap the chrome, and there are no params to read up here.
@@ -97,6 +99,17 @@ export function FunnelProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (gone && lock?.slug === slug) clearCampaignLock()
   }, [gone, lock?.slug, slug])
+
+  // Every event carries the campaign the visitor is inside, so a cart, a
+  // product view or a checkout can be read per collection without each call
+  // site having to say which.
+  const funnelCollection = slug && !gone ? slug : null
+  useEffect(() => {
+    // `register` throws when PostHog never initialised (no token set).
+    if (!posthog?.__loaded) return
+    if (funnelCollection) posthog.register({ funnel_collection: funnelCollection })
+    else posthog.unregister('funnel_collection')
+  }, [funnelCollection, posthog])
 
   const value = useMemo<FunnelValue>(() => {
     if (!slug || gone) {

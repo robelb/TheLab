@@ -4,9 +4,23 @@
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "client", "dev:web"],
+      "runtimeArgs": [
+        "--dir",
+        "client",
+        "dev:web"
+      ],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "backend",
+        "dev"
+      ],
+      "port": 3009
     }
   ]
 }

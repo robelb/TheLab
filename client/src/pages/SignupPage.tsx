@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { useAuth } from '@/context/AuthContext'
@@ -12,16 +12,24 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormAlert, FormField } from '@/components/ui/form-field'
+import { useZodForm } from '@/lib/form'
+import { makeSignupSchema } from '@/lib/schemas/auth'
 import { Loader2, Sparkles } from 'lucide-react'
 
 export function SignupPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { signup, isAuthenticated } = useAuth()
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const schema = useMemo(
+    () => makeSignupSchema(t),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t, i18n.language],
+  )
+  const f = useZodForm({
+    schema,
+    initialValues: { name: '', email: '', password: '' },
+  })
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -29,8 +37,15 @@ export function SignupPage() {
     if (isAuthenticated) navigate('/', { replace: true })
   }, [isAuthenticated, navigate])
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function submit({
+    name,
+    email,
+    password,
+  }: {
+    name: string
+    email: string
+    password: string
+  }) {
     setSubmitError(null)
     setLoading(true)
     try {
@@ -71,62 +86,45 @@ export function SignupPage() {
           <CardDescription>{t('auth.createIntro')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">{t('auth.fullName')}</Label>
+          <form onSubmit={f.handleSubmit(submit)} className="space-y-4" noValidate>
+            <FormField id="name" label={t('auth.fullName')} error={f.errors.name}>
               <Input
-                id="name"
-                type="text"
+                {...f.register('name')}
                 autoComplete="name"
                 placeholder={t('auth.namePlaceholder')}
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value)
-                  setSubmitError(null)
-                }}
                 disabled={loading}
-                required
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">{t('auth.workEmail')}</Label>
+            </FormField>
+            <FormField
+              id="email"
+              label={t('auth.workEmail')}
+              error={f.errors.email}
+              hint={t('auth.workEmailHint')}
+            >
               <Input
-                id="email"
+                {...f.register('email')}
                 type="email"
+                inputMode="email"
                 autoComplete="email"
                 placeholder={t('auth.emailPlaceholder')}
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value)
-                  setSubmitError(null)
-                }}
                 disabled={loading}
-                required
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">{t('auth.password')}</Label>
+            </FormField>
+            <FormField
+              id="password"
+              label={t('auth.password')}
+              error={f.errors.password}
+              hint={t('auth.passwordPlaceholder')}
+            >
               <Input
-                id="password"
+                {...f.register('password')}
                 type="password"
                 autoComplete="new-password"
-                placeholder={t('auth.passwordPlaceholder')}
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
-                  setSubmitError(null)
-                }}
                 disabled={loading}
-                required
-                minLength={8}
               />
-            </div>
+            </FormField>
 
-            {submitError && (
-              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {submitError}
-              </p>
-            )}
+            <FormAlert>{submitError}</FormAlert>
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? (

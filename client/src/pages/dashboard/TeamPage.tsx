@@ -17,7 +17,9 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { FormAlert, FormField } from '@/components/ui/form-field'
+import { useZodForm } from '@/lib/form'
+import { newUserSchema } from '@/lib/schemas/dashboard'
 
 export function TeamPage() {
   const { company } = useAuth()
@@ -27,21 +29,25 @@ export function TeamPage() {
   const changeRole = useChangeUserRole()
   const setActive = useSetUserActive()
 
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [role, setRole] = useState<Role>('member')
+  const emptyMember = { name: '', email: '', password: '', role: 'member', companyId: '' }
+  const f = useZodForm({ schema: newUserSchema, initialValues: emptyMember, idPrefix: 't-' })
   const [formError, setFormError] = useState<string | null>(null)
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleAdd({
+    name,
+    email,
+    password,
+    role,
+  }: {
+    name: string
+    email: string
+    password: string
+    role: string
+  }) {
     setFormError(null)
     try {
-      await createUser.mutateAsync({ name, email, password, role })
-      setName('')
-      setEmail('')
-      setPassword('')
-      setRole('member')
+      await createUser.mutateAsync({ name, email, password, role: role as Role })
+      f.reset(emptyMember)
     } catch (err) {
       setFormError(
         err instanceof AxiosError
@@ -71,61 +77,44 @@ export function TeamPage() {
         </CardHeader>
         <CardContent>
           <form
-            onSubmit={handleAdd}
-            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end"
+            onSubmit={f.handleSubmit(handleAdd)}
+            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-start"
+            noValidate
           >
-            <div className="space-y-1.5">
-              <Label htmlFor="t-name">Name</Label>
-              <Input
-                id="t-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="t-email">Email</Label>
-              <Input
-                id="t-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="t-password">Temp password</Label>
-              <Input
-                id="t-password"
-                type="text"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={8}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="t-role">Role</Label>
-              <select
-                id="t-role"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={role}
-                onChange={(e) => setRole(e.target.value as Role)}
-              >
+            <FormField id="t-name" label="Name" error={f.errors.name}>
+              <Input {...f.register('name')} autoComplete="off" />
+            </FormField>
+            <FormField id="t-email" label="Email" error={f.errors.email}>
+              <Input {...f.register('email')} type="email" autoComplete="off" />
+            </FormField>
+            <FormField
+              id="t-password"
+              label="Temp password"
+              error={f.errors.password}
+              hint="At least 8 characters."
+            >
+              <Input {...f.register('password')} type="text" autoComplete="off" />
+            </FormField>
+            <FormField id="t-role" label="Role" error={f.errors.role}>
+              <select {...f.register('role')} className="h-10 w-full rounded-brand border border-input bg-background px-3 text-sm">
                 {ASSIGNABLE_ROLES.map((r) => (
                   <option key={r} value={r}>
                     {ROLE_LABELS[r]}
                   </option>
                 ))}
               </select>
+            </FormField>
+            {/* Lines the button up with the inputs, under their labels. */}
+            <div className="space-y-2">
+              <span className="hidden h-4 lg:block" aria-hidden />
+              <Button type="submit" className="w-full" disabled={createUser.isPending}>
+                {createUser.isPending ? 'Adding…' : 'Add member'}
+              </Button>
             </div>
-            <Button type="submit" disabled={createUser.isPending}>
-              {createUser.isPending ? 'Adding…' : 'Add member'}
-            </Button>
           </form>
-          {formError && (
-            <p className="mt-3 text-sm text-destructive">{formError}</p>
-          )}
+          <div className="mt-3">
+            <FormAlert>{formError}</FormAlert>
+          </div>
         </CardContent>
       </Card>
 
