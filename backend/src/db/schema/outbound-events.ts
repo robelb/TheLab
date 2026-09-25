@@ -14,6 +14,12 @@ export type OutboundEventKind =
   | 'email.order_received'
   | 'email.order_notify'
   | 'email.order_confirmed'
+/** The emails that belong to one order, found by the `orderId` in their payload. */
+export const orderEmailKinds = [
+  'email.order_received',
+  'email.order_notify',
+  'email.order_confirmed',
+] as const satisfies readonly OutboundEventKind[]
 export type OutboundEventStatus = 'pending' | 'sending' | 'sent' | 'failed'
 
 /**

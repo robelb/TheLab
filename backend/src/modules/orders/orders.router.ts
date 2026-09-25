@@ -21,6 +21,7 @@ import {
   confirmOrder,
   createOrder,
   getOrder,
+  listOrderEmails,
   listOrders,
   OrderError,
   resendOrderEmail,
@@ -298,9 +299,31 @@ ordersRouter.post(
         template: parsed.data.template,
       })
       if (!found) return res.status(404).json({ error: 'Request not found' })
-      res.status(202).json({ queued: true })
+      if (found.status === 'failed') {
+        return res.status(502).json({
+          error: `The email could not be sent: ${found.error}${found.willRetry ? ' We will retry automatically.' : ''}`,
+          code: 'email_failed',
+          delivery: found,
+        })
+      }
+      // `queued`: sending is not configured here, so it waits in the queue.
+      res.status(found.status === 'sent' ? 200 : 202).json(found)
     } catch (err) {
-      fail(res, err, 'Could not queue the email', 'resend-email')
+      fail(res, err, 'Could not send the email', 'resend-email')
+    }
+  },
+)
+
+/** The emails an order has queued, and whether each went out. */
+ordersRouter.get(
+  '/:id/emails',
+  requireAuth,
+  requireCapability('manage_all'),
+  async (req, res) => {
+    try {
+      res.json(await listOrderEmails(routeParam(req, 'id')))
+    } catch (err) {
+      fail(res, err, 'Could not load the emails', 'emails')
     }
   },
 )

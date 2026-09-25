@@ -64,14 +64,63 @@ export async function enqueue(
   target: OutboxTarget,
   kind: OutboundEventKind,
   payload: Record<string, unknown>,
-): Promise<void> {
+  options: { flush?: boolean } = {},
+): Promise<string | null> {
+  let id: string
   try {
-    await db.insert(outboundEvents).values({ kind, target, payload })
+    const [row] = await db
+      .insert(outboundEvents)
+      .values({ kind, target, payload })
+      .returning({ id: outboundEvents.id })
+    id = row.id
   } catch (err) {
     console.warn(`[outbox:${target}] could not queue ${kind}:`, errorMessage(err))
-    return
+    return null
   }
-  if (handlers.get(target)?.isConfigured()) void flush(target)
+  if (options.flush !== false && handlers.get(target)?.isConfigured()) void flush(target)
+  return id
+}
+
+/** What became of one event that somebody is waiting on. */
+export type SendOutcome =
+  | { status: 'sent' }
+  | { status: 'failed'; error: string; willRetry: boolean }
+  /** The handler is not configured: the row waits in the queue. */
+  | { status: 'queued' }
+
+/**
+ * Deliver one queued event now and say how it went, for the times a person
+ * clicked a button and is waiting to hear whether it worked.
+ *
+ * The row stays the record either way, and a retryable failure is left
+ * pending, so the loop still tries again later.
+ */
+export async function sendNow(target: OutboxTarget, id: string): Promise<SendOutcome> {
+  const handler = handlers.get(target)
+  if (!handler?.isConfigured()) return { status: 'queued' }
+
+  const claimed = await db
+    .update(outboundEvents)
+    .set({ status: 'sending' })
+    .where(and(eq(outboundEvents.id, id), eq(outboundEvents.status, 'pending')))
+    .returning()
+  if (claimed[0]) return run(handler, claimed[0])
+
+  // The background loop got there first; wait for it to finish.
+  const deadline = Date.now() + 30_000
+  while (Date.now() < deadline) {
+    const [row] = await db.select().from(outboundEvents).where(eq(outboundEvents.id, id))
+    if (!row) break
+    if (row.status === 'sent') return { status: 'sent' }
+    if (row.status === 'failed') {
+      return { status: 'failed', error: row.lastError ?? 'Unknown error', willRetry: false }
+    }
+    if (row.status === 'pending' && row.attempts > 0) {
+      return { status: 'failed', error: row.lastError ?? 'Unknown error', willRetry: true }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  return { status: 'queued' }
 }
 
 /** One flush at a time per target per process; the loop and enqueue both call in. */
@@ -125,7 +174,7 @@ export async function flush(target: OutboxTarget): Promise<void> {
   }
 }
 
-async function run(handler: OutboxHandler, event: OutboundEvent): Promise<void> {
+async function run(handler: OutboxHandler, event: OutboundEvent): Promise<SendOutcome> {
   const attempts = event.attempts + 1
   let result: DeliveryResult
   try {
@@ -140,9 +189,16 @@ async function run(handler: OutboxHandler, event: OutboundEvent): Promise<void> 
       .update(outboundEvents)
       .set({ status: 'sent', attempts, sentAt: new Date(), lastError: null })
       .where(eq(outboundEvents.id, event.id))
-    return
+    return { status: 'sent' }
   }
-  await reschedule(handler.target, event.id, attempts, result.error, result.retryable)
+  const willRetry = await reschedule(
+    handler.target,
+    event.id,
+    attempts,
+    result.error,
+    result.retryable,
+  )
+  return { status: 'failed', error: result.error, willRetry }
 }
 
 async function reschedule(
@@ -151,7 +207,7 @@ async function reschedule(
   attempts: number,
   lastError: string,
   retryable: boolean,
-): Promise<void> {
+): Promise<boolean> {
   const exhausted = attempts >= MAX_ATTEMPTS
   const giveUp = !retryable || exhausted
   const delay = Math.min(BASE_BACKOFF_MS * 2 ** (attempts - 1), MAX_BACKOFF_MS)
@@ -168,7 +224,12 @@ async function reschedule(
     console.warn(
       `[outbox:${target}] giving up on ${id} after ${attempts} attempt(s): ${lastError}`,
     )
+  } else {
+    console.warn(
+      `[outbox:${target}] attempt ${attempts} for ${id} failed, retrying in ${Math.round(delay / 1000)}s: ${lastError}`,
+    )
   }
+  return !giveUp
 }
 
 /**

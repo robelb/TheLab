@@ -11,6 +11,8 @@ import {
   boxPieceCount,
   isBoxSku,
   shippingFor,
+  VAT_RATE,
+  vatFor,
 } from '@/lib/box'
 import { getProductDisplayImage } from '@/lib/productImage'
 import { formatPrice } from '@/utils/format'
@@ -64,6 +66,7 @@ export function CartPage() {
 
   const shipping = shippingFor(subtotal)
   const total = subtotal + shipping
+  const vat = vatFor(total)
 
   return (
     <div className="space-y-8">
@@ -336,10 +339,14 @@ export function CartPage() {
                 {shipping === 0 ? t('common.free') : formatPrice(shipping)}
               </span>
             </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">{t('cart.vat', { rate: VAT_RATE })}</span>
+              <span>{formatPrice(vat)}</span>
+            </div>
             <Separator />
             <div className="flex justify-between font-semibold">
               <span>{t('cart.total')}</span>
-              <span>{formatPrice(total)}</span>
+              <span>{formatPrice(total + vat)}</span>
             </div>
             <Button asChild className="mt-2 w-full" size="lg">
               <Link to="/checkout">{t('cart.checkout')}</Link>

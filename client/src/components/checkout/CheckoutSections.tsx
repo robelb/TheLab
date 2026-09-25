@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileText } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
+import { DatePicker } from '@/components/ui/date-picker'
 import { FieldMessage, FormField } from '@/components/ui/form-field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -251,6 +252,7 @@ export function BillingSection({ f, disabled }: SectionProps) {
 export function DeliverySection({ f, disabled }: SectionProps) {
   const { t } = useTranslation()
   const notes = f.register('notes')
+  const neededBy = f.register('neededBy')
   return (
     <Section title={t('checkout.delivery')} disabled={disabled}>
       <label className="flex items-center gap-2.5 text-sm">
@@ -294,17 +296,26 @@ export function DeliverySection({ f, disabled }: SectionProps) {
       )}
       {/* The first thing a quote has to answer, and the thing people forget
           to mention until it is too late to make. */}
-      <div className="sm:max-w-[240px]">
-        <Field
-          f={f}
-          name="neededBy"
-          type="date"
+      <FormField
+        id={neededBy.id}
+        label={t('checkout.neededBy')}
+        error={f.errors.neededBy}
+        hint={t('checkout.neededByHint')}
+        optional
+        optionalLabel={t('checkout.optional')}
+        className="sm:max-w-[240px]"
+      >
+        <DatePicker
+          id={neededBy.id}
+          value={neededBy.value}
+          onChange={(value) => f.set('neededBy', value)}
+          onBlur={neededBy.onBlur}
           min={todayIso()}
-          label={t('checkout.neededBy')}
-          hint={t('checkout.neededByHint')}
-          optional
+          clearable
+          aria-invalid={neededBy['aria-invalid']}
+          aria-describedby={neededBy['aria-describedby']}
         />
-      </div>
+      </FormField>
       <FormField
         id={notes.id}
         label={t('checkout.notes')}

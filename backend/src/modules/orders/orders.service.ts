@@ -5,12 +5,14 @@
  * only be seen or changed by the company that sent it.
  */
 
-import { and, desc, eq, inArray, isNull, type SQL } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import {
   collections,
   invoices,
+  orderEmailKinds,
   orders,
+  outboundEvents,
   products,
   type OrderDelivery,
   type PaymentStatus,
@@ -19,7 +21,8 @@ import { env } from '../../config/env.js'
 import { missingSellerDetails } from '../../config/seller.js'
 import { getBundleComponents } from '../products/products.service.js'
 import { enqueueLeadEvent } from '../../services/leadIntake.js'
-import { enqueueEmail } from '../../services/mailer.js'
+import { enqueueEmail, sendEmailNow } from '../../services/mailer.js'
+import type { SendOutcome } from '../../services/outbox.js'
 import { trackPaymentChange, trackStatusChange } from './orders.analytics.js'
 import type { BundleComponent } from '../../types/product.js'
 import type {
@@ -573,6 +576,27 @@ export async function updateOrder(params: {
 }
 
 /**
+ * A due date typed in the confirm dialog, as the moment it is due.
+ *
+ * Noon UTC, so the calendar date is the same wherever it is printed. Today is
+ * allowed (payable on receipt); the past is not, nor anything absurdly far out.
+ */
+function parseDueDate(value: string): Date {
+  const due = new Date(`${value}T12:00:00Z`)
+  if (Number.isNaN(due.getTime()) || due.toISOString().slice(0, 10) !== value) {
+    throw new OrderError('The due date is not a valid date.', 400, 'due_date')
+  }
+  const today = new Date().toISOString().slice(0, 10)
+  if (value < today) {
+    throw new OrderError('The due date cannot be in the past.', 400, 'due_date')
+  }
+  if (due.getTime() - Date.now() > 365 * 86_400_000) {
+    throw new OrderError('The due date must be within a year.', 400, 'due_date')
+  }
+  return due
+}
+
+/**
  * Confirm an order: fix its price, issue the invoice, email it.
  *
  * The request carries the estimate the shop showed. Here a super admin agrees
@@ -583,12 +607,16 @@ export async function updateOrder(params: {
  * Confirming an order that is already confirmed returns it unchanged, invoice
  * and all: a double click must not issue a second invoice or reprice one that
  * has gone out.
+ *
+ * `emailDelivery` says whether the invoice email actually went out; it is only
+ * there when this call issued the invoice.
  */
 export async function confirmOrder(params: {
   orderId: string
   confirmedBy: string
   body: ConfirmOrderBody
-}): Promise<OrderDto | null> {
+}): Promise<(OrderDto & { emailDelivery?: SendOutcome }) | null> {
+  const dueAt = params.body.dueDate ? parseDueDate(params.body.dueDate) : undefined
   const row = await loadRow(null, params.orderId)
   if (!row) return null
 
@@ -599,12 +627,17 @@ export async function confirmOrder(params: {
   if (row.status === 'cancelled') {
     throw new OrderError('A cancelled order cannot be confirmed.', 409, 'cancelled')
   }
-  if (!row.billing) {
+  // Entered in the confirm dialog when the request came without one.
+  const billing = row.billing ?? params.body.billing ?? null
+  if (!billing) {
     throw new OrderError(
-      'This request has no billing address, so no invoice can be made out. Ask the customer for one first.',
+      'This request has no billing address, so no invoice can be made out. Enter one to confirm.',
       422,
       'no_billing',
     )
+  }
+  if (billing.country !== 'DE') {
+    throw new OrderError('We can only invoice to Germany for now.', 422, 'billing_country')
   }
   const missing = missingSellerDetails()
   if (missing.length) {
@@ -640,6 +673,7 @@ export async function confirmOrder(params: {
       vatRate: vatRate.toFixed(2),
       vat: vat.toFixed(2),
       totalGross: gross.toFixed(2),
+      ...(row.billing ? {} : { billing }),
       status: 'confirmed',
       paymentStatus: 'unpaid',
       confirmedAt: new Date(),
@@ -657,11 +691,9 @@ export async function confirmOrder(params: {
   // Issued after the price is stored, from the stored row. Should this fail
   // (a crash, the database), confirming again picks up here: the price is
   // already fixed, and the invoice is issued from it.
-  const { invoice, created } = await issueInvoice(confirmed)
+  const { invoice, created } = await issueInvoice(confirmed, { dueAt })
   const dto = toDto(confirmed, invoiceSummary(invoice))
 
-  // The email goes with the invoice, so it goes once — whichever call made it.
-  if (created) void enqueueEmail('email.order_confirmed', { orderId: dto.id })
   if (updated) {
     void enqueueLeadEvent(
       'order.status_changed',
@@ -669,22 +701,67 @@ export async function confirmOrder(params: {
     )
     trackStatusChange(dto, row.status as OrderStatus)
   }
+  // The email goes with the invoice, so it goes once — whichever call made it.
+  // Sent now rather than left to the queue, so whoever confirmed hears at once
+  // if it did not go out. A failure never undoes the confirmation.
+  if (created) {
+    return {
+      ...dto,
+      emailDelivery: await sendEmailNow('email.order_confirmed', { orderId: dto.id }),
+    }
+  }
   return dto
 }
 
-/** Queue a customer email again, e.g. after they say it never arrived. */
+/** Send a customer email again, e.g. after they say it never arrived. */
 export async function resendOrderEmail(params: {
   orderId: string
   template: 'received' | 'confirmed'
-}): Promise<boolean> {
+}): Promise<SendOutcome | null> {
   const row = await loadRow(null, params.orderId)
-  if (!row) return false
+  if (!row) return null
   if (params.template === 'confirmed' && !(await getInvoiceByOrder(row.id))) {
     throw new OrderError('This order has no invoice to send yet.', 409, 'not_invoiced')
   }
-  await enqueueEmail(
+  return sendEmailNow(
     params.template === 'confirmed' ? 'email.order_confirmed' : 'email.order_received',
     { orderId: row.id },
   )
-  return true
+}
+
+export interface OrderEmailDto {
+  id: string
+  kind: string
+  status: string
+  attempts: number
+  lastError: string | null
+  createdAt: string
+  sentAt: string | null
+  nextAttemptAt: string | null
+}
+
+/** Every email queued for an order, newest first — what went out and what did not. */
+export async function listOrderEmails(orderId: string): Promise<OrderEmailDto[]> {
+  const rows = await db
+    .select()
+    .from(outboundEvents)
+    .where(
+      and(
+        eq(outboundEvents.target, 'email'),
+        inArray(outboundEvents.kind, [...orderEmailKinds]),
+        sql`${outboundEvents.payload}->>'orderId' = ${orderId}`,
+      ),
+    )
+    .orderBy(desc(outboundEvents.createdAt))
+    .limit(50)
+  return rows.map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    status: r.status,
+    attempts: r.attempts,
+    lastError: r.lastError,
+    createdAt: r.createdAt.toISOString(),
+    sentAt: r.sentAt?.toISOString() ?? null,
+    nextAttemptAt: r.status === 'pending' ? r.nextAttemptAt.toISOString() : null,
+  }))
 }

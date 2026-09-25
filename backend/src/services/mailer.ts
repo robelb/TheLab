@@ -2,7 +2,13 @@ import { Resend } from 'resend'
 import { env } from '../config/env.js'
 import type { OutboundEvent, OutboundEventKind } from '../db/schema/index.js'
 import type { RenderedEmail } from '../emails/layout.js'
-import { enqueue, registerOutboxHandler, type DeliveryResult } from './outbox.js'
+import {
+  enqueue,
+  registerOutboxHandler,
+  sendNow,
+  type DeliveryResult,
+  type SendOutcome,
+} from './outbox.js'
 
 /**
  * Customer and team email, sent through Resend via the outbox.
@@ -53,6 +59,19 @@ export async function enqueueEmail(
   await enqueue('email', kind, payload)
 }
 
+/**
+ * Queue an email and send it straight away, answering with what happened —
+ * for a person who clicked "send" and should hear if it did not go.
+ */
+export async function sendEmailNow(
+  kind: EmailKind,
+  payload: Record<string, unknown>,
+): Promise<SendOutcome> {
+  const id = await enqueue('email', kind, payload, { flush: false })
+  if (!id) return { status: 'failed', error: 'Could not queue the email', willRetry: false }
+  return sendNow('email', id)
+}
+
 let client: Resend | null = null
 
 function resend(): Resend {
@@ -84,6 +103,16 @@ async function deliver(event: OutboundEvent): Promise<DeliveryResult> {
     { idempotencyKey: event.id },
   )
   if (!error) return { ok: true }
+
+  // The SDK's wording for "the request never reached Resend" — a network
+  // problem on our side, not something wrong with the email.
+  if (error.name === 'application_error' && !error.statusCode) {
+    return {
+      ok: false,
+      error: 'Could not reach Resend (network error or timeout). Check the server\'s internet connection.',
+      retryable: true,
+    }
+  }
 
   // Validation errors (bad address, unverified domain) will fail the same way
   // next time; rate limits and outages will not.

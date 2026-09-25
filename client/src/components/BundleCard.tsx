@@ -33,6 +33,9 @@ interface BundleCardProps {
   collectionSlug?: string
 }
 
+/** How many of a box's contents the card lists before "+N more". */
+const CARD_CONTENTS = 3
+
 export function BundleCard({
   bundle,
   allowCustomization = true,
@@ -47,6 +50,9 @@ export function BundleCard({
   const [added, setAdded] = useState(false)
 
   const contents = (bundle.components ?? []).filter((c) => c.role === 'item')
+  // The card is a teaser; the product page lists the whole box.
+  const shownContents = contents.slice(0, CARD_CONTENTS)
+  const hiddenCount = contents.length - shownContents.length
   const detailUrl = collectionSlug
     ? `/product/${bundle.id}?from=${encodeURIComponent(collectionSlug)}`
     : `/product/${bundle.id}`
@@ -74,7 +80,7 @@ export function BundleCard({
         <ProductImage
           src={getProductDisplayImage(bundle, brandGeneration)}
           alt={bundle.name}
-          className="aspect-4/3 w-full object-contain"
+          className="aspect-square w-full object-cover"
           loading="lazy"
         />
       </Link>
@@ -87,12 +93,14 @@ export function BundleCard({
           >
             {bundle.name}
           </Link>
-          <p className="text-sm text-muted-foreground">{bundle.tagline}</p>
+          <p className="line-clamp-1 text-xs text-muted-foreground">
+            {bundle.tagline}
+          </p>
         </div>
 
         {contents.length > 0 && (
-          <ul className="space-y-1 text-sm text-muted-foreground">
-            {contents.map((component) => (
+          <ul className="space-y-0.5 text-xs text-muted-foreground">
+            {shownContents.map((component) => (
               <li key={component.product.id} className="flex gap-2">
                 <span aria-hidden className="text-primary">
                   ·
@@ -103,6 +111,11 @@ export function BundleCard({
                 </span>
               </li>
             ))}
+            {hiddenCount > 0 && (
+              <li className="pl-3">
+                {t('collection.moreContents', { count: hiddenCount })}
+              </li>
+            )}
           </ul>
         )}
 

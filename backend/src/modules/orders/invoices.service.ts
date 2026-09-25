@@ -79,6 +79,7 @@ function money(value: number): number {
  */
 export async function issueInvoice(
   order: Order,
+  options: { dueAt?: Date } = {},
 ): Promise<{ invoice: Invoice; created: boolean }> {
   const existing = await getInvoiceByOrder(order.id)
   if (existing) return { invoice: existing, created: false }
@@ -88,7 +89,8 @@ export async function issueInvoice(
 
   const issuedAt = new Date()
   const seller = sellerDetails()
-  const dueAt = new Date(issuedAt.getTime() + seller.paymentTermDays * 86_400_000)
+  const dueAt =
+    options.dueAt ?? new Date(issuedAt.getTime() + seller.paymentTermDays * 86_400_000)
 
   const buyer: InvoiceBuyer = {
     company: billing.company,

@@ -90,15 +90,23 @@ export function orderReceivedEmail(order: OrderDto): RenderedEmail {
   const de = locale === 'de'
   const m = (n: number) => formatMoney(n, order.currency, locale)
 
+  // The same figures the checkout showed: net, the VAT on it, and the gross.
+  const vatRate = env.VAT_RATE
+  const vat = Math.round(order.total * vatRate) / 100
+  const rate = new Intl.NumberFormat(de ? 'de-DE' : 'en-GB', {
+    maximumFractionDigits: 2,
+  }).format(vatRate)
   const totals: Row[] = [
     { label: de ? 'Zwischensumme' : 'Subtotal', value: m(order.subtotal) },
     {
       label: de ? 'Versand' : 'Shipping',
       value: order.shipping === 0 ? (de ? 'kostenlos' : 'free') : m(order.shipping),
     },
+    { label: de ? 'Nettobetrag' : 'Net amount', value: m(order.total) },
+    { label: de ? `zzgl. USt. ${rate} %` : `VAT ${rate} %`, value: m(vat) },
     {
-      label: de ? 'Voraussichtlich gesamt (netto, zzgl. MwSt.)' : 'Estimated total (net, plus VAT)',
-      value: m(order.total),
+      label: de ? 'Voraussichtlich gesamt' : 'Estimated total',
+      value: m(order.total + vat),
       strong: true,
     },
   ]
@@ -169,52 +177,63 @@ export function orderReceivedEmail(order: OrderDto): RenderedEmail {
 // ---------------------------------------------------------------------------
 
 export function orderNotifyEmail(order: OrderDto): RenderedEmail {
+  // In the language the customer used, like every other email the order sends.
+  const locale = localeOf(order.locale)
+  const de = locale === 'de'
   const origin = order.collectionName
-    ? `Landingpage „${order.collectionName}“ (/c/${order.collectionSlug})`
+    ? `${de ? 'Kollektion' : 'Collection'} „${order.collectionName}“ (/c/${order.collectionSlug})`
     : 'Shop'
-  const m = (n: number) => formatMoney(n, order.currency, 'de')
+  const m = (n: number) => formatMoney(n, order.currency, locale)
   const link = `${env.PUBLIC_SHOP_URL}/dashboard/orders/${order.id}`
-  const subject = `Neue Anfrage ${order.reference} · ${order.collectionName ?? 'Shop'} · ${m(order.total)}`
+  const title = `${de ? 'Neue Anfrage' : 'New request'} ${order.reference}`
+  const subject = `${title} · ${order.collectionName ?? 'Shop'} · ${m(order.total)}`
 
   const facts: Row[] = [
-    { label: 'Herkunft', value: origin },
-    { label: 'Kontakt', value: `${order.contact.name} <${order.contact.email}>` },
-    { label: 'Firma', value: order.billing?.company ?? order.contact.company ?? '—' },
-    { label: 'Telefon', value: order.contact.phone ?? '—' },
-    { label: 'Gast', value: order.isGuest ? 'ja' : 'nein' },
-    { label: 'Gewünscht bis', value: order.delivery?.neededBy ? formatDate(order.delivery.neededBy, 'de') : '—' },
-    { label: 'Geschätzt (netto)', value: m(order.total), strong: true },
+    { label: de ? 'Herkunft' : 'Origin', value: origin },
+    { label: de ? 'Kontakt' : 'Contact', value: `${order.contact.name} <${order.contact.email}>` },
+    { label: de ? 'Firma' : 'Company', value: order.billing?.company ?? order.contact.company ?? '—' },
+    { label: de ? 'Telefon' : 'Phone', value: order.contact.phone ?? '—' },
+    { label: de ? 'Gast' : 'Guest', value: order.isGuest ? (de ? 'ja' : 'yes') : (de ? 'nein' : 'no') },
+    {
+      label: de ? 'Lieferdatum' : 'Delivery date',
+      value: order.delivery?.neededBy ? formatDate(order.delivery.neededBy, locale) : '—',
+    },
+    { label: de ? 'Geschätzt (netto)' : 'Estimated (net)', value: m(order.total), strong: true },
   ]
   const a = order.attribution
   if (a?.utmSource || a?.gclid) {
     facts.push({
-      label: 'Kampagne',
+      label: de ? 'Kampagne' : 'Campaign',
       value: [a.utmSource, a.utmMedium, a.utmCampaign, a.gclid ? 'gclid' : null]
         .filter(Boolean)
         .join(' / '),
     })
   }
+  const notesLabel = de ? 'Anmerkungen' : 'Notes'
+  const itemsLabel = de ? 'Positionen' : 'Items'
 
   const html = layout({
-    locale: 'de',
+    locale,
     preheader: subject,
-    footer: 'Interne Benachrichtigung über eine neue Anfrage.',
+    footer: de
+      ? 'Interne Benachrichtigung über eine neue Anfrage.'
+      : 'Internal notification about a new request.',
     body: [
-      `<h1 style="font-size:20px;margin:0 0 16px;">${escapeHtml(`Neue Anfrage ${order.reference}`)}</h1>`,
+      `<h1 style="font-size:20px;margin:0 0 16px;">${escapeHtml(title)}</h1>`,
       `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rowsHtml(facts)}</table>`,
-      heading('Positionen'),
-      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rowsHtml(itemRows(order, 'de'))}</table>`,
-      order.delivery?.notes ? heading('Anmerkungen') + paragraph(escapeHtml(order.delivery.notes)) : '',
-      button('Im Dashboard öffnen', link),
+      heading(itemsLabel),
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rowsHtml(itemRows(order, locale))}</table>`,
+      order.delivery?.notes ? heading(notesLabel) + paragraph(escapeHtml(order.delivery.notes)) : '',
+      button(de ? 'Im Dashboard öffnen' : 'Open in dashboard', link),
     ].join('\n'),
   })
   const text = [
-    `Neue Anfrage ${order.reference}`,
+    title,
     '',
     rowsText(facts),
     '',
-    rowsText(itemRows(order, 'de')),
-    order.delivery?.notes ? `\nAnmerkungen: ${order.delivery.notes}` : '',
+    rowsText(itemRows(order, locale)),
+    order.delivery?.notes ? `\n${notesLabel}: ${order.delivery.notes}` : '',
     '',
     link,
   ].join('\n')

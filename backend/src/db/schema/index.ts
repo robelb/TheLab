@@ -56,6 +56,7 @@ export {
   type PaymentStatus,
 } from './orders.js'
 export {
+  orderEmailKinds,
   outboundEvents,
   type NewOutboundEvent,
   type OutboundEvent,

@@ -67,6 +67,14 @@ export const products = pgTable(
     tags: jsonb('tags').$type<string[]>().notNull().default([]),
     /** Smallest order the supplier accepts. 1 unless someone says otherwise. */
     minQuantity: integer('min_quantity').notNull().default(1),
+    /**
+     * Everything the supplier catalogue said about this product that has no
+     * column of its own — barcode, weights, TARIC, origin, warehouse stock, the
+     * source categories and tags, the original HTML copy, and the catalogue
+     * sheet row it came from. Kept whole so nothing is lost on import and a
+     * later feature can promote a field to a column without re-fetching.
+     */
+    sourceData: jsonb('source_data').$type<Record<string, unknown>>(),
     // Dominant color for brand-color similarity filtering. `dominant_color` is
     // the display hex; `color_l/a/b` are its CIELAB coordinates, so proximity
     // sorting is a plain Euclidean (ΔE) distance in a perceptual color space.

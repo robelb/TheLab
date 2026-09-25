@@ -9,7 +9,7 @@ import { useBrand } from '@/context/BrandContext'
 import { useAuth } from '@/context/AuthContext'
 import { useCreateOrder } from '@/hooks/use-orders'
 import type { OrderItem } from '@/api/orders'
-import { boxAllLines, shippingFor } from '@/lib/box'
+import { boxAllLines, shippingFor, VAT_RATE, vatFor } from '@/lib/box'
 import {
   attributionProperties,
   clearAttribution,
@@ -79,6 +79,7 @@ export function CheckoutPage() {
 
   const shipping = shippingFor(subtotal)
   const total = subtotal + shipping
+  const vat = vatFor(total)
   const currency = items[0]?.product.currency ?? 'EUR'
 
   // Once per visit to the page, so the funnel shows where people drop off.
@@ -380,10 +381,14 @@ export function CheckoutPage() {
                     : formatPrice(shipping, currency)}
                 </span>
               </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>{t('checkout.vat', { rate: VAT_RATE })}</span>
+                <span>{formatPrice(vat, currency)}</span>
+              </div>
             </div>
             <div className="flex justify-between font-semibold">
               <span>{t('checkout.estimatedTotal')}</span>
-              <span>{formatPrice(total, currency)}</span>
+              <span>{formatPrice(total + vat, currency)}</span>
             </div>
             <p className="text-xs text-muted-foreground">
               {t('checkout.plusVat')} {t('checkout.indicative')}

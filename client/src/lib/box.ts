@@ -112,6 +112,18 @@ export function shippingFor(subtotal: number): number {
   return subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING
 }
 
+/**
+ * VAT on top of the net prices the shop shows.
+ *
+ * Mirrors `VAT_RATE` on the server, which is what the invoice is priced with —
+ * this copy lets the cart and checkout show the same gross figure the emails do.
+ */
+export const VAT_RATE = 19
+
+export function vatFor(net: number): number {
+  return Math.round(net * VAT_RATE) / 100
+}
+
 /** What the given lines cost together — unit price times how many of each. */
 export function boxSubtotal(lines: BoxLine[]): number {
   return lines.reduce((sum, line) => sum + line.price * line.quantity, 0)

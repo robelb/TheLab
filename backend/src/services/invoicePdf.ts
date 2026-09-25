@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit'
 import type { Invoice } from '../db/schema/index.js'
+import { BRAND } from '../emails/layout.js'
 
 /**
  * An invoice as a PDF, drawn from the invoice row alone.
@@ -12,6 +13,10 @@ import type { Invoice } from '../db/schema/index.js'
  * addresses, our tax id, the number and date, the delivery date, what was
  * supplied, net / VAT rate / VAT / gross, and how to pay. pdfkit's built-in
  * Helvetica covers € and umlauts, so no font files ship with the image.
+ *
+ * Styled after our HubSpot quotes, so the invoice reads as the same company as
+ * the offer before it: the logo, an orange band with who it is for and the
+ * facts, the items between orange rules, then the totals, terms and contact.
  */
 
 type Locale = 'de' | 'en'
@@ -22,21 +27,33 @@ const LABELS = {
     number: 'Rechnungsnummer',
     date: 'Rechnungsdatum',
     delivery: 'Lieferdatum',
-    deliveryIsInvoiceDate: 'Das Lieferdatum entspricht dem Rechnungsdatum.',
+    due: 'Fällig am',
     orderRef: 'Bestellung',
     poNumber: 'Ihre Bestellnummer',
     customerVat: 'Ihre USt-IdNr.',
-    pos: 'Pos.',
-    description: 'Beschreibung',
+    greeting: (name: string) => `Guten Tag ${name},`,
+    intro: (ref: string) =>
+      `vielen Dank für Ihren Auftrag ${ref}. Für die folgenden Produkte und Leistungen stellen wir Ihnen in Rechnung:`,
+    items: 'Produkte & Services',
+    description: 'Artikel & Beschreibung',
     qty: 'Menge',
     unit: 'Einzelpreis',
     total: 'Gesamt',
-    net: 'Nettobetrag',
-    vat: (rate: string) => `zzgl. USt. ${rate} %`,
+    net: 'Zwischensumme (netto)',
+    vat: 'Umsatzsteuer',
     gross: 'Rechnungsbetrag',
+    paymentTerms: 'Zahlungsbedingungen',
+    paymentTerm: (days: number) =>
+      days <= 0
+        ? 'Überweisung, zahlbar sofort nach Erhalt der Rechnung.'
+        : `Überweisung (Zahlungsziel: ${days} ${days === 1 ? 'Tag' : 'Tage'} ab Rechnungsdatum).`,
     payment: (amount: string, due: string) =>
-      `Bitte überweisen Sie den Rechnungsbetrag von ${amount} bis zum ${due} unter Angabe der Rechnungsnummer auf das unten genannte Konto.`,
-    thanks: 'Vielen Dank für Ihren Auftrag.',
+      `Bitte überweisen Sie den Rechnungsbetrag von ${amount} bis zum ${due} unter Angabe der Rechnungsnummer auf das folgende Konto:`,
+    payee: 'Empfänger',
+    reference: 'Verwendungszweck',
+    conditions: 'Kaufbedingungen',
+    terms: 'Es gelten unsere Allgemeinen Geschäftsbedingungen:',
+    questions: 'Bei Fragen stehen wir jederzeit zur Verfügung.',
     vatId: 'USt-IdNr.',
     taxNumber: 'Steuernummer',
     directors: 'Geschäftsführung',
@@ -50,21 +67,33 @@ const LABELS = {
     number: 'Invoice number',
     date: 'Invoice date',
     delivery: 'Delivery date',
-    deliveryIsInvoiceDate: 'The delivery date is the invoice date.',
+    due: 'Due date',
     orderRef: 'Order',
     poNumber: 'Your PO number',
     customerVat: 'Your VAT ID',
-    pos: 'No.',
-    description: 'Description',
+    greeting: (name: string) => `Hello ${name},`,
+    intro: (ref: string) =>
+      `thank you for your order ${ref}. We are invoicing you for the following products and services:`,
+    items: 'Products & services',
+    description: 'Item & description',
     qty: 'Qty',
     unit: 'Unit price',
     total: 'Total',
-    net: 'Net amount',
-    vat: (rate: string) => `VAT ${rate} %`,
+    net: 'Subtotal (net)',
+    vat: 'VAT',
     gross: 'Total due',
+    paymentTerms: 'Payment terms',
+    paymentTerm: (days: number) =>
+      days <= 0
+        ? 'Bank transfer, payable immediately on receipt.'
+        : `Bank transfer (payment due within ${days} ${days === 1 ? 'day' : 'days'} of the invoice date).`,
     payment: (amount: string, due: string) =>
-      `Please transfer ${amount} by ${due}, quoting the invoice number, to the account below.`,
-    thanks: 'Thank you for your order.',
+      `Please transfer ${amount} by ${due}, quoting the invoice number, to the following account:`,
+    payee: 'Payee',
+    reference: 'Reference',
+    conditions: 'Terms of sale',
+    terms: 'Our general terms and conditions apply:',
+    questions: 'If you have any questions, we are always happy to help.',
     vatId: 'VAT ID',
     taxNumber: 'Tax number',
     directors: 'Managing directors',
@@ -77,6 +106,30 @@ const LABELS = {
 
 const COUNTRY: Record<string, string> = { DE: 'Deutschland' }
 
+// The quote's palette: brand orange, HubSpot's slate for text, its hairlines.
+const ORANGE = '#FF522A'
+const INK = '#33475B'
+const MUTED = '#7C98B6'
+const RULE = '#DFE3EB'
+const TERMS_URL = 'https://biglittlethings.de/allgemeine-geschaeftsbedingungen/'
+
+/**
+ * The logo, fetched once per process. It is decoration, not invoice content:
+ * if it cannot be had the name is set in type instead and the invoice still
+ * goes out.
+ */
+let logo: Promise<Buffer | null> | null = null
+function brandLogo(): Promise<Buffer | null> {
+  logo ??= fetch(BRAND.logo, { signal: AbortSignal.timeout(4000) })
+    .then(async (res) => (res.ok ? Buffer.from(await res.arrayBuffer()) : null))
+    .catch(() => null)
+    .then((buf) => {
+      if (!buf) logo = null // try again next time
+      return buf
+    })
+  return logo
+}
+
 export async function renderInvoicePdf(invoice: Invoice): Promise<Buffer> {
   const locale: Locale = invoice.locale === 'en' ? 'en' : 'de'
   const L = LABELS[locale]
@@ -86,7 +139,7 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Buffer> {
       Number(n),
     )
   const date = (d: Date | string) =>
-    new Intl.DateTimeFormat(intl, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(
+    new Intl.DateTimeFormat(intl, { day: '2-digit', month: 'long', year: 'numeric' }).format(
       typeof d === 'string' ? new Date(d) : d,
     )
   const rate = new Intl.NumberFormat(intl, { maximumFractionDigits: 2 }).format(
@@ -94,9 +147,18 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Buffer> {
   )
 
   const { seller, buyer, lines } = invoice
+  // From the invoice's own dates: the due date may have been set by hand.
+  const calendarDay = (d: Date | string) => {
+    const at = new Date(d)
+    return Date.UTC(at.getFullYear(), at.getMonth(), at.getDate())
+  }
+  const termDays = Math.round(
+    (calendarDay(invoice.dueAt) - calendarDay(invoice.issuedAt)) / 86_400_000,
+  )
+  const logoImage = await brandLogo()
   const doc = new PDFDocument({
     size: 'A4',
-    margins: { top: 50, bottom: 110, left: 56, right: 56 },
+    margins: { top: 50, bottom: 95, left: 56, right: 56 },
     bufferPages: true,
     info: { Title: `${L.invoice} ${invoice.number}`, Author: seller.name },
   })
@@ -110,169 +172,246 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Buffer> {
   const left = doc.page.margins.left
   const right = doc.page.width - doc.page.margins.right
   const width = right - left
-  const grey = '#666666'
+  const pageBottom = () => doc.page.height - doc.page.margins.bottom
+  const hr = (at: number, color: string, weight: number, from = left, to = right) =>
+    doc.moveTo(from, at).lineTo(to, at).lineWidth(weight).strokeColor(color).stroke()
 
-  // Our block, top right.
-  doc.font('Helvetica-Bold').fontSize(13).fillColor('#000').text(seller.name, left, 50, {
-    width,
-    align: 'right',
-  })
-  doc
-    .font('Helvetica')
-    .fontSize(9)
-    .fillColor(grey)
-    .text(
-      [
-        seller.street,
-        `${seller.zip} ${seller.city}`,
-        seller.country,
-        seller.phone,
-        seller.email,
-        seller.website,
-      ]
-        .filter(Boolean)
-        .join('\n'),
-      { width, align: 'right' },
-    )
+  // Logo on white, as on the quote.
+  if (logoImage) {
+    try {
+      doc.image(logoImage, left, 24, { height: 30 })
+    } catch {
+      doc.font('Helvetica-Bold').fontSize(20).fillColor(INK).text(BRAND.name, left, 26)
+    }
+  } else {
+    doc.font('Helvetica-Bold').fontSize(20).fillColor(INK).text(BRAND.name, left, 26)
+  }
 
-  // The window-envelope sender line, then the buyer.
-  const addressTop = 150
-  doc
-    .fontSize(7)
-    .fillColor(grey)
-    .text(`${seller.name} · ${seller.street} · ${seller.zip} ${seller.city}`, left, addressTop, {
-      width: 260,
-      underline: true,
-    })
-  doc
-    .fontSize(10)
-    .fillColor('#000')
-    .text(
-      [
-        buyer.company,
-        buyer.name ? `${L.attention} ${buyer.name}` : null,
-        buyer.street,
-        buyer.line2,
-        `${buyer.zip} ${buyer.city}`,
-        COUNTRY[buyer.country] ?? buyer.country,
-      ]
-        .filter(Boolean)
-        .join('\n'),
-      left,
-      addressTop + 14,
-      { width: 260 },
-    )
-
-  // Invoice facts, right column beside the address.
-  const meta: [string, string][] = [
-    [L.number, invoice.number],
-    [L.date, date(invoice.issuedAt)],
+  // The orange band: the title, who it is for, and the invoice facts.
+  const bandTop = 70
+  const title = `${L.invoice} ${invoice.number}`
+  const buyerLines = [
+    buyer.street,
+    buyer.line2,
+    `${buyer.zip} ${buyer.city}`,
+    COUNTRY[buyer.country] ?? buyer.country,
+  ].filter(Boolean) as string[]
+  const contactLines = [
+    buyer.name ? `${L.attention} ${buyer.name}` : null,
+    buyer.email,
+  ].filter(Boolean) as string[]
+  const meta: string[] = [
+    `${L.number}: ${invoice.number}`,
+    `${L.date}: ${date(invoice.issuedAt)}`,
+    `${L.delivery}: ${buyer.deliveryDate ? date(buyer.deliveryDate) : date(invoice.issuedAt)}`,
+    `${L.due}: ${date(invoice.dueAt)}`,
+    `${L.orderRef}: ${buyer.orderReference}`,
+    ...(buyer.poNumber ? [`${L.poNumber}: ${buyer.poNumber}`] : []),
+    ...(buyer.vatId ? [`${L.customerVat}: ${buyer.vatId}`] : []),
   ]
-  if (buyer.deliveryDate) meta.push([L.delivery, date(buyer.deliveryDate)])
-  meta.push([L.orderRef, buyer.orderReference])
-  if (buyer.poNumber) meta.push([L.poNumber, buyer.poNumber])
-  if (buyer.vatId) meta.push([L.customerVat, buyer.vatId])
 
-  let metaY = addressTop
-  const metaX = left + 300
-  for (const [label, value] of meta) {
-    doc.fontSize(9).fillColor(grey).text(label, metaX, metaY, { width: 100 })
-    doc.fillColor('#000').text(value, metaX + 100, metaY, { width: right - metaX - 100, align: 'right' })
-    metaY += 14
+  const colWidth = width / 2 - 10
+  doc.font('Helvetica-Bold').fontSize(20)
+  const titleHeight = doc.heightOfString(title, { width })
+  doc.font('Helvetica').fontSize(9)
+  const lineH = doc.currentLineHeight(true) + 3
+  const leftHeight =
+    lineH * (1 + buyerLines.length) + (contactLines.length ? 12 + lineH * contactLines.length : 0)
+  const rightHeight = lineH * meta.length
+  const factsTop = bandTop + 28 + titleHeight + 16
+  const bandHeight = factsTop - bandTop + Math.max(leftHeight, rightHeight) + 20
+
+  doc.rect(0, bandTop, doc.page.width, bandHeight).fill(ORANGE)
+  doc.font('Helvetica-Bold').fontSize(20).fillColor('#FFFFFF').text(title, left, bandTop + 28, {
+    width,
+  })
+
+  let ly = factsTop
+  doc.font('Helvetica-Bold').fontSize(9).text(buyer.company, left, ly, { width: colWidth })
+  ly += lineH
+  doc.font('Helvetica')
+  for (const line of buyerLines) {
+    doc.text(line, left, ly, { width: colWidth })
+    ly += lineH
+  }
+  if (contactLines.length) {
+    ly += 12
+    contactLines.forEach((line, i) => {
+      doc.font(i === 0 && buyer.name ? 'Helvetica-Bold' : 'Helvetica')
+      doc.text(line, left, ly, { width: colWidth })
+      ly += lineH
+    })
+  }
+  let ry = factsTop
+  doc.font('Helvetica')
+  for (const line of meta) {
+    doc.text(line, right - colWidth, ry, { width: colWidth, align: 'right' })
+    ry += lineH
   }
 
-  // Title.
-  let y = Math.max(metaY, doc.y) + 40
-  doc.font('Helvetica-Bold').fontSize(16).text(`${L.invoice} ${invoice.number}`, left, y)
-  y = doc.y + 6
-  doc.font('Helvetica').fontSize(9).fillColor(grey)
-  if (!buyer.deliveryDate) {
-    doc.text(L.deliveryIsInvoiceDate, left, y)
-    y = doc.y
-  }
-  y += 14
+  // The greeting, framed like the quote's cover note.
+  let y = bandTop + bandHeight + 22
+  const noteText = [
+    L.greeting(buyer.name || buyer.company),
+    '',
+    L.intro(buyer.orderReference),
+  ].join('\n')
+  doc.font('Helvetica').fontSize(9.5)
+  const noteHeight = doc.heightOfString(noteText, { width: width - 32, lineGap: 3 })
+  doc.rect(left, y, width, noteHeight + 26).lineWidth(0.75).strokeColor(INK).stroke()
+  doc.fillColor(INK).text(noteText, left + 16, y + 13, { width: width - 32, lineGap: 3 })
+  y += noteHeight + 26 + 24
 
-  // Line items.
+  // Items between orange rules.
+  doc.font('Helvetica-Bold').fontSize(11).fillColor(INK).text(L.items, left, y)
+  y = doc.y + 10
   const col = {
-    pos: left,
-    desc: left + 30,
+    desc: left,
     qty: right - 190,
-    unit: right - 140,
+    unit: right - 130,
     total: right - 70,
   }
+  const descWidth = col.qty - col.desc - 16
   const header = (at: number) => {
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#000')
-    doc.text(L.pos, col.pos, at, { width: 28 })
-    doc.text(L.description, col.desc, at, { width: col.qty - col.desc - 8 })
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(INK)
+    doc.text(L.description, col.desc, at, { width: descWidth })
     doc.text(L.qty, col.qty, at, { width: 45, align: 'right' })
-    doc.text(L.unit, col.unit, at, { width: 65, align: 'right' })
+    doc.text(L.unit, col.unit, at, { width: 60, align: 'right' })
     doc.text(L.total, col.total, at, { width: 70, align: 'right' })
-    doc
-      .moveTo(left, at + 14)
-      .lineTo(right, at + 14)
-      .lineWidth(0.5)
-      .strokeColor('#999')
-      .stroke()
-    return at + 20
+    hr(at + 18, ORANGE, 1.5)
+    return at + 30
   }
   y = header(y)
 
-  const pageBottom = () => doc.page.height - doc.page.margins.bottom
   lines.forEach((line, i) => {
-    const descWidth = col.qty - col.desc - 8
-    doc.font('Helvetica').fontSize(9)
-    const descHeight =
-      doc.heightOfString(line.description, { width: descWidth }) +
-      (line.details
-        ? doc.fontSize(8).heightOfString(line.details, { width: descWidth }) + 2
-        : 0)
-    if (y + descHeight > pageBottom() - 10) {
+    doc.font('Helvetica').fontSize(9.5)
+    const nameHeight = doc.heightOfString(line.description, { width: descWidth })
+    const detailsHeight = line.details
+      ? doc.font('Helvetica').fontSize(8).heightOfString(line.details, { width: descWidth, lineGap: 2 }) + 4
+      : 0
+    const rowHeight = nameHeight + detailsHeight
+    if (y + rowHeight > pageBottom() - 10) {
       doc.addPage()
       y = header(doc.page.margins.top)
     }
-    doc.font('Helvetica').fontSize(9).fillColor('#000')
-    doc.text(String(i + 1), col.pos, y, { width: 28 })
+    doc.font('Helvetica').fontSize(9.5).fillColor(INK)
     doc.text(line.description, col.desc, y, { width: descWidth })
-    if (line.details) {
-      doc.fontSize(8).fillColor(grey).text(line.details, col.desc, doc.y + 2, { width: descWidth })
-      doc.fontSize(9).fillColor('#000')
-    }
     doc.text(String(line.quantity), col.qty, y, { width: 45, align: 'right' })
-    doc.text(money(line.unitPrice), col.unit, y, { width: 65, align: 'right' })
+    doc.text(money(line.unitPrice), col.unit, y, { width: 60, align: 'right' })
     doc.text(money(line.total), col.total, y, { width: 70, align: 'right' })
-    y += descHeight + 8
+    if (line.details) {
+      doc
+        .fontSize(8)
+        .fillColor(MUTED)
+        .text(line.details, col.desc, y + nameHeight + 4, { width: descWidth, lineGap: 2 })
+    }
+    y += rowHeight + 11
+    if (i < lines.length - 1) {
+      hr(y - 5, RULE, 0.75)
+      y += 6
+    }
   })
+  hr(y, ORANGE, 1.5)
+  y += 14
 
-  // Totals.
+  // Totals, right-aligned under the table.
   if (y + 90 > pageBottom()) {
     doc.addPage()
     y = doc.page.margins.top
   }
-  doc
-    .moveTo(col.unit - 60, y)
-    .lineTo(right, y)
-    .lineWidth(0.5)
-    .strokeColor('#999')
-    .stroke()
-  y += 8
-  const totalRow = (label: string, value: string, bold = false) => {
-    doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(bold ? 10 : 9).fillColor('#000')
-    doc.text(label, col.unit - 120, y, { width: 180, align: 'right' })
-    doc.text(value, col.total, y, { width: 70, align: 'right' })
-    y += bold ? 18 : 14
+  const tLeft = right - 240
+  const totalRow = (label: string, value: string, sub?: string) => {
+    doc.font('Helvetica').fontSize(9.5).fillColor(INK)
+    doc.text(label, tLeft, y, { width: 150 })
+    doc.text(value, right - 100, y, { width: 100, align: 'right' })
+    y += 14
+    if (sub) {
+      doc.fontSize(8).fillColor(MUTED).text(sub, right - 100, y, { width: 100, align: 'right' })
+      y += 12
+    }
+    y += 4
+    hr(y, RULE, 0.75, tLeft, right)
+    y += 10
   }
   totalRow(L.net, money(invoice.net))
-  totalRow(L.vat(rate), money(invoice.vat))
-  totalRow(L.gross, money(invoice.gross), true)
+  totalRow(L.vat, money(invoice.vat), `${rate} %`)
+  doc.font('Helvetica-Bold').fontSize(11).fillColor(INK)
+  doc.text(L.gross, tLeft, y, { width: 150, align: 'right' })
+  doc.text(money(invoice.gross), right - 100, y, { width: 100, align: 'right' })
+  y += 40
 
-  // How to pay.
-  y += 20
+  // Terms, payment and who to ask — the quote's closing, in the same order.
+  const section = (heading: string, draw: () => void, needs: number) => {
+    if (y + needs > pageBottom()) {
+      doc.addPage()
+      y = doc.page.margins.top
+    }
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(INK).text(heading, left, y, { width })
+    doc.moveDown(0.6)
+    draw()
+    y = doc.y + 20
+  }
+
+  section(
+    L.paymentTerms,
+    () => {
+      doc.font('Helvetica').fontSize(8.5).fillColor(INK)
+      doc.text(L.paymentTerm(termDays), { width, lineGap: 2 })
+      doc.text(L.payment(money(invoice.gross), date(invoice.dueAt)), { width, lineGap: 2 })
+      doc.moveDown(0.5)
+      const bank: [string, string | null | undefined][] = [
+        [L.payee, seller.name],
+        ['IBAN', seller.iban],
+        ['BIC', seller.bic],
+        [L.bank, seller.bankName],
+        [L.reference, invoice.number],
+      ]
+      for (const [label, value] of bank) {
+        if (!value) continue
+        const at = doc.y
+        doc.fillColor(MUTED).text(label, left, at, { width: 100 })
+        doc.fillColor(INK).text(value, left + 100, at, { width: width - 100 })
+      }
+    },
+    130,
+  )
+
+  section(
+    L.conditions,
+    () => {
+      doc.font('Helvetica').fontSize(8.5).fillColor(INK)
+      doc.text(`${L.terms} `, { width, continued: true })
+      doc.fillColor(ORANGE).text(TERMS_URL.replace(/^https:\/\//, ''), {
+        link: TERMS_URL,
+        underline: true,
+      })
+    },
+    50,
+  )
+
+  if (y + 110 > pageBottom()) {
+    doc.addPage()
+    y = doc.page.margins.top
+  }
+  doc.font('Helvetica-Bold').fontSize(10.5).fillColor(INK).text(L.questions, left, y, { width })
+  doc.moveDown(0.8)
   doc
     .font('Helvetica')
     .fontSize(9.5)
-    .fillColor('#000')
-    .text(L.payment(money(invoice.gross), date(invoice.dueAt)), left, y, { width })
-  doc.moveDown(1).text(L.thanks, { width })
+    .text(
+      [
+        seller.name,
+        seller.street,
+        `${seller.zip} ${seller.city}`,
+        seller.country,
+        '',
+        seller.email,
+        seller.phone,
+      ]
+        .filter((l) => l !== null && l !== undefined)
+        .join('\n'),
+      { width, lineGap: 2 },
+    )
 
   // Legal footer on every page.
   const footer = [
@@ -280,9 +419,10 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Buffer> {
       seller.name,
       seller.street,
       `${seller.zip} ${seller.city}`,
-      seller.managingDirectors ? `${L.directors}: ${seller.managingDirectors}` : null,
+      seller.website,
     ],
     [
+      seller.managingDirectors ? `${L.directors}: ${seller.managingDirectors}` : null,
       seller.registerCourt ? `${L.register}: ${seller.registerCourt}` : null,
       seller.registerNumber,
       seller.vatId ? `${L.vatId}: ${seller.vatId}` : null,
@@ -298,30 +438,26 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Buffer> {
   const range = doc.bufferedPageRange()
   for (let p = range.start; p < range.start + range.count; p++) {
     doc.switchToPage(p)
-    const top = doc.page.height - 90
+    const top = doc.page.height - 80
     // Drawing inside the bottom margin; stop pdfkit adding a page for it.
     const bottom = doc.page.margins.bottom
     doc.page.margins.bottom = 0
-    doc
-      .moveTo(left, top - 8)
-      .lineTo(right, top - 8)
-      .lineWidth(0.5)
-      .strokeColor('#ccc')
-      .stroke()
-    const colWidth = width / 3
+    hr(top - 10, RULE, 0.75)
+    const footerCol = width / 3
     footer.forEach((text, i) => {
       doc
         .font('Helvetica')
-        .fontSize(7.5)
-        .fillColor(grey)
-        .text(text, left + i * colWidth, top, { width: colWidth - 8 })
+        .fontSize(7)
+        .fillColor(MUTED)
+        .text(text, left + i * footerCol, top, { width: footerCol - 10, lineGap: 1.5 })
     })
     if (range.count > 1) {
-      doc.text(`${L.page} ${p + 1} / ${range.count}`, left, doc.page.height - 30, {
+      doc.text(`${L.page} ${p + 1} / ${range.count}`, left, doc.page.height - 28, {
         width,
         align: 'right',
       })
     }
+    doc.rect(0, doc.page.height - 6, doc.page.width, 6).fill(ORANGE)
     doc.page.margins.bottom = bottom
   }
 

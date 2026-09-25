@@ -44,7 +44,8 @@
     "readyBoxesBodyBuyOnly": "Wählen Sie eine aus, und wir erstellen Ihnen ein Angebot. Hier wird nichts berechnet.",
     "noProductsBuyOnly": "Hier ist sonst noch nichts — die Boxen oben können Sie direkt bestellen.",
     "showMore": "Mehr anzeigen",
-    "showingOf": "{{shown}} von {{total}}"
+    "showingOf": "{{shown}} von {{total}}",
+    "moreContents": "+{{count}} weitere"
   },
   "product": {
     "addToCart": "In den Warenkorb",
@@ -77,7 +78,7 @@
     "summary": "Zusammenfassung",
     "subtotal": "Zwischensumme",
     "shipping": "Versand",
-    "total": "Gesamt",
+    "total": "Gesamt (inkl. MwSt.)",
     "checkout": "Zur Anfrage",
     "insideBox": "In dieser Box",
     "viewProducts": "Produkte ansehen",
@@ -91,7 +92,8 @@
     "decrease": "Menge verringern",
     "increase": "Menge erhöhen",
     "bundleKept": "Boxpreis — unverändert übernommen",
-    "bundleChanged": "Angepasst — Preis pro Artikel"
+    "bundleChanged": "Angepasst — Preis pro Artikel",
+    "vat": "zzgl. MwSt. {{rate}} %"
   },
   "checkout": {
     "title": "Bestellung anfragen",
@@ -143,15 +145,16 @@
     "subtotal": "Zwischensumme",
     "shipping": "Versand",
     "shippingFree": "kostenlos",
-    "estimatedTotal": "Voraussichtlich gesamt",
-    "plusVat": "Alle Preise netto, zzgl. MwSt.",
+    "estimatedTotal": "Gesamt (inkl. MwSt.)",
+    "plusVat": "Artikelpreise netto, die MwSt. ist im Gesamtbetrag enthalten.",
     "indicative": "Den Endpreis bestätigen wir Ihnen.",
     "noAccountNeeded": "Kein Konto nötig — einfach Angaben ausfüllen und absenden.",
     "emailPlaceholder": "name@firma.de",
     "companyHint": "Auf diese Firma stellen wir die Rechnung aus.",
     "streetPlaceholder": "Hauptstraße 12",
     "vatIdHint": "Nur falls vorhanden. Wir drucken sie auf die Rechnung.",
-    "neededByHint": "Dann sagen wir Ihnen gleich, ob der Termin klappt."
+    "neededByHint": "Dann sagen wir Ihnen gleich, ob der Termin klappt.",
+    "vat": "zzgl. MwSt. {{rate}} %"
   },
   "status": {
     "new": "Neu",

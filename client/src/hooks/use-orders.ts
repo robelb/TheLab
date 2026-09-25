@@ -4,6 +4,7 @@ import {
   confirmOrder,
   createOrder,
   fetchOrder,
+  fetchOrderEmails,
   fetchOrders,
   resendOrderEmail,
   setOrderStatus,
@@ -19,6 +20,7 @@ export const orderKeys = {
   all: ['orders'] as const,
   list: (filters: OrderFilters = {}) => ['orders', 'list', filters] as const,
   detail: (id: string) => ['orders', 'detail', id] as const,
+  emails: (id: string) => ['orders', 'emails', id] as const,
 }
 
 /**
@@ -82,8 +84,28 @@ export function useConfirmOrder() {
 }
 
 export function useResendOrderEmail() {
+  const client = useQueryClient()
   return useMutation({
     mutationFn: (vars: { id: string; template: 'received' | 'confirmed' }) =>
       resendOrderEmail(vars.id, vars.template),
+    // Sent or not, the log has a new row.
+    onSettled: (_data, _err, vars) =>
+      client.invalidateQueries({ queryKey: orderKeys.emails(vars.id) }),
+  })
+}
+
+/**
+ * The emails queued for an order and whether each went out. Polls while one is
+ * still waiting for a retry, so a send that recovers shows up without a reload.
+ */
+export function useOrderEmails(id: string, enabled = true) {
+  return useQuery({
+    queryKey: orderKeys.emails(id),
+    queryFn: () => fetchOrderEmails(id),
+    enabled: Boolean(id) && enabled,
+    refetchInterval: (query) =>
+      query.state.data?.some((e) => e.status === 'pending' || e.status === 'sending')
+        ? 15_000
+        : false,
   })
 }

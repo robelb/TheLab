@@ -228,9 +228,12 @@ export function ProductPage() {
                 : t('product.outOfStock')}
             </p>
           )}
-          <p className="leading-relaxed text-muted-foreground">
+          {/* Supplier copy can run to pages (a box's description carries its
+              whole ordering process), so it scrolls inside a fixed height
+              rather than pushing the price and contents out of view. */}
+          <div className="max-h-72 overflow-y-auto whitespace-pre-line pr-2 leading-relaxed text-muted-foreground">
             {product.description}
-          </p>
+          </div>
 
           {/* A pre-configured box is a parts list with a price, so what it
               holds belongs next to that price rather than in the details

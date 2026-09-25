@@ -199,6 +199,20 @@ export const confirmOrderSchema = z.object({
     .max(100)
     .default([]),
   shipping: money,
+  /**
+   * When the invoice is due, `YYYY-MM-DD`. Left out, it is the usual payment
+   * term from the invoice date. Checked against today in the service.
+   */
+  dueDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'The due date must be a date (YYYY-MM-DD).')
+    .optional(),
+  /**
+   * Who to invoice, for a request that came in without a billing address —
+   * shop orders from before checkout asked for one. Ignored when the order
+   * already has one.
+   */
+  billing: billingSchema.optional(),
 })
 
 export const resendEmailSchema = z.object({

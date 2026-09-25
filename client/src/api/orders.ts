@@ -160,6 +160,10 @@ export interface OrderFilters {
 export interface ConfirmOrderBody {
   lines: { index: number; unitPrice: number }[]
   shipping: number
+  /** When the invoice is due, `YYYY-MM-DD`; the server's usual term if left out. */
+  dueDate?: string
+  /** Who to invoice, when the request came without a billing address. */
+  billing?: OrderBilling
 }
 
 export async function createOrder(body: CreateOrderBody): Promise<Order> {
@@ -193,16 +197,51 @@ export async function setPaymentStatus(
   return data
 }
 
-export async function confirmOrder(id: string, body: ConfirmOrderBody): Promise<Order> {
-  const { data } = await apiClient.post<Order>(`/orders/${id}/confirm`, body)
+/**
+ * What became of an email the server was asked to send now. `queued` means the
+ * server has no mail provider configured, so it waits in the queue.
+ */
+export type EmailDelivery =
+  | { status: 'sent' }
+  | { status: 'failed'; error: string; willRetry: boolean }
+  | { status: 'queued' }
+
+export async function confirmOrder(
+  id: string,
+  body: ConfirmOrderBody,
+): Promise<Order & { emailDelivery?: EmailDelivery }> {
+  const { data } = await apiClient.post<Order & { emailDelivery?: EmailDelivery }>(
+    `/orders/${id}/confirm`,
+    body,
+  )
   return data
 }
 
+/** Sends it now. A failed send rejects, with the reason as the error message. */
 export async function resendOrderEmail(
   id: string,
   template: 'received' | 'confirmed',
-): Promise<void> {
-  await apiClient.post(`/orders/${id}/resend-email`, { template })
+): Promise<EmailDelivery> {
+  const { data } = await apiClient.post<EmailDelivery>(`/orders/${id}/resend-email`, {
+    template,
+  })
+  return data
+}
+
+export interface OrderEmail {
+  id: string
+  kind: 'email.order_received' | 'email.order_notify' | 'email.order_confirmed'
+  status: 'pending' | 'sending' | 'sent' | 'failed'
+  attempts: number
+  lastError: string | null
+  createdAt: string
+  sentAt: string | null
+  nextAttemptAt: string | null
+}
+
+export async function fetchOrderEmails(id: string): Promise<OrderEmail[]> {
+  const { data } = await apiClient.get<OrderEmail[]>(`/orders/${id}/emails`)
+  return data
 }
 
 /** The invoice PDF, fetched with the session so it can be opened as a blob. */

@@ -45,7 +45,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
 
       <div className="pointer-events-none relative z-[1]">
         <div className="overflow-hidden">
-          <div className="relative aspect-4/3 overflow-hidden bg-white">
+          <div className="relative aspect-square overflow-hidden bg-white">
             {/* <img
               src={displayImage}
               alt=""
@@ -55,7 +55,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
             <ProductImage
               src={displayImage}
               alt={product.name}
-              className="relative z-10 h-full w-full object-contain transition-transform duration-500 group-hover:scale-105"
+              className="relative z-10 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               loading="lazy"
             />
           </div>

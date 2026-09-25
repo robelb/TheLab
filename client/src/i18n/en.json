@@ -44,7 +44,8 @@
     "readyBoxesBodyBuyOnly": "Pick one and we quote it. Nothing is charged here.",
     "noProductsBuyOnly": "Nothing else here yet — the boxes above are ready to order.",
     "showMore": "Show more",
-    "showingOf": "Showing {{shown}} of {{total}}"
+    "showingOf": "Showing {{shown}} of {{total}}",
+    "moreContents": "+{{count}} more"
   },
   "product": {
     "addToCart": "Add to cart",
@@ -77,7 +78,7 @@
     "summary": "Order summary",
     "subtotal": "Subtotal",
     "shipping": "Shipping",
-    "total": "Total",
+    "total": "Total (incl. VAT)",
     "checkout": "Proceed to checkout",
     "insideBox": "Inside this box",
     "viewProducts": "View products",
@@ -91,7 +92,8 @@
     "decrease": "Decrease quantity",
     "increase": "Increase quantity",
     "bundleKept": "Box price — kept exactly as sold",
-    "bundleChanged": "Customised — priced per item"
+    "bundleChanged": "Customised — priced per item",
+    "vat": "VAT {{rate}} %"
   },
   "checkout": {
     "title": "Request your order",
@@ -143,15 +145,16 @@
     "subtotal": "Subtotal",
     "shipping": "Shipping",
     "shippingFree": "free",
-    "estimatedTotal": "Estimated total",
-    "plusVat": "All prices net, plus VAT.",
+    "estimatedTotal": "Estimated total (incl. VAT)",
+    "plusVat": "Item prices are net; VAT is added to the total.",
     "indicative": "We'll confirm the final price.",
     "noAccountNeeded": "No account needed — just fill in your details and send.",
     "emailPlaceholder": "name@company.com",
     "companyHint": "The invoice is made out to this company.",
     "streetPlaceholder": "Main Street 12",
     "vatIdHint": "Only if you have one. We print it on the invoice.",
-    "neededByHint": "So we can tell you straight away if the date works."
+    "neededByHint": "So we can tell you straight away if the date works.",
+    "vat": "VAT {{rate}} %"
   },
   "status": {
     "new": "New",

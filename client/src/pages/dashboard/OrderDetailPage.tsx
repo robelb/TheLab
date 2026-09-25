@@ -26,6 +26,7 @@ import {
 } from '@/hooks/use-orders'
 import { useAuth } from '@/context/AuthContext'
 import { ConfirmOrderDialog } from '@/components/dashboard/ConfirmOrderDialog'
+import { OrderEmails } from '@/components/dashboard/OrderEmails'
 import { notifyError, notifySaved } from '@/lib/notify'
 import {
   fetchInvoicePdf,
@@ -635,16 +636,7 @@ export function OrderDetailPage() {
         </Select>
         {admin && !order.invoice && order.status !== 'cancelled' && (
           <>
-            <Button
-              size="sm"
-              onClick={() => setConfirming(true)}
-              disabled={!order.billing}
-              title={
-                order.billing
-                  ? undefined
-                  : 'This request has no billing address — ask the customer for one first.'
-              }
-            >
+            <Button size="sm" onClick={() => setConfirming(true)}>
               <CheckCircle2 className="size-4" />
               Confirm order…
             </Button>
@@ -665,20 +657,29 @@ export function OrderDetailPage() {
               resend.mutate(
                 { id: order.id, template: order.invoice ? 'confirmed' : 'received' },
                 {
-                  onSuccess: () =>
-                    notifySaved(
-                      order.invoice
-                        ? 'Confirmation and invoice queued again'
-                        : 'Request confirmation queued again',
-                      `To ${order.contact.email}`,
-                    ),
-                  onError: (err) => notifyError(err, 'Could not queue the email'),
+                  onSuccess: (delivery) =>
+                    delivery.status === 'sent'
+                      ? notifySaved(
+                          order.invoice
+                            ? 'Confirmation and invoice sent'
+                            : 'Request confirmation sent',
+                          `To ${order.contact.email}`,
+                        )
+                      : notifyError(
+                          null,
+                          'Email is only queued: no mail provider is configured on the server.',
+                        ),
+                  onError: (err) => notifyError(err, 'Could not send the email'),
                 },
               )
             }
           >
-            <Mail className="size-4" />
-            Resend email
+            {resend.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Mail className="size-4" />
+            )}
+            {resend.isPending ? 'Sending…' : 'Resend email'}
           </Button>
         )}
       </div>
@@ -738,6 +739,8 @@ export function OrderDetailPage() {
           </div>
         </section>
       )}
+
+      {admin && <OrderEmails orderId={order.id} />}
 
       <section className="space-y-3">
         <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">

@@ -19,6 +19,7 @@
     "db:seed:bundles": "tsx scripts/seed-bundles.ts",
     "import:christmas": "tsx scripts/import-christmas.ts",
     "import:supplies": "tsx scripts/import-supplies.ts",
+    "import:endeavour": "tsx scripts/import-endeavour.ts",
     "audit:prompts": "tsx scripts/audit-prompts.ts",
     "embed": "tsx scripts/generate-embeddings.ts",
     "colors": "tsx scripts/generate-colors.ts",

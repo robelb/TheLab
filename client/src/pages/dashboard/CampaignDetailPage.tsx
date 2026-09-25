@@ -29,6 +29,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { DatePicker } from '@/components/ui/date-picker'
 import {
   Dialog,
   DialogContent,
@@ -217,20 +218,24 @@ function AddVideoDialog({
               <span className="text-xs font-medium text-muted-foreground">
                 Show from
               </span>
-              <Input
-                type="date"
+              <DatePicker
                 value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
+                onChange={setStartsAt}
+                max={endsAt || undefined}
+                placeholder="Any time"
+                clearable
               />
             </div>
             <div className="space-y-1.5">
               <span className="text-xs font-medium text-muted-foreground">
                 Show until
               </span>
-              <Input
-                type="date"
+              <DatePicker
                 value={endsAt}
-                onChange={(e) => setEndsAt(e.target.value)}
+                onChange={setEndsAt}
+                min={startsAt || undefined}
+                placeholder="No end date"
+                clearable
               />
             </div>
           </div>
