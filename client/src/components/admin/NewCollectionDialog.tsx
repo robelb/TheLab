@@ -76,7 +76,7 @@ export function NewCollectionDialog({
   const slugProblem =
     slugError ??
     (clash
-      ? `/c/${cleanSlug} is already taken by “${clash.title.de}”${clash.active ? '' : ' (ended)'}. Each landing page needs its own URL.`
+      ? `/c/${cleanSlug} is already taken by “${clash.title.de}”${clash.active ? '' : ' (ended)'}. Each collection needs its own URL.`
       : f.errors.slug)
 
   function reset() {
@@ -123,13 +123,13 @@ export function NewCollectionDialog({
       // Stays open so nothing typed is lost. A refusal about the URL goes
       // under the URL field — the likeliest one is a slug somebody used
       // between this list loading and the button being pressed.
-      const message = apiErrorMessage(err, 'Could not create the landing page')
+      const message = apiErrorMessage(err, 'Could not create the collection')
       if (apiErrorField(err) === 'slug') {
         setSlugError(message)
         document.getElementById('new-slug')?.focus()
       } else {
         setError(message)
-        notifyError(err, 'Could not create the landing page')
+        notifyError(err, 'Could not create the collection')
       }
     }
   }
@@ -144,7 +144,7 @@ export function NewCollectionDialog({
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>New landing page</DialogTitle>
+          <DialogTitle>New collection</DialogTitle>
           <DialogDescription>
             Name it here. You add the boxes and products on the next screen.
           </DialogDescription>

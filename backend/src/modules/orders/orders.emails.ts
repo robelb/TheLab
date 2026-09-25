@@ -132,7 +132,7 @@ export function orderReceivedEmail(order: OrderDto): RenderedEmail {
       `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-top:1px solid #eee;margin-top:8px;">${rowsHtml(totals)}</table>`,
       billing.length ? heading(de ? 'Rechnungsadresse' : 'Billing address') + paragraph(linesHtml(billing)) : '',
       delivery.length ? heading(de ? 'Lieferadresse' : 'Delivery address') + paragraph(linesHtml(delivery)) : '',
-      neededBy ? paragraph(`<strong>${escapeHtml(de ? 'Gewünscht bis' : 'Needed by')}:</strong> ${escapeHtml(formatDate(neededBy, locale))}`) : '',
+      neededBy ? paragraph(`<strong>${escapeHtml(de ? 'Lieferdatum' : 'Delivery date')}:</strong> ${escapeHtml(formatDate(neededBy, locale))}`) : '',
       notes ? paragraph(`<strong>${escapeHtml(de ? 'Ihre Anmerkungen' : 'Your notes')}:</strong><br>${escapeHtml(notes)}`) : '',
       paragraph(
         escapeHtml(
@@ -157,7 +157,7 @@ export function orderReceivedEmail(order: OrderDto): RenderedEmail {
     rowsText(totals),
     billing.length ? `\n${de ? 'Rechnungsadresse' : 'Billing address'}:\n${linesText(billing)}` : '',
     delivery.length ? `\n${de ? 'Lieferadresse' : 'Delivery address'}:\n${linesText(delivery)}` : '',
-    neededBy ? `\n${de ? 'Gewünscht bis' : 'Needed by'}: ${formatDate(neededBy, locale)}` : '',
+    neededBy ? `\n${de ? 'Lieferdatum' : 'Delivery date'}: ${formatDate(neededBy, locale)}` : '',
     notes ? `\n${de ? 'Ihre Anmerkungen' : 'Your notes'}: ${notes}` : '',
   ].join('\n')
 

@@ -24,7 +24,7 @@ const COLUMNS = [
   'reference',
   'requested_by',
   'email',
-  'needed_by',
+  'delivery_date',
   'line',
   'part_of',
   'sku',

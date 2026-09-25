@@ -49,13 +49,13 @@ export function CollectionDetailPage() {
     return (
       <div className="flex flex-col items-center gap-3 py-20 text-center">
         <h1 className="font-display text-xl font-semibold">
-          That landing page is gone
+          That collection is gone
         </h1>
         <p className="max-w-sm text-sm text-muted-foreground">
           It may have been deleted. The ones that are left are on the list.
         </p>
         <Button asChild variant="outline">
-          <Link to="/dashboard/admin/collections">Back to landing pages</Link>
+          <Link to="/dashboard/admin/collections">Back to collections</Link>
         </Button>
       </div>
     )
@@ -79,7 +79,7 @@ export function CollectionDetailPage() {
       <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
         <Link to="/dashboard/admin/collections">
           <ArrowLeft className="size-4" />
-          Landing pages
+          Collections
         </Link>
       </Button>
 

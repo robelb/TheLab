@@ -89,7 +89,7 @@ function OrderFiltersBar(props: {
         <SelectContent>
           <SelectItem value="all">All origins</SelectItem>
           <SelectItem value="storefront">Shop</SelectItem>
-          <SelectItem value="funnel">Any landing page</SelectItem>
+          <SelectItem value="funnel">Any collection</SelectItem>
           {collections?.length ? <SelectSeparator /> : null}
           {collections?.map((c) => (
             <SelectItem key={c.id} value={`c:${c.id}`}>
@@ -204,7 +204,7 @@ export function OrdersPage() {
             <TableHead>Reference</TableHead>
             <TableHead>From</TableHead>
             <TableHead>Origin</TableHead>
-            <TableHead>Needed by</TableHead>
+            <TableHead>Delivery date</TableHead>
             <TableHead className="text-right">Total</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Invoice</TableHead>

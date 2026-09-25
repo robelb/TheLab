@@ -318,7 +318,7 @@ function attributionRows(order: Order): [string, string][] {
   const a = order.attribution
   const rows: [string, string | null | undefined][] = [
     ['Source', order.source ?? null],
-    ['Landing page', order.collectionSlug],
+    ['Collection', order.collectionSlug],
     ['Entered through', a?.entrySlug],
     ['Google click id', a?.gclid],
     ['Meta click id', a?.fbclid],
@@ -465,7 +465,7 @@ export function OrderDetailPage() {
             <dt className="text-muted-foreground">Origin</dt>
             <dd>
               {order.source === 'funnel'
-                ? `Landing page · ${order.collectionName ?? order.collectionSlug ?? '—'}`
+                ? `Collection · ${order.collectionName ?? order.collectionSlug ?? '—'}`
                 : 'Shop'}
             </dd>
           </div>
@@ -486,7 +486,7 @@ export function OrderDetailPage() {
             </dd>
           </div>
           <div className="flex gap-2">
-            <dt className="text-muted-foreground">Needed by</dt>
+            <dt className="text-muted-foreground">Delivery date</dt>
             <dd>{order.delivery?.neededBy || 'Not stated'}</dd>
           </div>
           {order.contact.company && (

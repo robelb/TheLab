@@ -126,7 +126,7 @@
     "poNumberHint": "We'll print it on the invoice.",
     "delivery": "Delivery",
     "sameAsBilling": "Deliver to the billing address",
-    "neededBy": "Needed by",
+    "neededBy": "Delivery date",
     "notes": "Notes",
     "notesPlaceholder": "Quantities you're still deciding on, a deadline, who it's for…",
     "payment": "Payment",

@@ -182,7 +182,7 @@ export function DashboardHomePage() {
                   <span className="min-w-0 flex-1 truncate">{r.contactName}</span>
                   {r.neededBy && (
                     <span className="text-xs text-muted-foreground">
-                      by {r.neededBy}
+                      delivery {r.neededBy}
                     </span>
                   )}
                   <span className="tabular-nums">

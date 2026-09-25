@@ -79,7 +79,7 @@ export function CollectionsPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="font-display text-2xl font-bold">Landing pages</h1>
+          <h1 className="font-display text-2xl font-bold">Collections</h1>
           <p className="text-sm text-muted-foreground">
             {collectionsQuery.data
               ? `${all.length} page${all.length === 1 ? '' : 's'} · hand the link to the agency and add the campaign parameters to the end of it`
@@ -88,7 +88,7 @@ export function CollectionsPage() {
         </div>
         <Button type="button" onClick={() => setCreating(true)}>
           <Plus className="size-4" />
-          New landing page
+          New collection
         </Button>
       </header>
 
@@ -107,7 +107,7 @@ export function CollectionsPage() {
 
       {collectionsQuery.error && (
         <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Could not load the landing pages. Reload to try again.
+          Could not load the collections. Reload to try again.
         </p>
       )}
 
@@ -162,10 +162,10 @@ export function CollectionsPage() {
                   className="py-12 text-center text-muted-foreground"
                 >
                   {needle ? (
-                    `No landing page matches “${search.trim()}”.`
+                    `No collection matches “${search.trim()}”.`
                   ) : (
                     <div className="flex flex-col items-center gap-3">
-                      No landing pages yet.
+                      No collections yet.
                       <Button
                         type="button"
                         variant="outline"
