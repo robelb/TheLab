@@ -125,16 +125,47 @@ export function useProducts(
  */
 export function useTaggedProducts(
   tag: string | undefined,
-  kind: 'single' | 'bundle' = 'single',
+  opts: {
+    /** Ordinary items or boxes only; both when left out. */
+    kind?: 'single' | 'bundle'
+    q?: string
+    /** Ids to leave out, e.g. the boxes already shown above the grid. */
+    exclude?: string[]
+    /** Category slugs to leave out. */
+    excludeCategories?: string[]
+  } = {},
 ) {
+  const q = opts.q?.trim() ?? ''
+  // Sorted so the same set in another order is the same cache entry.
+  const exclude = [...(opts.exclude ?? [])].sort()
+  const excludeCategories = [...(opts.excludeCategories ?? [])].sort()
   return useInfiniteQuery({
-    queryKey: ['products', 'tagged', tag ?? '', kind] as const,
+    queryKey: [
+      'products',
+      'tagged',
+      tag ?? '',
+      opts.kind ?? 'all',
+      q,
+      exclude,
+      excludeCategories,
+    ] as const,
     queryFn: ({ pageParam }) =>
-      fetchProducts({ page: pageParam, limit: 20, tag, kind }),
+      fetchProducts({
+        page: pageParam,
+        limit: 20,
+        tag,
+        kind: opts.kind,
+        q,
+        exclude,
+        excludeCategories,
+      }),
     initialPageParam: 1,
     getNextPageParam: (last) =>
       last.pagination.hasNextPage ? last.pagination.page + 1 : undefined,
     enabled: Boolean(tag),
+    // A new search keeps the current grid up until its results arrive, rather
+    // than blanking it on every keystroke.
+    placeholderData: keepPreviousData,
   })
 }
 

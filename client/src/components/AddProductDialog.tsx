@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Loader2, Plus, Search } from 'lucide-react'
+import { Loader2, Package, Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   Dialog,
@@ -181,6 +181,13 @@ export function AddProductDialog({
                   className="size-10 shrink-0 rounded-brand border border-border/40 object-cover"
                 />
                 <span className="min-w-0 flex-1 truncate text-sm">{p.name}</span>
+                {/* Only worth saying when boxes and items share the list. */}
+                {!kind && p.kind === 'bundle' && (
+                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <Package className="size-3" />
+                    {t('buildBox.boxBadge')}
+                  </span>
+                )}
                 {!multiple && <Plus className="size-4 text-primary" />}
               </button>
             )

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, Minus, Pencil, Plus, ShoppingBag } from 'lucide-react'
+import { Check, Pencil, ShoppingBag } from 'lucide-react'
 import { usePostHog } from '@posthog/react'
 import { useTranslation } from 'react-i18next'
 import { useCart } from '@/context/CartContext'
@@ -10,31 +10,28 @@ import { getProductDisplayImage } from '@/lib/productImage'
 import { formatPrice } from '@/utils/format'
 import type { Product } from '@/types/product'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { ProductImage } from '@/components/ProductImage'
+import { QuantityStepper } from '@/components/QuantityStepper'
 
 /**
- * A pre-configured box, ready to buy.
+ * A pre-configured box, as a landing page leads with it.
  *
- * The whole point of the funnel: somebody arriving from an ad should be able to
- * put a finished box in the basket without configuring anything. So the price,
- * the contents and the button are all on the card, and customising is the
- * second option rather than the only one.
+ * Laid out like the marketing site's own box row — the photo does the
+ * selling, then a name and a net price — with the basket right underneath, so
+ * somebody arriving from an ad can put a finished box in it without
+ * configuring anything. The contents are on the product page.
  */
 interface BundleCardProps {
   bundle: Product
   /**
    * Whether this page offers building a box. When it does not, the customise
-   * button goes and the card links on with that fact attached, so the product
+   * link goes and the card links on with that fact attached, so the product
    * page does not offer what this page just withheld.
    */
   allowCustomization?: boolean
   /** The collection this card belongs to, carried to the product page. */
   collectionSlug?: string
 }
-
-/** How many of a box's contents the card lists before "+N more". */
-const CARD_CONTENTS = 3
 
 export function BundleCard({
   bundle,
@@ -49,14 +46,9 @@ export function BundleCard({
   const [quantity, setQuantity] = useState(minQuantity)
   const [added, setAdded] = useState(false)
 
-  const contents = (bundle.components ?? []).filter((c) => c.role === 'item')
-  // The card is a teaser; the product page lists the whole box.
-  const shownContents = contents.slice(0, CARD_CONTENTS)
-  const hiddenCount = contents.length - shownContents.length
   const detailUrl = collectionSlug
     ? `/product/${bundle.id}?from=${encodeURIComponent(collectionSlug)}`
     : `/product/${bundle.id}`
-
 
   function handleAdd() {
     const box = bundleToBoxDetails(bundle)
@@ -75,121 +67,67 @@ export function BundleCard({
   }
 
   return (
-    <Card className="flex h-full flex-col overflow-hidden border-border/30">
-      <Link to={detailUrl} className="block bg-white">
+    <article className="group flex h-full flex-col items-center text-center">
+      <Link
+        to={detailUrl}
+        className="block w-full overflow-hidden rounded-brand bg-white"
+        tabIndex={-1}
+        aria-hidden
+      >
         <ProductImage
           src={getProductDisplayImage(bundle, brandGeneration)}
-          alt={bundle.name}
-          className="aspect-square w-full object-cover"
+          alt=""
+          className="aspect-square w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           loading="lazy"
         />
       </Link>
 
-      <CardContent className="flex flex-1 flex-col gap-3 p-4">
-        <div className="space-y-1">
-          <Link
-            to={detailUrl}
-            className="font-display text-lg font-semibold hover:text-primary"
-          >
-            {bundle.name}
-          </Link>
-          <p className="line-clamp-1 text-xs text-muted-foreground">
-            {bundle.tagline}
-          </p>
-        </div>
+      <h3 className="mt-5 font-display text-xl font-bold leading-tight tracking-tight sm:text-2xl">
+        <Link to={detailUrl} className="hover:text-primary">
+          {bundle.name}
+        </Link>
+      </h3>
 
-        {contents.length > 0 && (
-          <ul className="space-y-0.5 text-xs text-muted-foreground">
-            {shownContents.map((component) => (
-              <li key={component.product.id} className="flex gap-2">
-                <span aria-hidden className="text-primary">
-                  ·
-                </span>
-                <span className="min-w-0 truncate">
-                  {component.quantity > 1 && `${component.quantity}× `}
-                  {component.product.name}
-                </span>
-              </li>
-            ))}
-            {hiddenCount > 0 && (
-              <li className="pl-3">
-                {t('collection.moreContents', { count: hiddenCount })}
-              </li>
+      <p className="mt-2 text-base text-foreground/80">
+        {formatPrice(bundle.price, bundle.currency)} {t('collection.exclVat')}
+      </p>
+
+      {minQuantity > 1 && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t('collection.minQuantity', { count: minQuantity })}
+        </p>
+      )}
+
+      <div className="mt-auto flex w-full flex-col items-center gap-2 pt-4">
+        <div className="flex w-full items-center gap-2">
+          <QuantityStepper
+            value={quantity}
+            onChange={setQuantity}
+            min={minQuantity}
+          />
+          <Button type="button" className="min-w-0 flex-1" onClick={handleAdd}>
+            {added ? (
+              <>
+                <Check className="size-4" />
+                <span className="truncate">{t('collection.added')}</span>
+              </>
+            ) : (
+              <>
+                <ShoppingBag className="size-4" />
+                <span className="truncate">{t('collection.addToCart')}</span>
+              </>
             )}
-          </ul>
-        )}
-
-        <div className="mt-auto space-y-3 pt-2">
-          <p className="font-display text-2xl font-bold text-primary">
-            {formatPrice(bundle.price, bundle.currency)}
-            <span className="ml-1 text-sm font-normal text-muted-foreground">
-              {t('common.each')}
-            </span>
-          </p>
-
-          {minQuantity > 1 && (
-            <p className="text-xs text-muted-foreground">
-              {t('collection.minQuantity', { count: minQuantity })}
-            </p>
-          )}
-
-          <div className="flex items-center gap-2">
-            <div className="flex items-center rounded-brand border border-border">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-none"
-                aria-label={t('cart.decrease')}
-                disabled={quantity <= minQuantity}
-                onClick={() => setQuantity((q) => Math.max(minQuantity, q - 1))}
-              >
-                <Minus className="size-4" />
-              </Button>
-              <span className="min-w-8 text-center text-sm tabular-nums">
-                {quantity}
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-none"
-                aria-label={t('cart.increase')}
-                onClick={() => setQuantity((q) => q + 1)}
-              >
-                <Plus className="size-4" />
-              </Button>
-            </div>
-
-            <Button type="button" className="flex-1" onClick={handleAdd}>
-              {added ? (
-                <>
-                  <Check className="size-4" />
-                  {t('collection.added')}
-                </>
-              ) : (
-                <>
-                  <ShoppingBag className="size-4" />
-                  {t('collection.addToCart')}
-                </>
-              )}
-            </Button>
-          </div>
-
-          {allowCustomization ? (
-            <Button asChild variant="ghost" size="sm" className="w-full">
-              <Link to={`/build-box?bundle=${encodeURIComponent(bundle.id)}`}>
-                <Pencil className="size-4" />
-                {t('collection.customise')}
-              </Link>
-            </Button>
-          ) : (
-            <p className="text-center text-xs text-muted-foreground">
-              {t('collection.buyOnlyNote')}
-            </p>
-          )}
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+        {allowCustomization && (
+          <Button asChild variant="ghost" size="sm">
+            <Link to={`/build-box?bundle=${encodeURIComponent(bundle.id)}`}>
+              <Pencil className="size-4" />
+              {t('collection.customise')}
+            </Link>
+          </Button>
+        )}
+      </div>
+    </article>
   )
 }

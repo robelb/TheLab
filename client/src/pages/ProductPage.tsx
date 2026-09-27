@@ -10,6 +10,7 @@ import { useRelatedProducts } from '@/hooks/use-related-products'
 import { getProductDisplayImage } from '@/lib/productImage'
 import { readProductDesign, writeProductDesign } from '@/lib/productDesign'
 import { AddToCartButton } from '@/components/AddToCartButton'
+import { QuantityStepper } from '@/components/QuantityStepper'
 import { ProductCard } from '@/components/ProductCard'
 import { ProductCardSkeleton } from '@/components/ProductCardSkeleton'
 import { ProductDetailSkeleton } from '@/components/ProductDetailSkeleton'
@@ -47,6 +48,13 @@ export function ProductPage() {
     inFunnel ? collectionTag : undefined,
   )
   const [activeIndex, setActiveIndex] = useState(0)
+  const minQuantity = Math.max(1, product?.minQuantity ?? 1)
+  const [quantity, setQuantity] = useState(minQuantity)
+  // Related products link here too, so the page stays mounted across ids:
+  // a new product starts again from its own minimum.
+  useEffect(() => {
+    setQuantity(minQuantity)
+  }, [product?.id, minQuantity])
   /**
    * The design this shopper made for this product, if any.
    *
@@ -100,7 +108,7 @@ export function ProductPage() {
   function addBundleToCart() {
     const box = bundleToBoxDetails(product!)
     if (!box) return
-    addItem(product!, Math.max(1, product!.minQuantity ?? 1), box)
+    addItem(product!, quantity, box)
   }
 
   const coverImage = getProductDisplayImage(product, brandGeneration)
@@ -308,18 +316,32 @@ export function ProductPage() {
                 </Button>
               )}
             </div>
-            {isBundle ? (
-              <Button
-                type="button"
-                size="lg"
-                disabled={product.stock === 0}
-                onClick={addBundleToCart}
-              >
-                {t('product.addToCart')}
-              </Button>
-            ) : (
-              <AddToCartButton product={product} disabled={product.stock === 0} />
-            )}
+            <div className="flex items-center gap-2">
+              <QuantityStepper
+                value={quantity}
+                onChange={setQuantity}
+                min={minQuantity}
+                className="h-11"
+              />
+              {isBundle ? (
+                <Button
+                  type="button"
+                  size="lg"
+                  className="flex-1"
+                  disabled={product.stock === 0}
+                  onClick={addBundleToCart}
+                >
+                  {t('product.addToCart')}
+                </Button>
+              ) : (
+                <AddToCartButton
+                  product={product}
+                  quantity={quantity}
+                  className="flex-1"
+                  disabled={product.stock === 0}
+                />
+              )}
+            </div>
           </div>
 
           {/* The design is not a preview — it is what the basket will carry, so

@@ -150,6 +150,8 @@ export interface ListProductsParams {
   kind?: ProductKind
   /** Product ids to leave out — the ones a picker already holds. */
   exclude?: string[]
+  /** Category slugs to leave out, e.g. box add-ons on a landing page's grid. */
+  excludeCategories?: string[]
 }
 
 /** How the server understood a free-text query (price bound extracted by the LLM). */

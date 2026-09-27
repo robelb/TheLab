@@ -23,6 +23,8 @@
     "backToCollection": "Back to the collection"
   },
   "collection": {
+    "searchPlaceholder": "Search this collection…",
+    "noMatches": "Nothing here matches “{{q}}”.",
     "notFound": "This page is no longer available",
     "notFoundBody": "The offer you followed has ended. The full shop is still here.",
     "browseShop": "Browse the shop",
@@ -35,17 +37,16 @@
     "moreProductsBody": "Everything below can go into a box of your own.",
     "noProducts": "Nothing here yet — build a box from the full catalogue instead.",
     "inside": "What is inside",
-    "addToCart": "Add to cart",
     "customise": "Customise",
-    "added": "Added to your cart",
-    "minQuantity": "From {{count}} boxes",
-    "buyOnlyNote": "Ready to order as they are.",
     "moreProductsBuyOnly": "Everything below can be ordered on its own.",
     "readyBoxesBodyBuyOnly": "Pick one and we quote it. Nothing is charged here.",
     "noProductsBuyOnly": "Nothing else here yet — the boxes above are ready to order.",
     "showMore": "Show more",
     "showingOf": "Showing {{shown}} of {{total}}",
-    "moreContents": "+{{count}} more"
+    "addToCart": "Add to cart",
+    "added": "Added to your cart",
+    "minQuantity": "From {{count}} boxes",
+    "exclVat": "excl. VAT"
   },
   "product": {
     "addToCart": "Add to cart",
@@ -71,6 +72,7 @@
     "youMightAlsoLike": "You might also like"
   },
   "cart": {
+    "quantity": "Quantity",
     "title": "Cart",
     "empty": "Your cart is empty",
     "emptyBody": "Browse the {{company}} collection and add something you love.",
@@ -169,6 +171,7 @@
     "NOT_FOUND": "We could not find that."
   },
   "card": {
+    "addFailed": "Could not add this to the cart",
     "added": "Added",
     "addShort": "Add",
     "addToCart": "Add to cart",
@@ -245,6 +248,7 @@
     "workEmailHint": "We use its domain to set up your company's brand."
   },
   "buildBox": {
+    "boxBadge": "Box",
     "backToShop": "Back to shop",
     "editTitle": "Edit your box",
     "buildTitle": "Build your box",

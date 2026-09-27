@@ -78,6 +78,25 @@ export const productsQuerySchema = z
       .transform((v) => (v ? v.toLowerCase() : undefined)),
     // `bundle` narrows to pre-configured boxes; `single` to ordinary items.
     kind: z.enum(['single', 'bundle']).optional(),
+    // Comma-separated category slugs to leave out — a landing page's grid has
+    // no use for the cards and stickers that only make sense inside a box.
+    // Anything that is not a slug is dropped, not refused.
+    excludeCategories: z
+      .string()
+      .max(1000)
+      .optional()
+      .transform((v) =>
+        v
+          ? [
+              ...new Set(
+                v
+                  .split(',')
+                  .map((s) => s.trim().toLowerCase())
+                  .filter((s) => /^[a-z0-9-]{1,64}$/.test(s)),
+              ),
+            ].slice(0, 20)
+          : undefined,
+      ),
     // Comma-separated ids to leave out: a picker's already-chosen products.
     // Filtered here rather than after the fetch, so a page of 20 is 20 the
     // caller can use. Anything that is not a uuid is dropped, not refused.

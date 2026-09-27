@@ -50,11 +50,16 @@ export interface CollectionProductsParams {
   limit: number
   q?: string
   kind?: 'single' | 'bundle'
+  /** Leave out the boxes the page leads with; they have their own table. */
+  excludeFeatured?: boolean
 }
 
 export interface CollectionProductsPage {
   data: Product[]
-  /** Every id in the collection within `kind`, whatever the page or search. */
+  /**
+   * Every id in the collection within `kind` (less the featured boxes, when
+   * asked), whatever the page or search.
+   */
   ids: string[]
   pagination: ProductsPagination
 }
@@ -72,6 +77,7 @@ export async function fetchCollectionProducts(
         limit: params.limit,
         ...(params.q?.trim() ? { q: params.q.trim() } : {}),
         ...(params.kind ? { kind: params.kind } : {}),
+        ...(params.excludeFeatured ? { excludeFeatured: 'true' } : {}),
       },
     },
   )

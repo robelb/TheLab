@@ -57,6 +57,15 @@ export const collectionMembersQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   q: z.string().trim().max(200).optional(),
   kind: z.enum(['single', 'bundle']).optional(),
+  /**
+   * Leave out the boxes the page leads with. They carry the tag like
+   * everything else, but they have a table of their own; the "additional
+   * products" table lists singles and boxes alike, minus those.
+   */
+  excludeFeatured: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
 })
 
 export type CollectionMembersQuery = z.infer<typeof collectionMembersQuerySchema>

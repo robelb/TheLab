@@ -32,6 +32,8 @@ export interface FetchProductsParams {
   kind?: 'single' | 'bundle'
   /** Ids to leave out of the results, e.g. what a picker already holds. */
   exclude?: string[]
+  /** Category slugs to leave out of the results. */
+  excludeCategories?: string[]
 }
 
 export interface ImageSearchParams {
@@ -112,6 +114,9 @@ export async function fetchProducts(
   }
   if (params.exclude?.length) {
     search.exclude = params.exclude.join(',')
+  }
+  if (params.excludeCategories?.length) {
+    search.excludeCategories = params.excludeCategories.join(',')
   }
 
   const { data } = await apiClient.get<ProductsResponse>('/products', {

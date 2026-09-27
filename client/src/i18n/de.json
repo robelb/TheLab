@@ -23,6 +23,8 @@
     "backToCollection": "Zurück zur Kollektion"
   },
   "collection": {
+    "searchPlaceholder": "In dieser Kollektion suchen…",
+    "noMatches": "Nichts passt zu „{{q}}“.",
     "notFound": "Diese Seite ist nicht mehr verfügbar",
     "notFoundBody": "Die Aktion, der Sie gefolgt sind, ist beendet. Der komplette Shop ist weiterhin da.",
     "browseShop": "Zum Shop",
@@ -35,17 +37,16 @@
     "moreProductsBody": "Alles hier unten passt in Ihre eigene Box.",
     "noProducts": "Hier ist noch nichts — stellen Sie stattdessen eine Box aus dem gesamten Sortiment zusammen.",
     "inside": "Das ist drin",
-    "addToCart": "In den Warenkorb",
     "customise": "Anpassen",
-    "added": "Zum Warenkorb hinzugefügt",
-    "minQuantity": "Ab {{count}} Boxen",
-    "buyOnlyNote": "Direkt bestellbar, wie sie sind.",
     "moreProductsBuyOnly": "Alles hier unten können Sie einzeln bestellen.",
     "readyBoxesBodyBuyOnly": "Wählen Sie eine aus, und wir erstellen Ihnen ein Angebot. Hier wird nichts berechnet.",
     "noProductsBuyOnly": "Hier ist sonst noch nichts — die Boxen oben können Sie direkt bestellen.",
     "showMore": "Mehr anzeigen",
     "showingOf": "{{shown}} von {{total}}",
-    "moreContents": "+{{count}} weitere"
+    "addToCart": "In den Warenkorb",
+    "added": "Zum Warenkorb hinzugefügt",
+    "minQuantity": "Ab {{count}} Boxen",
+    "exclVat": "exkl. MwSt."
   },
   "product": {
     "addToCart": "In den Warenkorb",
@@ -71,6 +72,7 @@
     "youMightAlsoLike": "Das könnte Ihnen auch gefallen"
   },
   "cart": {
+    "quantity": "Menge",
     "title": "Warenkorb",
     "empty": "Ihr Warenkorb ist leer",
     "emptyBody": "Stöbern Sie durch das Sortiment von {{company}} und legen Sie etwas hinein.",
@@ -169,6 +171,7 @@
     "NOT_FOUND": "Das konnten wir nicht finden."
   },
   "card": {
+    "addFailed": "Konnte nicht in den Warenkorb gelegt werden",
     "added": "Hinzugefügt",
     "addShort": "Hinzufügen",
     "addToCart": "In den Warenkorb",
@@ -245,6 +248,7 @@
     "workEmailHint": "Über die Domain richten wir die Marke Ihrer Firma ein."
   },
   "buildBox": {
+    "boxBadge": "Box",
     "backToShop": "Zurück zum Shop",
     "editTitle": "Box bearbeiten",
     "buildTitle": "Box zusammenstellen",

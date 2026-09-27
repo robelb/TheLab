@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Loader2, Plus, Search, X } from 'lucide-react'
+import { Loader2, Package, Plus, Search, X } from 'lucide-react'
 import { AddProductDialog } from '@/components/AddProductDialog'
 import { TablePagination } from '@/components/dashboard/TablePagination'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -26,12 +27,12 @@ import type { Product } from '@/types/product'
 import { ProductImage } from '@/components/ProductImage'
 
 /**
- * The single items listed under the boxes on a landing page.
+ * What a landing page lists under the boxes it leads with — single items and
+ * other boxes alike.
  *
  * Paged and searched on the server: a collection filled from an import holds
- * hundreds of these. Boxes carry the tag too, but the public page never lists
- * one down here, so this table asks for single items only — the boxes have a
- * table of their own above.
+ * hundreds of these. The boxes shown first carry the tag too, but they have a
+ * table of their own above, so this one leaves them out.
  *
  * Changes save on the spot, unlike the boxes' running order, and adding or
  * removing any number of rows is one request.
@@ -52,13 +53,16 @@ export function CollectionProductsTable({
     page,
     limit,
     q,
-    kind: 'single',
+    excludeFeatured: true,
   })
   const setMembers = useSetCollectionProducts(collection.id)
 
   const rows = query.data?.data ?? []
   const pagination = query.data?.pagination
   const memberIds = query.data?.ids ?? []
+  // The picker hides what is already on the page, headline boxes included —
+  // adding one of those here would change nothing.
+  const onPageIds = [...memberIds, ...(collection.featuredBundleIds ?? [])]
   const loading = query.isPending || (query.isFetching && query.isPlaceholderData)
 
   // Removing the last rows of the last page leaves the table on a page that no
@@ -146,7 +150,7 @@ export function CollectionProductsTable({
           onClick={() => setPicking(true)}
         >
           <Plus className="size-4" />
-          Add products
+          Add products or boxes
         </Button>
       </div>
 
@@ -159,7 +163,7 @@ export function CollectionProductsTable({
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="Search this collection…"
+            placeholder="Search by name or SKU…"
             className="pl-9"
           />
         </div>
@@ -281,7 +285,18 @@ export function CollectionProductsTable({
                         loading="lazy"
                       />
                       <div className="min-w-0">
-                        <p className="truncate font-medium">{product.name}</p>
+                        <p className="flex min-w-0 items-center gap-2 font-medium">
+                          <span className="truncate">{product.name}</span>
+                          {product.kind === 'bundle' && (
+                            <Badge
+                              variant="secondary"
+                              className="shrink-0 gap-1 px-1.5 py-0 text-[10px]"
+                            >
+                              <Package className="size-3" />
+                              Box
+                            </Badge>
+                          )}
+                        </p>
                         <p className="truncate text-xs text-muted-foreground">
                           {product.sku}
                         </p>
@@ -332,12 +347,9 @@ export function CollectionProductsTable({
         open={picking}
         onOpenChange={setPicking}
         // Every id already in, not just this page's — the server sends them.
-        existingIds={memberIds}
+        existingIds={onPageIds}
         onAddMany={add}
-        title="Add products to this collection"
-        // Boxes go in through the boxes table: one added here would carry the
-        // tag and still never show, since this section lists single items.
-        kind="single"
+        title="Add products or boxes to this collection"
       />
     </section>
   )

@@ -1,19 +1,29 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Gift, Loader2 } from 'lucide-react'
+import { Gift, Loader2, Search } from 'lucide-react'
 import { usePostHog } from '@posthog/react'
 import { useCollection } from '@/hooks/use-collections'
 import { useFunnel, useFunnelLink } from '@/context/FunnelContext'
 import { useTaggedProducts } from '@/hooks/use-products'
 import { hasChosenLocale, isLocale, type Locale } from '@/i18n'
+import { CARDS_STICKERS_SLUG, FILLING_SLUG, PACKAGING_SLUG } from '@/lib/box'
 import { rememberFunnelEntry } from '@/lib/funnel'
 import { useAuth } from '@/context/AuthContext'
+import { useDebounce } from '@/hooks/use-debounce'
 import { useDocumentMeta } from '@/hooks/use-document-meta'
 import { BundleCard } from '@/components/BundleCard'
 import { ProductCard } from '@/components/ProductCard'
 import { ProductCardSkeleton } from '@/components/ProductCardSkeleton'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+
+/**
+ * What never makes the grid under the boxes: the box itself, what it is filled
+ * with, and the cards and stickers that go in with the products. All of them
+ * belong to building a box, not to shopping — and the builder still offers them.
+ */
+const NOT_IN_GRID = [PACKAGING_SLUG, FILLING_SLUG, CARDS_STICKERS_SLUG]
 
 /**
  * Where an ad click lands.
@@ -73,10 +83,16 @@ export function CollectionPage() {
     description: collection?.subtitle ? pick(collection.subtitle) : null,
   })
 
-  // The rest of the catalogue for this occasion, bundles excluded — they are
-  // already the headline above.
-  // Held until the collection says which occasion to filter by.
-  const catalogue = useTaggedProducts(collection?.tag, 'single')
+  // The rest of the catalogue for this occasion: single items and any boxes
+  // not already leading the page above, less the box-building supplies. Held
+  // until the collection says which occasion to filter by.
+  const [search, setSearch] = useState('')
+  const q = useDebounce(search, 300).trim()
+  const catalogue = useTaggedProducts(collection?.tag, {
+    q,
+    exclude: collection?.featuredBundleIds,
+    excludeCategories: NOT_IN_GRID,
+  })
   const funnelLink = useFunnelLink()
   // An ended campaign lets go of its visitors, so this is the shop there —
   // and another campaign they are still inside, if they are.
@@ -168,15 +184,28 @@ export function CollectionPage() {
       )}
 
       <section className="space-y-5">
-        <div className="space-y-1">
-          <h2 className="font-display text-2xl font-semibold">
-            {t('collection.moreProducts')}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {collection.allowCustomization
-              ? t('collection.moreProductsBody')
-              : t('collection.moreProductsBuyOnly')}
-          </p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="space-y-1">
+            <h2 className="font-display text-2xl font-semibold">
+              {t('collection.moreProducts')}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {collection.allowCustomization
+                ? t('collection.moreProductsBody')
+                : t('collection.moreProductsBuyOnly')}
+            </p>
+          </div>
+          <div className="relative w-full sm:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('collection.searchPlaceholder')}
+              aria-label={t('collection.searchPlaceholder')}
+              className="pl-9"
+            />
+          </div>
         </div>
 
         {catalogue.isPending ? (
@@ -185,6 +214,10 @@ export function CollectionPage() {
               <ProductCardSkeleton key={i} />
             ))}
           </div>
+        ) : products.length === 0 && q ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            {t('collection.noMatches', { q })}
+          </p>
         ) : products.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {collection.allowCustomization

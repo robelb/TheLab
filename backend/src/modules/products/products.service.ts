@@ -144,6 +144,10 @@ function buildNonTextFilters(params: ListProductsParams) {
     conditions.push(notInArray(products.id, params.exclude))
   }
 
+  if (params.excludeCategories?.length) {
+    conditions.push(notInArray(categories.slug, params.excludeCategories))
+  }
+
   return conditions
 }
 
@@ -429,6 +433,13 @@ async function semanticSearch(
     const ids = params.exclude.filter((id) => /^[0-9a-f-]{36}$/i.test(id))
     if (ids.length > 0) {
       clauses.push(`p.id NOT IN (${ids.map((id) => `'${id}'`).join(', ')})`)
+    }
+  }
+  if (params.excludeCategories?.length) {
+    // Slugs only, per the query schema; re-checked for the same reason.
+    const slugs = params.excludeCategories.filter((s) => /^[a-z0-9-]+$/.test(s))
+    if (slugs.length > 0) {
+      clauses.push(`c.slug NOT IN (${slugs.map((s) => `'${s}'`).join(', ')})`)
     }
   }
 

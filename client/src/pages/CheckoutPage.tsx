@@ -3,13 +3,19 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { usePostHog } from '@posthog/react'
 import { isAxiosError } from 'axios'
-import { Loader2 } from 'lucide-react'
+import { ChevronRight, Loader2 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { useBrand } from '@/context/BrandContext'
 import { useAuth } from '@/context/AuthContext'
 import { useCreateOrder } from '@/hooks/use-orders'
 import type { OrderItem } from '@/api/orders'
-import { boxAllLines, shippingFor, VAT_RATE, vatFor } from '@/lib/box'
+import {
+  boxAllLines,
+  boxPieceCount,
+  shippingFor,
+  VAT_RATE,
+  vatFor,
+} from '@/lib/box'
 import {
   attributionProperties,
   clearAttribution,
@@ -353,16 +359,25 @@ export function CheckoutPage() {
                       {formatPrice(product.price * quantity, product.currency)}
                     </span>
                   </div>
-                  {/* A box ships as one line — say what's in it, packaging
-                      and filling included, since both are charged for. */}
+                  {/* A box ships as one line, so what's in it — packaging and
+                      filling included, since both are charged for — is one
+                      click away rather than spelled out, which turned a
+                      summary of two boxes into a parts list. */}
                   {box && (
-                    <ul className="ml-2 border-l border-border/40 pl-3 text-xs text-muted-foreground">
-                      {boxAllLines(box).map((line) => (
-                        <li key={line.productId} className="truncate">
-                          {line.name} × {line.quantity}
-                        </li>
-                      ))}
-                    </ul>
+                    <details className="group">
+                      <summary className="flex cursor-pointer list-none items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+                        <ChevronRight className="size-3.5 shrink-0 transition-transform group-open:rotate-90" />
+                        {t('cart.insideBox')} ·{' '}
+                        {t('common.item', { count: boxPieceCount(box.lines) })}
+                      </summary>
+                      <ul className="mt-1 ml-1.5 border-l border-border/40 pl-3 text-xs text-muted-foreground">
+                        {boxAllLines(box).map((line) => (
+                          <li key={line.productId} className="truncate">
+                            {line.name} × {line.quantity}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
                   )}
                 </li>
               ))}

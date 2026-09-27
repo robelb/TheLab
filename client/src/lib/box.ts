@@ -11,6 +11,11 @@ export const BOX_SKU_PREFIX = 'BOX-'
  */
 export const PACKAGING_SLUG = 'packaging'
 export const FILLING_SLUG = 'filling-materials'
+/**
+ * Greeting cards and logo stickers: they go into a box, priced at nothing on
+ * their own, so a landing page's product grid leaves them out.
+ */
+export const CARDS_STICKERS_SLUG = 'cards-stickers'
 
 export function isBoxSku(sku?: string): boolean {
   return Boolean(sku?.startsWith(BOX_SKU_PREFIX))

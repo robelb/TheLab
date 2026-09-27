@@ -39,6 +39,7 @@ const FIELD_LABELS: Record<string, string> = {
   limit: 'Rows per page',
   q: 'Search',
   kind: 'Kind',
+  excludeFeatured: 'Leave out featured boxes',
 }
 
 /**

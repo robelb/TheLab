@@ -229,7 +229,8 @@ async function tagOf(collectionId: string): Promise<string | null> {
 export interface CollectionMembersPage {
   data: ProductWithCategory[]
   /**
-   * Every id carrying the tag within `kind`, ignoring the search and the page.
+   * Every id carrying the tag within `kind` (less the featured boxes, when
+   * asked), ignoring the search and the page.
    *
    * Only uuids, so cheap to send: it is what lets the product picker leave out
    * what is already here without the screen holding every product.
@@ -259,6 +260,7 @@ export async function listCollectionMembers(
     limit?: number
     q?: string
     kind?: 'single' | 'bundle'
+    excludeFeatured?: boolean
     companyId?: string
   } = {},
 ): Promise<CollectionMembersPage> {
@@ -277,15 +279,24 @@ export async function listCollectionMembers(
     },
   }
 
-  const tag = await tagOf(collectionId)
-  if (!tag) return empty
+  const [collection] = await db
+    .select({
+      tag: collections.tag,
+      featuredBundleIds: collections.featuredBundleIds,
+    })
+    .from(collections)
+    .where(eq(collections.id, collectionId))
+    .limit(1)
+  if (!collection?.tag) return empty
 
-  const tagged = JSON.stringify([tag])
+  const tagged = JSON.stringify([collection.tag])
   const kind = opts.kind ?? null
+  const featured = opts.excludeFeatured ? collection.featuredBundleIds : []
   const rows = (await rawSql`
     SELECT id, name, sku FROM products
      WHERE tags @> ${tagged}::jsonb
        AND (${kind}::text IS NULL OR kind = ${kind}::text)
+       AND NOT (id = ANY(${featured}::uuid[]))
      ORDER BY kind DESC, name ASC
   `) as { id: string; name: string; sku: string | null }[]
 
