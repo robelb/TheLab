@@ -23,6 +23,8 @@
     "backToCollection": "Zurück zur Kollektion"
   },
   "collection": {
+    "wholeShop": "Zum gesamten Shop",
+    "wholeShopBody": "Noch etwas anderes gesucht? Der ganze Katalog ist nur einen Klick entfernt.",
     "searchPlaceholder": "In dieser Kollektion suchen…",
     "noMatches": "Nichts passt zu „{{q}}“.",
     "notFound": "Diese Seite ist nicht mehr verfügbar",

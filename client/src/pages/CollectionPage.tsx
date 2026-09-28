@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Gift, Loader2, Search } from 'lucide-react'
+import { ArrowRight, Gift, Loader2, Search } from 'lucide-react'
 import { usePostHog } from '@posthog/react'
 import { useCollection } from '@/hooks/use-collections'
 import { useFunnel, useFunnelLink } from '@/context/FunnelContext'
@@ -255,6 +255,27 @@ export function CollectionPage() {
             )}
           </>
         )}
+      </section>
+
+      {/* The way out of the campaign. `/` lets go of it, so what follows is
+          the ordinary shop — see `FunnelProvider`. Last on the page, so it is
+          there for anybody who has seen the offer and wants more, without
+          competing with the offer itself. */}
+      <section className="flex flex-col items-center gap-3 border-t border-border/40 pt-10 text-center">
+        <p className="text-sm text-muted-foreground">
+          {t('collection.wholeShopBody')}
+        </p>
+        <Button asChild variant="outline" size="lg">
+          <Link
+            to="/"
+            onClick={() =>
+              posthog?.capture('collection left for shop', { collection: slug })
+            }
+          >
+            {t('collection.wholeShop')}
+            <ArrowRight className="size-4" />
+          </Link>
+        </Button>
       </section>
     </div>
   )

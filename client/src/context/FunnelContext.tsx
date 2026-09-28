@@ -5,7 +5,7 @@ import {
   useMemo,
   type ReactNode,
 } from 'react'
-import { Navigate, useLocation, useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { usePostHog } from '@posthog/react'
 import { useAuth } from '@/context/AuthContext'
@@ -57,12 +57,16 @@ const FunnelContext = createContext<FunnelValue>({
  * cart, the checkout and a product two clicks deep would all be the ordinary
  * shop again.
  *
- * Once inside, there is no way back to the whole shop: a landing page is the
- * shop for somebody who arrived through it. Home is the campaign, and `/`
- * itself sends them there (see `ShopGate`). The lock lets go by itself when the
- * campaign ends or lapses — see `lib/funnel` — and never applies to the
- * platform's own administrators, who open these pages to check them and still
- * need the rest of the site afterwards.
+ * Inside a campaign, home is the campaign: the logo and every "back to shop"
+ * lead to its page, so somebody from an ad is not dropped into the whole
+ * catalogue by accident. The shop's front page is the way out — the "whole
+ * shop" button at the foot of a landing page, or `/` typed in — and opening it
+ * lets go of the lock, so the rest of the visit is the ordinary shop. The lock
+ * also lets go by itself when the campaign ends or lapses — see `lib/funnel` —
+ * and never applies to the platform's own administrators.
+ *
+ * Leaving drops the lock only. The entry that attributes a later request to
+ * the campaign that brought them in stays until that request is sent.
  */
 export function FunnelProvider({ children }: { children: ReactNode }) {
   const location = useLocation()
@@ -75,7 +79,13 @@ export function FunnelProvider({ children }: { children: ReactNode }) {
   // table so it can wrap the chrome, and there are no params to read up here.
   const onCollection = location.pathname.match(/^\/c\/([^/]+)/)
   const fromParam = searchParams.get('from')
-  const lock = loadCampaignLock()
+  // The shop's front page is outside every campaign, whoever opens it.
+  const onShopFront = location.pathname === '/'
+  const lock = onShopFront ? null : loadCampaignLock()
+
+  useEffect(() => {
+    if (onShopFront) clearCampaignLock()
+  }, [onShopFront])
 
   const slug = staff
     ? // Staff still see a campaign's version of the page they are on, so a
@@ -146,22 +156,6 @@ export function FunnelProvider({ children }: { children: ReactNode }) {
 
 export function useFunnel(): FunnelValue {
   return useContext(FunnelContext)
-}
-
-/**
- * The shop's front page, unless this visit belongs to a campaign.
- *
- * Wraps the `/` route. The links are already pointed elsewhere, but `/` is
- * still one typed URL, one back button or one bookmark away — so the page
- * itself sends a campaign visitor back to their campaign. Waits for the account
- * to be known, or an administrator would be bounced before their session had
- * restored.
- */
-export function ShopGate({ children }: { children: ReactNode }) {
-  const { inFunnel, shopHome, ready } = useFunnel()
-  if (!ready) return null
-  if (inFunnel) return <Navigate to={shopHome} replace />
-  return <>{children}</>
 }
 
 /**

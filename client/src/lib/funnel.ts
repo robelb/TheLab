@@ -11,9 +11,10 @@
  *
  * - The *lock* is what the visitor is inside. A landing page is the whole shop
  *   for somebody who arrived through it, so while it holds, the storefront's
- *   home and every "back to shop" lead to that page instead. It survives
+ *   logo and every "back to shop" lead to that page instead. It survives
  *   checkout — sending a request is no reason to hand them the catalogue —
- *   and lapses on its own after `LOCK_TTL_MS`, or when the campaign ends.
+ *   and ends when they open the shop's front page themselves, after
+ *   `LOCK_TTL_MS`, or when the campaign ends.
  */
 
 const FUNNEL_KEY = 'atelier-funnel'
@@ -158,7 +159,7 @@ function migrateLegacyEntry(): CampaignLock | null {
   return lock
 }
 
-/** Let them out — the campaign ended, or the lock lapsed. */
+/** Let them out — they went to the shop, the campaign ended, or the lock lapsed. */
 export function clearCampaignLock(): void {
   try {
     localStorage.removeItem(LOCK_KEY)

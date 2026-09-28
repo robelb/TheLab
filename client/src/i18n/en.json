@@ -23,6 +23,8 @@
     "backToCollection": "Back to the collection"
   },
   "collection": {
+    "wholeShop": "Go to the main shop",
+    "wholeShopBody": "Looking for something else? The whole catalogue is one click away.",
     "searchPlaceholder": "Search this collection…",
     "noMatches": "Nothing here matches “{{q}}”.",
     "notFound": "This page is no longer available",
