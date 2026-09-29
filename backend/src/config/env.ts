@@ -56,8 +56,18 @@ export const env = {
   LEAD_INTAKE_TOKEN: process.env.LEAD_INTAKE_TOKEN?.trim() ?? '',
   LEAD_INTAKE_TIMEOUT_MS: Number(process.env.LEAD_INTAKE_TIMEOUT_MS) || 10_000,
 
-  // Email via Resend. Leave RESEND_API_KEY blank to keep emails queued in
-  // `outbound_events` without sending; setting it later sends the backlog.
+  // Email via SMTP (Nodemailer) when SMTP_HOST is set — any mailbox, e.g. a
+  // personal Gmail with an app password, sending to anyone without a verified
+  // domain. Otherwise via Resend. Leave both blank to keep emails queued in
+  // `outbound_events` without sending; configuring one later sends the backlog.
+  SMTP_HOST: process.env.SMTP_HOST?.trim() ?? '',
+  SMTP_PORT: Number(process.env.SMTP_PORT) || 465,
+  // Implicit TLS (465). Port 587 upgrades with STARTTLS instead, so defaults off there.
+  SMTP_SECURE: process.env.SMTP_SECURE
+    ? process.env.SMTP_SECURE.trim() === 'true'
+    : (Number(process.env.SMTP_PORT) || 465) === 465,
+  SMTP_USER: process.env.SMTP_USER?.trim() ?? '',
+  SMTP_PASS: process.env.SMTP_PASS?.trim() ?? '',
   RESEND_API_KEY: process.env.RESEND_API_KEY?.trim() ?? '',
   MAIL_FROM:
     process.env.MAIL_FROM?.trim() || 'big little things <bestellung@biglittlethings.de>',
