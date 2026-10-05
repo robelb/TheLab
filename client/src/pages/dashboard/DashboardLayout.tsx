@@ -11,6 +11,7 @@ import {
 const PAGE_TITLES: { match: (path: string) => boolean; title: string }[] = [
   { match: (p) => p === '/dashboard', title: 'Overview' },
   { match: (p) => p.startsWith('/dashboard/products'), title: 'Products' },
+  { match: (p) => p.startsWith('/dashboard/featured'), title: 'Featured products' },
   { match: (p) => p.startsWith('/dashboard/campaign'), title: 'Campaign' },
   { match: (p) => p.startsWith('/dashboard/branding'), title: 'Branding' },
   { match: (p) => p.startsWith('/dashboard/orders'), title: 'Requests' },

@@ -2,6 +2,7 @@ import { Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CategoryFilter } from '@/components/dashboard/CategoryFilter'
+import { FeaturedBulkActions } from '@/components/dashboard/FeaturedBulkActions'
 import { ProductFormDialog } from '@/components/dashboard/ProductFormDialog'
 import { TablePagination } from '@/components/dashboard/TablePagination'
 import {
@@ -16,6 +17,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -26,10 +28,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useAuth } from '@/context/AuthContext'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useDeleteProduct } from '@/hooks/use-product-mutations'
 import { notifyError, notifySaved } from '@/lib/notify'
 import { useProducts } from '@/hooks/use-products'
+import { useRowSelection } from '@/hooks/use-row-selection'
 import { isSupplyCategory } from '@/lib/box'
 import { PAGE_SIZE_OPTIONS, type PageSize } from '@/types/product'
 import type { Product } from '@/types/product'
@@ -62,8 +66,14 @@ export function ProductsAdminPage() {
     includeSupplies: true,
   })
   const deleteMutation = useDeleteProduct()
+  // Featured is global — it orders every company's shop — so only a super
+  // admin gets the checkboxes and the bulk featured actions.
+  const { can } = useAuth()
+  const canFeature = can('manage_all')
 
   const products = data?.data ?? []
+  const selection = useRowSelection(products.map((p) => p.id))
+  const columnCount = canFeature ? 6 : 5
   const pagination = data?.pagination
   // Skeleton on the first load *and* on every refetch (page/size/search change),
   // since keepPreviousData means isLoading is only true on the very first fetch.
@@ -130,6 +140,12 @@ export function ProductsAdminPage() {
             setPage(1)
           }}
         />
+        {canFeature && (
+          <FeaturedBulkActions
+            selected={selection.selected}
+            onDone={selection.clear}
+          />
+        )}
       </div>
 
       {error && (
@@ -142,6 +158,16 @@ export function ProductsAdminPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40">
+              {canFeature && (
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={selection.pageState}
+                    onCheckedChange={selection.togglePage}
+                    disabled={showSkeleton || products.length === 0}
+                    aria-label="Select every product on this page"
+                  />
+                </TableHead>
+              )}
               <TableHead>Product</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Price</TableHead>
@@ -153,6 +179,11 @@ export function ProductsAdminPage() {
             {showSkeleton &&
               Array.from({ length: skeletonRows }).map((_, i) => (
                 <TableRow key={`skeleton-${i}`}>
+                  {canFeature && (
+                    <TableCell>
+                      <Skeleton className="size-4" />
+                    </TableCell>
+                  )}
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Skeleton className="size-10 shrink-0 rounded-brand" />
@@ -183,7 +214,7 @@ export function ProductsAdminPage() {
             {!showSkeleton && products.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={columnCount}
                   className="py-10 text-center text-muted-foreground"
                 >
                   No products found.
@@ -193,7 +224,19 @@ export function ProductsAdminPage() {
 
             {!showSkeleton &&
               products.map((p) => (
-              <TableRow key={p.id}>
+              <TableRow
+                key={p.id}
+                data-state={selection.selected.has(p.id) ? 'selected' : undefined}
+              >
+                {canFeature && (
+                  <TableCell>
+                    <Checkbox
+                      checked={selection.selected.has(p.id)}
+                      onCheckedChange={() => selection.toggle(p.id)}
+                      aria-label={`Select ${p.name}`}
+                    />
+                  </TableCell>
+                )}
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <img

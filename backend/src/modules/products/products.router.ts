@@ -1,5 +1,9 @@
 import { Router } from 'express'
-import { optionalAuth } from '../../middleware/auth.js'
+import {
+  optionalAuth,
+  requireAuth,
+  requireCapability,
+} from '../../middleware/auth.js'
 import { createShare } from '../share/share.service.js'
 import {
   createProductSchema,
@@ -10,6 +14,7 @@ import {
   productGalleryImageSchema,
   productIdsQuerySchema,
   productsQuerySchema,
+  setFeaturedSchema,
   updateProductSchema,
 } from './products.schema.js'
 import {
@@ -25,6 +30,7 @@ import {
   listSupplies,
   runProductPhotoshoot,
   searchByImage,
+  setProductsFeatured,
   updateProduct,
 } from './products.service.js'
 import { isUniqueViolation, publicErrorMessage } from '../../lib/dbErrors.js'
@@ -111,6 +117,37 @@ productsRouter.post('/', async (req, res) => {
     res.status(500).json({ error: publicErrorMessage(err, 'Failed to create product') })
   }
 })
+
+// Bulk featured toggle. Featured is global — it orders every company's shop and
+// picks what gets auto-branded at onboarding — so only a super admin may flip
+// it. Registered before `/:id` so the literal segment isn't captured as an id.
+productsRouter.patch(
+  '/featured',
+  requireAuth,
+  requireCapability('manage_all'),
+  async (req, res) => {
+    const parsed = setFeaturedSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: firstZodError(parsed.error) })
+    }
+
+    try {
+      const updated = await setProductsFeatured(
+        parsed.data.ids,
+        parsed.data.isFeatured,
+      )
+      res.json({ updated, isFeatured: parsed.data.isFeatured })
+    } catch (err) {
+      console.warn(
+        '[products] featured update failed:',
+        err instanceof Error ? err.message : err,
+      )
+      res
+        .status(500)
+        .json({ error: publicErrorMessage(err, 'Failed to update featured products') })
+    }
+  },
+)
 
 productsRouter.patch('/:id', async (req, res) => {
   const parsed = updateProductSchema.safeParse(req.body)

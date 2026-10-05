@@ -78,6 +78,12 @@ export const productsQuerySchema = z
       .transform((v) => (v ? v.toLowerCase() : undefined)),
     // `bundle` narrows to pre-configured boxes; `single` to ordinary items.
     kind: z.enum(['single', 'bundle']).optional(),
+    // Featured-status filter for the dashboard's featured view. Absent means
+    // both; the shop never sends it.
+    featured: z
+      .enum(['true', 'false'])
+      .optional()
+      .transform((v) => (v === undefined ? undefined : v === 'true')),
     // Comma-separated category slugs to leave out — a landing page's grid has
     // no use for the cards and stickers that only make sense inside a box.
     // Anything that is not a slug is dropped, not refused.
@@ -262,6 +268,18 @@ export const updateProductSchema = z
   })
 
 export type UpdateProductBody = z.infer<typeof updateProductSchema>
+
+/** Flag or unflag many products as featured in one request. */
+export const setFeaturedSchema = z.object({
+  ids: z
+    .array(z.string().uuid('ids must be valid products'))
+    .min(1, 'Select at least one product')
+    .max(500)
+    .transform((ids) => [...new Set(ids)]),
+  isFeatured: z.boolean(),
+})
+
+export type SetFeaturedBody = z.infer<typeof setFeaturedSchema>
 
 // ---------------------------------------------------------------------------
 // AI product photoshoot (3-image system: style + product + branding)

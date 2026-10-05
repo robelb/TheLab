@@ -148,6 +148,10 @@ function buildNonTextFilters(params: ListProductsParams) {
     conditions.push(notInArray(categories.slug, params.excludeCategories))
   }
 
+  if (params.featured !== undefined) {
+    conditions.push(eq(products.isFeatured, params.featured))
+  }
+
   return conditions
 }
 
@@ -441,6 +445,9 @@ async function semanticSearch(
     if (slugs.length > 0) {
       clauses.push(`c.slug NOT IN (${slugs.map((s) => `'${s}'`).join(', ')})`)
     }
+  }
+  if (params.featured !== undefined) {
+    clauses.push(`p.is_featured = ${params.featured ? 'true' : 'false'}`)
   }
 
   const whereClause = clauses.join(' AND ')
@@ -1352,6 +1359,23 @@ export async function updateProduct(
   }
 
   return getProductById(id, companyId)
+}
+
+/**
+ * Flag or unflag many products as featured at once — the dashboard's bulk
+ * action. Returns the ids that actually exist; unknown ids are skipped.
+ */
+export async function setProductsFeatured(
+  ids: string[],
+  isFeatured: boolean,
+): Promise<string[]> {
+  if (ids.length === 0) return []
+  const rows = await db
+    .update(products)
+    .set({ isFeatured })
+    .where(inArray(products.id, ids))
+    .returning({ id: products.id })
+  return rows.map((r) => r.id)
 }
 
 export async function deleteProduct(id: string): Promise<boolean> {

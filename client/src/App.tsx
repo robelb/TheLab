@@ -30,6 +30,7 @@ import { CompanySettingsPage } from '@/pages/dashboard/CompanySettingsPage'
 import { UsersPage as AdminUsersPage } from '@/pages/admin/UsersPage'
 import { CompaniesPage as AdminCompaniesPage } from '@/pages/admin/CompaniesPage'
 import { CollectionsPage as AdminCollectionsPage } from '@/pages/admin/CollectionsPage'
+import { FeaturedProductsPage } from '@/pages/admin/FeaturedProductsPage'
 import { CollectionDetailPage as AdminCollectionDetailPage } from '@/pages/admin/CollectionDetailPage'
 import { SystemInstructionsPage } from '@/pages/admin/SystemInstructionsPage'
 import { LoginPage } from '@/pages/LoginPage'
@@ -103,6 +104,8 @@ export default function App() {
                   <Route path="orders/:id" element={<OrderDetailPage />} />
                   <Route path="products" element={<ProductsAdminPage />} />
                   <Route path="products/:id" element={<ProductDetailPage />} />
+                  {/* Super-admin only (page self-guards `manage_all`). */}
+                  <Route path="featured" element={<FeaturedProductsPage />} />
                   <Route path="campaign" element={<CampaignsPage />} />
                   <Route path="campaign/:id" element={<CampaignDetailPage />} />
                   <Route path="branding" element={<BrandingPage />} />

@@ -8,6 +8,7 @@ import {
   Package,
   Palette,
   ScrollText,
+  Star,
   Store,
   Users,
 } from 'lucide-react'
@@ -51,6 +52,7 @@ const navItems: NavItem[] = [
 const adminItems: NavItem[] = [
   { to: '/dashboard/admin/users', end: false, label: 'All Users', icon: Users, capability: 'manage_all' },
   { to: '/dashboard/admin/companies', end: false, label: 'All Companies', icon: Building2, capability: 'manage_all' },
+  { to: '/dashboard/featured', end: false, label: 'Featured', icon: Star, capability: 'manage_all' },
   { to: '/dashboard/admin/collections', end: false, label: 'Collections', icon: Link2, capability: 'manage_all' },
   { to: '/dashboard/admin/instructions', end: false, label: 'AI Instructions', icon: ScrollText, capability: 'manage_all' },
 ]

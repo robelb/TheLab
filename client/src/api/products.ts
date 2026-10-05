@@ -34,6 +34,8 @@ export interface FetchProductsParams {
   exclude?: string[]
   /** Category slugs to leave out of the results. */
   excludeCategories?: string[]
+  /** Only featured (`true`) or only non-featured (`false`) products. */
+  featured?: boolean
 }
 
 export interface ImageSearchParams {
@@ -117,6 +119,9 @@ export async function fetchProducts(
   }
   if (params.excludeCategories?.length) {
     search.excludeCategories = params.excludeCategories.join(',')
+  }
+  if (params.featured !== undefined) {
+    search.featured = String(params.featured)
   }
 
   const { data } = await apiClient.get<ProductsResponse>('/products', {
@@ -241,6 +246,18 @@ export async function updateProduct(
     `/products/${encodeURIComponent(id)}`,
     input,
   )
+  return data
+}
+
+/** Flag or unflag many products as featured at once. Super admin only. */
+export async function setProductsFeatured(
+  ids: string[],
+  isFeatured: boolean,
+): Promise<{ updated: string[]; isFeatured: boolean }> {
+  const { data } = await apiClient.patch<{
+    updated: string[]
+    isFeatured: boolean
+  }>('/products/featured', { ids, isFeatured })
   return data
 }
 

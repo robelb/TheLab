@@ -3,6 +3,7 @@ import {
   createProduct,
   deleteProduct,
   saveProductGalleryImage,
+  setProductsFeatured,
   updateProduct,
 } from '@/api/products'
 import {
@@ -48,6 +49,15 @@ export function useSaveProductGalleryImage(productId: string) {
   return useMutation({
     mutationFn: (body: { imageUrl: string; prompt?: string }) =>
       saveProductGalleryImage(productId, body),
+    onSuccess: invalidate,
+  })
+}
+
+export function useSetProductsFeatured() {
+  const invalidate = useInvalidateProducts()
+  return useMutation({
+    mutationFn: ({ ids, isFeatured }: { ids: string[]; isFeatured: boolean }) =>
+      setProductsFeatured(ids, isFeatured),
     onSuccess: invalidate,
   })
 }

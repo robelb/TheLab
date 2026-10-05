@@ -152,6 +152,8 @@ export interface ListProductsParams {
   exclude?: string[]
   /** Category slugs to leave out, e.g. box add-ons on a landing page's grid. */
   excludeCategories?: string[]
+  /** Only featured (`true`) or only non-featured (`false`) products. */
+  featured?: boolean
 }
 
 /** How the server understood a free-text query (price bound extracted by the LLM). */
