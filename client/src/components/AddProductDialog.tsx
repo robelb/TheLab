@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Loader2, Package, Plus, Search } from 'lucide-react'
+import { Loader2, Package, Plus, Search, Star } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   Dialog,
@@ -50,6 +50,8 @@ interface AddProductDialogProps {
    * rather than showing the whole catalogue for a moment.
    */
   tag?: string | null
+  /** List best sellers first, and badge them — the box builder's picker. */
+  bestSellersFirst?: boolean
 }
 
 /**
@@ -67,6 +69,7 @@ export function AddProductDialog({
   onAddMany,
   maxSelect,
   tag,
+  bestSellersFirst,
 }: AddProductDialogProps) {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
@@ -83,6 +86,7 @@ export function AddProductDialog({
       kind,
       exclude,
       tag: tag ?? undefined,
+      bestSellersFirst,
     },
     { enabled: tag !== null },
   )
@@ -181,6 +185,12 @@ export function AddProductDialog({
                   className="size-10 shrink-0 rounded-brand border border-border/40 object-cover"
                 />
                 <span className="min-w-0 flex-1 truncate text-sm">{p.name}</span>
+                {bestSellersFirst && p.isBestSeller && (
+                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                    <Star className="size-3" />
+                    {t('buildBox.bestSellerBadge')}
+                  </span>
+                )}
                 {/* Only worth saying when boxes and items share the list. */}
                 {!kind && p.kind === 'bundle' && (
                   <span className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">

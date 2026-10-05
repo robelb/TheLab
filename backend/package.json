@@ -28,6 +28,7 @@
     "fetch:catalogues": "tsx scripts/fetch-catalogues.ts",
     "flatten:catalogues": "tsx scripts/flatten-catalogues.ts",
     "feature": "tsx scripts/feature-products.ts",
+    "bestsellers": "tsx scripts/set-best-sellers.ts",
     "reset:images": "tsx scripts/reset-generated-images.ts",
     "strip:gallery": "tsx scripts/strip-global-gallery.ts",
     "regenerate:images": "tsx scripts/regenerate-brand-images.ts",

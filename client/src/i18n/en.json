@@ -251,6 +251,7 @@
   },
   "buildBox": {
     "boxBadge": "Box",
+    "bestSellerBadge": "Best seller",
     "backToShop": "Back to shop",
     "editTitle": "Edit your box",
     "buildTitle": "Build your box",

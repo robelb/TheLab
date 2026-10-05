@@ -36,6 +36,8 @@ export interface FetchProductsParams {
   excludeCategories?: string[]
   /** Only featured (`true`) or only non-featured (`false`) products. */
   featured?: boolean
+  /** Put best sellers first — the box builder's picker. */
+  bestSellersFirst?: boolean
 }
 
 export interface ImageSearchParams {
@@ -119,6 +121,9 @@ export async function fetchProducts(
   }
   if (params.excludeCategories?.length) {
     search.excludeCategories = params.excludeCategories.join(',')
+  }
+  if (params.bestSellersFirst) {
+    search.bestSellersFirst = 'true'
   }
   if (params.featured !== undefined) {
     search.featured = String(params.featured)

@@ -37,6 +37,7 @@ export interface ProductWithCategory {
   description: string
   details: string[]
   isFeatured: boolean
+  isBestSeller: boolean
   dominantColor: string | null
   kind: ProductKind
   tags: string[]
@@ -63,6 +64,7 @@ export interface ProductRow {
   description: string
   details: string[] | null
   isFeatured: boolean
+  isBestSeller: boolean
   dominantColor: string | null
   kind: ProductKind
   tags: string[] | null
@@ -90,6 +92,7 @@ export interface RawProductRow {
   description: string
   details: string[] | null
   is_featured: boolean
+  is_best_seller: boolean
   dominant_color: string | null
   kind: ProductKind
   tags: string[] | null
@@ -154,6 +157,10 @@ export interface ListProductsParams {
   excludeCategories?: string[]
   /** Only featured (`true`) or only non-featured (`false`) products. */
   featured?: boolean
+  /** Only best sellers (`true`) or only the rest (`false`). */
+  bestSeller?: boolean
+  /** Put best sellers ahead of everything else — the box builder's picker. */
+  bestSellersFirst?: boolean
 }
 
 /** How the server understood a free-text query (price bound extracted by the LLM). */
@@ -201,6 +208,7 @@ export function toProductWithCategory(row: ProductRow): ProductWithCategory {
     description: row.description,
     details: row.details ?? [],
     isFeatured: row.isFeatured,
+    isBestSeller: row.isBestSeller ?? false,
     dominantColor: row.dominantColor,
     kind: row.kind ?? 'single',
     tags: row.tags ?? [],
@@ -226,6 +234,7 @@ export function rawRowToProductRow(row: RawProductRow): ProductRow {
     description: row.description,
     details: row.details,
     isFeatured: row.is_featured,
+    isBestSeller: row.is_best_seller ?? false,
     dominantColor: row.dominant_color,
     kind: row.kind ?? 'single',
     tags: row.tags ?? [],

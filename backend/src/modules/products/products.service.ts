@@ -74,6 +74,7 @@ const productSelect = {
   description: products.description,
   details: products.details,
   isFeatured: products.isFeatured,
+  isBestSeller: products.isBestSeller,
   dominantColor: products.dominantColor,
   kind: products.kind,
   tags: products.tags,
@@ -152,6 +153,10 @@ function buildNonTextFilters(params: ListProductsParams) {
     conditions.push(eq(products.isFeatured, params.featured))
   }
 
+  if (params.bestSeller !== undefined) {
+    conditions.push(eq(products.isBestSeller, params.bestSeller))
+  }
+
   return conditions
 }
 
@@ -183,9 +188,14 @@ function buildAllFilters(params: ListProductsParams) {
  * initial brand color (featured first, then by color); false when the user picks
  * a color to filter by (sort ALL products purely by color, ignoring featured).
  */
-function buildListOrder(brandColor?: string, pinFeatured = true): SQL[] {
+function buildListOrder(
+  brandColor?: string,
+  pinFeatured = true,
+  bestSellersFirst = false,
+): SQL[] {
+  const head = bestSellersFirst ? [desc(products.isBestSeller)] : []
   const lab = brandColor ? hexToLab(brandColor) : null
-  if (!lab) return [desc(products.isFeatured), asc(products.name)]
+  if (!lab) return [...head, desc(products.isFeatured), asc(products.name)]
 
   const distance = sql`(
     power(${products.colorL} - ${lab.l}, 2) +
@@ -193,8 +203,8 @@ function buildListOrder(brandColor?: string, pinFeatured = true): SQL[] {
     power(${products.colorB} - ${lab.b}, 2)
   ) asc nulls last`
   return pinFeatured
-    ? [desc(products.isFeatured), distance, asc(products.name)]
-    : [distance, asc(products.name)]
+    ? [...head, desc(products.isFeatured), distance, asc(products.name)]
+    : [...head, distance, asc(products.name)]
 }
 
 // ---------------------------------------------------------------------------
@@ -377,6 +387,9 @@ const SEMANTIC_LIMIT = 10
  * Public, brand-agnostic semantic search over the product vector column.
  * Used by campaign assembly to pick a bundle from a free-text brand query.
  * Customization overlay is applied later (domain-aware) during hydration.
+ *
+ * A box is built from the best sellers: the closest matches among them come
+ * first, and the rest of the catalogue only fills the slots they cannot.
  */
 export async function searchProductsByText(
   query: string,
@@ -384,26 +397,42 @@ export async function searchProductsByText(
   /** Only products carrying this tag — a landing page's own range. */
   opts: { tag?: string } = {},
 ): Promise<ProductWithCategory[]> {
-  return semanticSearch(
-    query,
-    {
-      page: 1,
-      limit,
-      companyId: undefined,
-      tag: opts.tag,
-      // A landing page tags its boxes too; a box built out of boxes is not one.
-      kind: opts.tag ? 'single' : undefined,
-    },
+  const params: ListProductsParams = {
+    page: 1,
     limit,
+    companyId: undefined,
+    tag: opts.tag,
+    // A box built out of boxes is not one.
+    kind: 'single',
+  }
+  // Embedded once — both passes rank against the same query.
+  const embedding = await embedText(query)
+
+  const best = await semanticSearch(
+    query,
+    { ...params, bestSeller: true },
+    limit,
+    embedding,
   )
+  if (best.length >= limit) return best
+
+  const rest = await semanticSearch(
+    query,
+    { ...params, exclude: best.map((p) => p.id) },
+    limit - best.length,
+    embedding,
+  )
+  return [...best, ...rest]
 }
 
 async function semanticSearch(
   query: string,
   params: ListProductsParams,
   limit: number = SEMANTIC_LIMIT,
+  /** The query's embedding, when the caller already has it. */
+  embedding?: number[],
 ): Promise<ProductWithCategory[]> {
-  const vectorStr = `[${(await embedText(query)).join(',')}]`
+  const vectorStr = `[${(embedding ?? (await embedText(query))).join(',')}]`
 
   const clauses: string[] = ['p.embedding IS NOT NULL']
   if (!params.includeSupplies) clauses.push(NOT_SUPPLY_SQL)
@@ -449,6 +478,9 @@ async function semanticSearch(
   if (params.featured !== undefined) {
     clauses.push(`p.is_featured = ${params.featured ? 'true' : 'false'}`)
   }
+  if (params.bestSeller !== undefined) {
+    clauses.push(`p.is_best_seller = ${params.bestSeller ? 'true' : 'false'}`)
+  }
 
   const whereClause = clauses.join(' AND ')
 
@@ -456,7 +488,7 @@ async function semanticSearch(
     SELECT
       p.id, p.source_id, p.variant_id, p.sku, p.name, p.tagline,
       p.price, p.currency, p.stock, p.image, p.images, p.customized_image,
-      p.description, p.details, p.is_featured, p.dominant_color,
+      p.description, p.details, p.is_featured, p.is_best_seller, p.dominant_color,
       p.kind, p.tags, p.min_quantity,
       p.created_at, p.updated_at,
       c.name AS category_name, c.slug AS category_slug
@@ -556,7 +588,7 @@ export async function listProducts(
         .from(products)
         .innerJoin(categories, eq(products.categoryId, categories.id))
         .where(buildAllFilters(effective))
-        .orderBy(desc(products.isFeatured), asc(products.name))
+        .orderBy(...buildListOrder(undefined, true, effective.bestSellersFirst))
         .limit(effective.limit)
         .offset(offset),
       db
@@ -572,6 +604,10 @@ export async function listProducts(
       .filter((p) => !seenIds.has(p.id))
 
     const merged = [...semanticResults, ...keywordOnly]
+    // Stable, so relevance still orders each half.
+    if (effective.bestSellersFirst) {
+      merged.sort((a, b) => Number(b.isBestSeller) - Number(a.isBestSeller))
+    }
     data = merged.slice(0, effective.limit)
 
     const keywordTotal = countRow?.total ?? 0
@@ -587,7 +623,13 @@ export async function listProducts(
         .from(products)
         .innerJoin(categories, eq(products.categoryId, categories.id))
         .where(where)
-        .orderBy(...buildListOrder(effective.brandColor, effective.pinFeatured))
+        .orderBy(
+          ...buildListOrder(
+            effective.brandColor,
+            effective.pinFeatured,
+            effective.bestSellersFirst,
+          ),
+        )
         .limit(effective.limit)
         .offset(offset),
       db
@@ -1402,7 +1444,7 @@ export async function getRelatedProducts(
     SELECT
       p.id, p.source_id, p.variant_id, p.sku, p.name, p.tagline,
       p.price, p.currency, p.stock, p.image, p.images, p.customized_image,
-      p.description, p.details, p.is_featured, p.dominant_color,
+      p.description, p.details, p.is_featured, p.is_best_seller, p.dominant_color,
       p.kind, p.tags, p.min_quantity,
       p.created_at, p.updated_at,
       c.name AS category_name, c.slug AS category_slug

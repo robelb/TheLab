@@ -54,6 +54,12 @@ export const products = pgTable(
     details: jsonb('details').$type<string[]>().notNull().default([]),
     isFeatured: boolean('is_featured').notNull().default(false),
     /**
+     * The proven sellers a box is built from. Separate from `isFeatured`, which
+     * is what the shop leads with: the box builder offers these first, and the
+     * AI only reaches past them when there are not enough to fill a box.
+     */
+    isBestSeller: boolean('is_best_seller').notNull().default(false),
+    /**
      * `single` is an ordinary catalogue item. `bundle` is a pre-configured box:
      * it has its own price and picture, and its contents live in
      * `product_components`. A bundle is never a component of another bundle.

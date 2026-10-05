@@ -84,6 +84,11 @@ export const productsQuerySchema = z
       .enum(['true', 'false'])
       .optional()
       .transform((v) => (v === undefined ? undefined : v === 'true')),
+    // The box builder's picker leads with best sellers.
+    bestSellersFirst: z
+      .enum(['true', 'false'])
+      .optional()
+      .transform((v) => v === 'true'),
     // Comma-separated category slugs to leave out — a landing page's grid has
     // no use for the cards and stickers that only make sense inside a box.
     // Anything that is not a slug is dropped, not refused.

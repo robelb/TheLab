@@ -35,6 +35,8 @@ export interface Product {
   description: string
   details: string[]
   isFeatured?: boolean
+  /** One of the proven sellers a box is built from. */
+  isBestSeller?: boolean
   /** Dominant color (hex) used for brand-color similarity sorting. */
   dominantColor?: string | null
   /** `bundle` is a pre-configured box with a price of its own. */

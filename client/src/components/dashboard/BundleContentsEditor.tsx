@@ -250,6 +250,8 @@ export function BundleContentsEditor({
         }}
         title="Add to this box"
         plainImages
+        kind="single"
+        bestSellersFirst
       />
     </div>
   )

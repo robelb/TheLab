@@ -679,6 +679,8 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
         onOpenChange={setAddOpen}
         existingIds={bundleIds}
         onAdd={addProduct}
+        kind="single"
+        bestSellersFirst
       />
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>

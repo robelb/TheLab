@@ -1166,7 +1166,9 @@ export function BuildBoxPage() {
         // A campaign's builder offers that campaign's products, not the whole
         // catalogue — the search box would otherwise be a way out of it.
         tag={inFunnel ? collectionTag : undefined}
-        kind={inFunnel ? 'single' : undefined}
+        // A box is filled with items, never with other boxes.
+        kind="single"
+        bestSellersFirst
       />
 
 
