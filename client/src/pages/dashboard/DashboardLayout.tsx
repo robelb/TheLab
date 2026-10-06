@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { AppSidebar } from '@/components/dashboard/AppSidebar'
 import { VersionBadge } from '@/components/VersionBadge'
 import { Separator } from '@/components/ui/separator'
+import { SelectionProvider } from '@/context/SelectionContext'
 import {
   SidebarInset,
   SidebarProvider,
@@ -46,7 +47,10 @@ export function DashboardLayout() {
           <VersionBadge />
         </header>
         <div className="flex-1 p-4 sm:p-6 print:p-0">
-          <Outlet />
+          {/* Above the pages, so ticked rows survive moving between them. */}
+          <SelectionProvider>
+            <Outlet />
+          </SelectionProvider>
         </div>
       </SidebarInset>
     </SidebarProvider>

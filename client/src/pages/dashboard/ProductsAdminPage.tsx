@@ -66,13 +66,13 @@ export function ProductsAdminPage() {
     includeSupplies: true,
   })
   const deleteMutation = useDeleteProduct()
-  // Featured is global — it orders every company's shop — so only a super
-  // admin gets the checkboxes and the bulk featured actions.
+  // Any admin — super admin or company admin — gets the checkboxes and the
+  // bulk featured actions. Featured is global: it orders every company's shop.
   const { can } = useAuth()
-  const canFeature = can('manage_all')
+  const canFeature = can('manage_company')
 
   const products = data?.data ?? []
-  const selection = useRowSelection(products.map((p) => p.id))
+  const selection = useRowSelection('products', products.map((p) => p.id))
   const columnCount = canFeature ? 6 : 5
   const pagination = data?.pagination
   // Skeleton on the first load *and* on every refetch (page/size/search change),

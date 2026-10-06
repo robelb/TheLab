@@ -21,9 +21,13 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@10.26.1 --activate
 
-# Fonts for the flat layout mockup.
+# Fallback fonts for the flat layout mockup.
 #
-# `composeLayout` renders placed wording by handing sharp an SVG `<text>`, which
+# Placed wording is normally drawn from the bundled faces in `assets/fonts` (see
+# below) and needs nothing installed. These are for wording those faces have no
+# glyphs for, which still goes through font lookup.
+#
+# That lookup hands sharp an SVG `<text>`, which
 # sharp resolves through fontconfig. This image had no fonts and no fontconfig
 # config at all, so every family — `sans-serif`, `serif`, `monospace` and the
 # script stack alike — resolved to nothing: the wording came out blank or as a
@@ -51,6 +55,10 @@ RUN pnpm install --frozen-lockfile --prod
 
 COPY --from=builder /app/dist ./dist
 COPY src/data/*.json ./dist/data/
+# The faces placed wording is drawn in — the browser editor loads the same
+# files, which is what keeps the mockup's lettering identical to the editor's.
+# See `src/customizer/placementFonts.ts`.
+COPY assets/fonts ./assets/fonts
 
 RUN mkdir -p public/uploads public/customized && chown -R node:node /app
 

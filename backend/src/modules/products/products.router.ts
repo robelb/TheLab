@@ -118,13 +118,14 @@ productsRouter.post('/', async (req, res) => {
   }
 })
 
-// Bulk featured toggle. Featured is global — it orders every company's shop and
-// picks what gets auto-branded at onboarding — so only a super admin may flip
-// it. Registered before `/:id` so the literal segment isn't captured as an id.
+// Bulk featured toggle, for any admin — super admin or company admin. Featured
+// is global: it orders every company's shop and picks what gets auto-branded
+// at onboarding. Registered before `/:id` so the literal segment isn't
+// captured as an id.
 productsRouter.patch(
   '/featured',
   requireAuth,
-  requireCapability('manage_all'),
+  requireCapability('manage_company'),
   async (req, res) => {
     const parsed = setFeaturedSchema.safeParse(req.body)
     if (!parsed.success) {

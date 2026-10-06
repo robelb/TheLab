@@ -51,6 +51,7 @@ import {
 import { sanitizeSvgMarkup } from '@/lib/logo'
 import { cn } from '@/lib/utils'
 import { FONT_STYLES, type FontStyle, type PlacementLayer, type PlacementLayout } from '@/types/layout'
+import './placement-fonts.css'
 
 export interface CanvasLogo {
   kind: 'url' | 'data-uri' | 'svg'
@@ -93,25 +94,24 @@ interface PlacementCanvasProps {
 }
 
 /**
- * Kept identical to `FONT_FAMILIES` in the server's `composeLayout`, so the
- * canvas and the mockup ask for the same faces in the same order.
+ * The faces wording is drawn in, declared in `placement-fonts.css` from the
+ * same files the server sets the mockup's lettering from — see
+ * `placementFonts.ts` in the backend. Same file, same shaper (HarfBuzz, at both
+ * ends), so the editor and the mockup draw the same letters at the same
+ * widths: what is placed here is what the mockup shows, not an approximation.
  *
- * `script` names real faces rather than the CSS generic. The server's SVG
- * renderer has no `cursive` generic and silently fell through to serif, so
- * Script wording looked like Script here and like Serif in the mockup people
- * actually confirmed. The generic stays on the end as a last resort.
+ * It used to be the CSS generics, which the browser and the server each
+ * resolved to whatever they had installed — Helvetica here against DejaVu
+ * there — so the mockup's wording came out in a different face and, because
+ * it is scaled to the layer's width, at a different size.
  *
- * The two will still resolve to different faces on hosts with different fonts
- * installed — acceptable, because this text is a placement hint that the image
- * model re-typesets as real print. It only has to agree on where the wording
- * sits and how wide it runs.
+ * The generic after each name only catches glyphs the face lacks.
  */
 const FONT_STACKS: Record<FontStyle, string> = {
-  sans: 'sans-serif',
-  serif: 'serif',
-  script:
-    "Snell Roundhand, 'Apple Chancery', 'URW Chancery L', Z003, 'Comic Sans MS', cursive",
-  mono: 'monospace',
+  sans: "'Lato', sans-serif",
+  serif: "'Crimson Text', serif",
+  script: "'Dancing Script', cursive",
+  mono: "'Courier Prime', monospace",
 }
 
 const FONT_LABELS: Record<FontStyle, string> = {
@@ -429,6 +429,16 @@ export function PlacementCanvas({
   const typeScaleRef = useRef<Record<string, { natural: number; width: number }>>(
     {},
   )
+  /**
+   * Bumped whenever a web font finishes loading.
+   *
+   * The wording is measured on a 2D context, which neither waits for nor asks
+   * for an `@font-face` file — until the face arrives it measures a fallback,
+   * and the layer would be sized to letters that are never drawn. Re-measuring
+   * once the real face is in is what keeps the editor agreeing with the mockup
+   * on a cold load.
+   */
+  const [fontsLoaded, setFontsLoaded] = useState(0)
   const [uncontrolledId, setUncontrolledId] = useState<string | null>(null)
   const controlled = controlledId !== undefined
   const selectedId = controlled ? controlledId : uncontrolledId
@@ -516,6 +526,28 @@ export function PlacementCanvas({
     // Zoom and pan move the image, so the content box has to be re-read.
   }, [measureBox, baseImage, zoom, pan])
 
+  useEffect(() => {
+    if (typeof document === 'undefined' || !document.fonts) return
+    const bump = () => {
+      // The wording did not change, only the face it is measured in — so the
+      // next pass re-baselines rather than resizing the layer to hold a type
+      // size that was only ever the fallback's.
+      typeScaleRef.current = {}
+      setFontsLoaded((n) => n + 1)
+    }
+    document.fonts.addEventListener('loadingdone', bump)
+    // Ask for every face up front, so switching style does not measure a
+    // fallback for the moment its file takes to arrive.
+    for (const style of FONT_STYLES) {
+      for (const weight of ['normal', 'bold']) {
+        void document.fonts
+          .load(`${weight} ${MEASURE_FONT_PX}px ${FONT_STACKS[style]}`)
+          .catch(() => undefined)
+      }
+    }
+    return () => document.fonts.removeEventListener('loadingdone', bump)
+  }, [])
+
   // Measure every text layer at a fixed size so it can be scaled to the width
   // the user set. Cheaper and steadier than guessing from glyph counts, and it
   // matches what the server does (render big, trim to the ink, scale to fit).
@@ -598,7 +630,7 @@ export function PlacementCanvas({
         ),
       })
     }
-  }, [layout.layers, onChange])
+  }, [layout.layers, onChange, fontsLoaded])
 
   // A new mark has a new shape; drop the stale measurement rather than
   // sizing the next one to the last one's box.

@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, searchForWorkspaceRoot } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -63,6 +63,15 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      fs: {
+        // The placement canvas loads its faces straight from the backend's
+        // `assets/fonts`, so editor and mockup share one set of files — see
+        // `src/components/canvas/placement-fonts.css`.
+        allow: [
+          searchForWorkspaceRoot(process.cwd()),
+          path.resolve(__dirname, '../backend/assets/fonts'),
+        ],
+      },
       proxy: {
         '/api': {
           target: apiUrl,

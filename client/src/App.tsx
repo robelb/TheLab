@@ -104,7 +104,7 @@ export default function App() {
                   <Route path="orders/:id" element={<OrderDetailPage />} />
                   <Route path="products" element={<ProductsAdminPage />} />
                   <Route path="products/:id" element={<ProductDetailPage />} />
-                  {/* Super-admin only (page self-guards `manage_all`). */}
+                  {/* Any admin (page self-guards `manage_company`). */}
                   <Route path="featured" element={<FeaturedProductsPage />} />
                   <Route path="campaign" element={<CampaignsPage />} />
                   <Route path="campaign/:id" element={<CampaignDetailPage />} />

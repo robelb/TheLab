@@ -254,7 +254,7 @@ export async function updateProduct(
   return data
 }
 
-/** Flag or unflag many products as featured at once. Super admin only. */
+/** Flag or unflag many products as featured at once. Any admin. */
 export async function setProductsFeatured(
   ids: string[],
   isFeatured: boolean,

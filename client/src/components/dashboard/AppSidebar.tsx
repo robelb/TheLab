@@ -43,6 +43,7 @@ const navItems: NavItem[] = [
   { to: '/dashboard', end: true, label: 'Overview', icon: LayoutDashboard, capability: 'manage_company' },
   { to: '/dashboard/orders', end: false, label: 'Orders', icon: Inbox, capability: 'manage_company' },
   { to: '/dashboard/products', end: false, label: 'Products', icon: Package, capability: 'manage_company' },
+  { to: '/dashboard/featured', end: false, label: 'Featured', icon: Star, capability: 'manage_company' },
   { to: '/dashboard/campaign', end: false, label: 'Campaign', icon: Megaphone, capability: 'manage_company' },
   { to: '/dashboard/branding', end: false, label: 'Branding', icon: Palette, capability: 'manage_company' },
   { to: '/dashboard/team', end: false, label: 'Team', icon: Users, capability: 'manage_company' },
@@ -52,7 +53,6 @@ const navItems: NavItem[] = [
 const adminItems: NavItem[] = [
   { to: '/dashboard/admin/users', end: false, label: 'All Users', icon: Users, capability: 'manage_all' },
   { to: '/dashboard/admin/companies', end: false, label: 'All Companies', icon: Building2, capability: 'manage_all' },
-  { to: '/dashboard/featured', end: false, label: 'Featured', icon: Star, capability: 'manage_all' },
   { to: '/dashboard/admin/collections', end: false, label: 'Collections', icon: Link2, capability: 'manage_all' },
   { to: '/dashboard/admin/instructions', end: false, label: 'AI Instructions', icon: ScrollText, capability: 'manage_all' },
 ]

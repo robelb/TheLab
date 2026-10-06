@@ -34,7 +34,7 @@ type View = 'featured' | 'not-featured'
 /**
  * Which products are featured. Featured products are pinned first in every
  * company's shop and are the ones branded with a company's logo when it
- * onboards, so this is a super-admin page.
+ * onboards. Open to any admin — super admin or company admin.
  *
  * Two views — what is featured now, and everything else to pick from — each
  * with checkboxes for bulk changes and a one-click toggle per row.
@@ -60,11 +60,11 @@ export function FeaturedProductsPage() {
 
   const products = data?.data ?? []
   const pagination = data?.pagination
-  const selection = useRowSelection(products.map((p) => p.id))
+  const selection = useRowSelection('featured', products.map((p) => p.id))
   const showSkeleton = isLoading || isFetching
   const skeletonRows = Math.min(Math.max(products.length || 6, 4), limit)
 
-  if (!can('manage_all')) return <Navigate to="/dashboard" replace />
+  if (!can('manage_company')) return <Navigate to="/dashboard" replace />
 
   function switchView(next: View) {
     setView(next)

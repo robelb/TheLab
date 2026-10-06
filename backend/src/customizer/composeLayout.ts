@@ -20,6 +20,7 @@ import {
   type FetchedImage,
   type FetchImageOptions,
 } from './fetchImage.js'
+import { shapeWording } from './placementFonts.js'
 import {
   type FontStyle,
   MAX_LAYER_ASSETS,
@@ -33,27 +34,25 @@ type Sharp = typeof import('sharp')
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 } as const
 
 /**
- * Families the SVG renderer can actually resolve.
+ * Families for wording the bundled faces cannot set.
  *
- * Text in the composite is a PLACEMENT HINT, not the finished lettering — the
- * image model re-typesets it as real print — so an approximate face is fine and
- * a missing font would not be.
+ * Placed wording is normally drawn as glyph outlines from the same font files
+ * the browser editor loads — see `placementFonts`. This is the fallback for
+ * wording those faces have no glyphs for, which goes through font lookup the
+ * old way: the editor will have borrowed the missing glyphs from some other
+ * font too, so exact agreement is off the table there, and drawing something
+ * beats drawing empty boxes.
  *
  * `script` cannot be the CSS generic. Pango, which renders this SVG, knows only
  * `sans` / `serif` / `monospace`; `cursive` is not a generic it recognises, so
  * it was treated as an unknown family name, skipped, and the `serif` fallback
- * won every time. Script wording came out identical to Serif, which meant the
- * mockup people signed off did not show the face they had chosen. Naming real
- * chancery/casual faces first fixes it — the generic stays on the end so an
- * unknown host still gets something.
+ * won every time. Naming real chancery/casual faces first keeps Script looking
+ * like script; the generic stays on the end so an unknown host still gets
+ * something.
  *
- * DEPLOYMENT — a family named here that the host does not have is a font choice
- * that silently does nothing, and for a long time that was every family. The
- * production image is `node:22-alpine`, which ships no fonts and no fontconfig
- * config whatsoever: all four of these resolved to nothing, wording rendered
- * blank or as a sliver of tofu, and the four choices were indistinguishable in
- * the mockup the shopper then confirmed into their box. `backend/Dockerfile`
- * now installs them, so keep the two in step:
+ * DEPLOYMENT — the production image is `node:22-alpine`, which ships no fonts
+ * and no fontconfig config at all, so `backend/Dockerfile` installs these. Keep
+ * the two in step:
  *
  *   - the three generics come from `font-dejavu`
  *   - `Parisienne` (`font-parisienne`) is the calligraphic face for `script` —
@@ -81,10 +80,10 @@ const FONT_FAMILIES: Record<string, string> = {
  *
  * These strings describe what the letters must LOOK like, which is the thing a
  * diffusion model can actually act on, and each ends by ruling out the failure
- * it kept producing. Keep them in step with `FONT_FAMILIES` above and with
- * `FONT_STACKS` / `FONT_LABELS` in the browser canvas — those three are how the
- * same choice is shown in the editor, drawn into the mockup, and asked for in
- * the render.
+ * it kept producing. Keep them in step with the faces in `placementFonts` and
+ * with `FONT_STACKS` / `FONT_LABELS` in the browser canvas — those three are
+ * how the same choice is shown in the editor, drawn into the mockup, and asked
+ * for in the render.
  */
 const FONT_DESCRIPTIONS: Record<FontStyle, string> = {
   sans: 'a clean sans-serif typeface — even stroke weight, no serifs at all, modern and geometric',
@@ -172,7 +171,8 @@ async function renderText(
   const text = layer.text?.trim()
   if (!text) return null
 
-  const family = FONT_FAMILIES[layer.fontStyle ?? 'sans'] ?? FONT_FAMILIES.sans
+  const style = layer.fontStyle ?? 'sans'
+  const family = FONT_FAMILIES[style] ?? FONT_FAMILIES.sans
   const weight = layer.fontWeight === 'bold' ? 'bold' : 'normal'
   const fill = safeColor(layer.color)
 
@@ -193,18 +193,42 @@ async function renderText(
       (fontPx * LINE_HEIGHT_EM * (lines.length - 1)) / 2 +
       fontPx * 0.35
 
-    const tspans = lines
-      .map(
-        (line, i) =>
-          `<tspan x="${canvasWidth / 2}"${
-            i === 0 ? '' : ` dy="${LINE_HEIGHT_EM}em"`
-          }>${escapeXml(line) || ' '}</tspan>`,
+    // The same glyphs the editor drew, from the same file — see
+    // `placementFonts`. Font lookup only for wording those faces cannot set.
+    const shaped = await shapeWording(
+      lines,
+      style,
+      weight,
+      fontPx,
+      canvasWidth / 2,
+      firstBaseline,
+      LINE_HEIGHT_EM,
+    ).catch((err: unknown) => {
+      console.warn(
+        '[composeLayout] could not shape wording from the bundled face:',
+        err instanceof Error ? err.message : err,
       )
-      .join('')
+      return null
+    })
 
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}"><text x="${
-      canvasWidth / 2
-    }" y="${firstBaseline}" font-family="${family}" font-size="${fontPx}" font-weight="${weight}" fill="${fill}" text-anchor="middle">${tspans}</text></svg>`
+    let body: string
+    if (shaped) {
+      body = `<g fill="${fill}">${shaped.markup}</g>`
+    } else {
+      const tspans = lines
+        .map(
+          (line, i) =>
+            `<tspan x="${canvasWidth / 2}"${
+              i === 0 ? '' : ` dy="${LINE_HEIGHT_EM}em"`
+            }>${escapeXml(line) || ' '}</tspan>`,
+        )
+        .join('')
+      body = `<text x="${
+        canvasWidth / 2
+      }" y="${firstBaseline}" font-family="${family}" font-size="${fontPx}" font-weight="${weight}" fill="${fill}" text-anchor="middle">${tspans}</text>`
+    }
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth}" height="${canvasHeight}">${body}</svg>`
 
     try {
       // `trim` throws when the render is entirely uniform — a face that resolved

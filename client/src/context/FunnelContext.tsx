@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   type ReactNode,
 } from 'react'
@@ -9,6 +10,7 @@ import { useLocation, useSearchParams } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { usePostHog } from '@posthog/react'
 import { useAuth } from '@/context/AuthContext'
+import { useBrand } from '@/context/BrandContext'
 import { useCollection } from '@/hooks/use-collections'
 import { clearCampaignLock, loadCampaignLock } from '@/lib/funnel'
 
@@ -148,6 +150,15 @@ export function FunnelProvider({ children }: { children: ReactNode }) {
       ready: !authLoading,
     }
   }, [slug, gone, collection, lock?.slug, lock?.allowCustomization, authLoading])
+
+  // A collection is ours: whoever opens it — a signed-in customer, the demo
+  // company, our own team previewing — sees it in the house brand, never in
+  // the colours and logo of whichever company happens to be signed in. Before
+  // paint, so a company's theme does not flash over the landing page first.
+  const { setHouseLocked } = useBrand()
+  useLayoutEffect(() => {
+    setHouseLocked(value.inFunnel)
+  }, [value.inFunnel, setHouseLocked])
 
   return (
     <FunnelContext.Provider value={value}>{children}</FunnelContext.Provider>

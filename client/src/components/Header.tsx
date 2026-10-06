@@ -23,7 +23,7 @@ export function Header() {
   const { t } = useTranslation()
   const { itemCount } = useCart()
   const { user, logout, can } = useAuth()
-  const { hasExtractedBrand, brands } = useBrand()
+  const { hasExtractedBrand, houseLocked, brands } = useBrand()
   const { inFunnel, allowCustomization, shopHome } = useFunnel()
   const funnelLink = useFunnelLink()
   const canManage = can('manage_company')
@@ -51,8 +51,11 @@ export function Header() {
         */}
         <div className="flex items-center gap-2 max-md:order-3 max-md:w-full max-md:justify-center">
           {/* Theme picking is a signed-in convenience, not something to put in
-              front of a visitor who arrived from an ad. */}
-          {user && !hasExtractedBrand && brands.length > 1 && <BrandSwitcher />}
+              front of a visitor who arrived from an ad — and a collection
+              always wears the house brand, so there is nothing to pick. */}
+          {user && !hasExtractedBrand && !houseLocked && brands.length > 1 && (
+            <BrandSwitcher />
+          )}
           {!focused && <VersionBadge />}
         </div>
 

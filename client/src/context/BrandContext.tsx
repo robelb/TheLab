@@ -31,6 +31,13 @@ interface BrandContextValue {
   activePreset: BrandPreset
   brands: BrandPreset[]
   hasExtractedBrand: boolean
+  /**
+   * True while the house brand is being worn regardless of the company's own —
+   * see `useHouseBrandLock`. The company's brand is kept underneath and comes
+   * back the moment the lock lifts.
+   */
+  houseLocked: boolean
+  setHouseLocked: (locked: boolean) => void
   selectBrand: (id: string) => void
   setBrand: (patch: BrandConfigOverride) => void
   resetBrand: () => void
@@ -119,7 +126,15 @@ export function BrandProvider({ children }: { children: ReactNode }) {
     return presetToConfig(activePreset)
   }, [extractedBrand, activePreset])
 
-  const brand = useMemo(() => mergeBrand(base, override), [base, override])
+  const [houseLocked, setHouseLocked] = useState(false)
+
+  const brand = useMemo(
+    () =>
+      houseLocked
+        ? presetToConfig(getDefaultPreset())
+        : mergeBrand(base, override),
+    [houseLocked, base, override],
+  )
 
   useEffect(() => {
     applyBrandTheme(brand)
@@ -178,6 +193,8 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       activePreset,
       brands: brandPresets,
       hasExtractedBrand: extractedBrand !== null,
+      houseLocked,
+      setHouseLocked,
       selectBrand,
       setBrand,
       resetBrand,
@@ -190,6 +207,7 @@ export function BrandProvider({ children }: { children: ReactNode }) {
       activeBrandId,
       activePreset,
       extractedBrand,
+      houseLocked,
       selectBrand,
       setBrand,
       resetBrand,
