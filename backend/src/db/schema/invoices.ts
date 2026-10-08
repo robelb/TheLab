@@ -92,6 +92,24 @@ export interface InvoiceBuyer {
   orderReference: string
   /** When the goods are needed — printed as the delivery date. */
   deliveryDate?: string | null
+  /**
+   * Where the goods go, printed next to the billing address. Absent on
+   * invoices issued before it was recorded and when it ships to the billing
+   * address; the billing address is printed in its place then.
+   */
+  shipping?: InvoiceAddress | null
+}
+
+/** A postal address as printed on an invoice. */
+export interface InvoiceAddress {
+  name?: string | null
+  company?: string | null
+  street: string
+  line2?: string | null
+  zip: string
+  city: string
+  /** ISO 3166-1 alpha-2. */
+  country: string
 }
 
 export interface InvoiceLine {

@@ -37,6 +37,7 @@ export {
   invoiceCounters,
   invoices,
   type Invoice,
+  type InvoiceAddress,
   type InvoiceBuyer,
   type InvoiceLine,
   type InvoiceSeller,

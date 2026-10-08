@@ -12,6 +12,7 @@ import {
   invoiceCounters,
   invoices,
   type Invoice,
+  type InvoiceAddress,
   type InvoiceBuyer,
   type InvoiceLine,
   type Order,
@@ -67,6 +68,24 @@ function boxDetails(box: unknown): string | null {
   return parts.length ? parts.join(', ') : null
 }
 
+/**
+ * Where the order ships, for the invoice's shipping address. Null when it goes
+ * to the billing address (or none was given), and the invoice prints that.
+ */
+function shippingAddress(order: Order): InvoiceAddress | null {
+  const d = order.delivery
+  if (!d || d.sameAsBilling || !d.address?.trim() || !d.city?.trim()) return null
+  return {
+    name: order.billing?.name ?? order.contact.name,
+    company: order.billing?.company ?? order.contact.company ?? null,
+    street: d.address.trim(),
+    line2: d.line2?.trim() || null,
+    zip: d.zip?.trim() ?? '',
+    city: d.city.trim(),
+    country: d.country?.trim() || order.billing?.country || 'DE',
+  }
+}
+
 function money(value: number): number {
   return Math.round(value * 100) / 100 + 0
 }
@@ -105,6 +124,7 @@ export async function issueInvoice(
     email: billing.email || order.contact.email,
     orderReference: order.reference,
     deliveryDate: order.delivery?.neededBy ?? null,
+    shipping: shippingAddress(order),
   }
 
   const lines: InvoiceLine[] = order.items.map((item) => ({
