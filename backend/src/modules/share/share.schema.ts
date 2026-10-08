@@ -17,7 +17,8 @@ export const createShareSchema = z.object({
   companyId: z.string().uuid().optional(),
   domain: z.string().trim().max(255).optional(),
   title: z.string().trim().max(300).optional(),
-  prompt: z.string().trim().max(4000).optional(),
+  // Photoshoot briefs run 4–10k chars; keep headroom so sharing never 400s.
+  prompt: z.string().trim().max(20_000).optional(),
   brand: brandSnapshotSchema,
 })
 

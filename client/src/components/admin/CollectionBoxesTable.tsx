@@ -15,8 +15,8 @@ import { ProductImage } from '@/components/ProductImage'
 /**
  * The boxes a landing page leads with, in the order they appear.
  *
- * Controlled: the running order is part of the form and saved with its button,
- * so the list lives with the editor. Never more than a dozen rows, so no paging.
+ * Controlled: the editor owns the list and saves every change as it happens.
+ * Never more than a dozen rows, so no paging.
  */
 export function CollectionBoxesTable({
   boxes,
@@ -24,11 +24,11 @@ export function CollectionBoxesTable({
   onAdd,
   onMove,
   onRemove,
-  unsaved,
+  saving,
 }: {
   boxes: Product[]
-  /** The order differs from what is published; it goes out with Save. */
-  unsaved?: boolean
+  /** A change is being saved; edits wait so they can't race each other. */
+  saving?: boolean
   max: number
   onAdd: () => void
   onMove: (index: number, by: number) => void
@@ -50,17 +50,15 @@ export function CollectionBoxesTable({
             The offers at the top of the page, in this order.
             {full && ' That is the most a page can lead with.'}
           </p>
-          {unsaved && (
-            <p className="mt-1 text-xs font-medium text-primary">
-              Unsaved — press “Save changes” below to publish these boxes.
-            </p>
+          {saving && (
+            <p className="mt-1 text-xs text-muted-foreground">Saving…</p>
           )}
         </div>
         <Button
           type="button"
           size="sm"
           variant="outline"
-          disabled={full}
+          disabled={full || saving}
           onClick={onAdd}
         >
           <Plus className="size-4" />
@@ -128,7 +126,7 @@ export function CollectionBoxesTable({
                         size="icon"
                         className="h-8 w-8"
                         aria-label={`Move ${box.name} up`}
-                        disabled={i === 0}
+                        disabled={i === 0 || saving}
                         onClick={() => onMove(i, -1)}
                       >
                         <ArrowUp className="size-4" />
@@ -139,7 +137,7 @@ export function CollectionBoxesTable({
                         size="icon"
                         className="h-8 w-8"
                         aria-label={`Move ${box.name} down`}
-                        disabled={i === boxes.length - 1}
+                        disabled={i === boxes.length - 1 || saving}
                         onClick={() => onMove(i, 1)}
                       >
                         <ArrowDown className="size-4" />
@@ -154,6 +152,7 @@ export function CollectionBoxesTable({
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-destructive"
                         aria-label={`Remove ${box.name}`}
+                        disabled={saving}
                         onClick={() => onRemove(box)}
                       >
                         <Trash2 className="size-4" />

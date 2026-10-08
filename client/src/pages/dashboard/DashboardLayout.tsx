@@ -39,7 +39,9 @@ export function DashboardLayout() {
       <div className="print:hidden">
         <AppSidebar />
       </div>
-      <SidebarInset>
+      {/* min-w-0: a wide table scrolls inside its own container instead of
+          pushing the whole page (header included) sideways under the sidebar. */}
+      <SidebarInset className="min-w-0">
         <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-border/40 bg-background/90 px-4 backdrop-blur-md print:hidden">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />

@@ -37,13 +37,17 @@ const brandTabClass =
  */
 export function CollectionEditor({ collection }: { collection: Collection }) {
   const updateCollection = useUpdateCollection()
+  // A separate instance so the box list's own saving state doesn't disable
+  // the headline form, and vice versa.
+  const saveContent = useUpdateCollection()
   const setMembers = useSetCollectionProducts(collection.id)
 
   const [tab, setTab] = useState<'content' | 'copy'>('content')
   const [error, setError] = useState<string | null>(null)
   const [pickingBoxes, setPickingBoxes] = useState(false)
 
-  // The headline boxes, held locally so they can be reordered before saving.
+  // The headline boxes, held locally so the list updates the moment it is
+  // edited; every change is saved straight away (see `saveBoxes`).
   const [featured, setFeatured] = useState<Product[]>(
     collection.featuredBundles ?? [],
   )
@@ -59,8 +63,7 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
   )
 
   // Keyed on the saved ids, not the array: any refetch of the list (ending the
-  // campaign, say) hands back a new array with the same boxes, and resetting
-  // on that threw away a running order somebody had not saved yet.
+  // campaign, say) hands back a new array with the same boxes.
   const savedFeaturedKey = (collection.featuredBundleIds ?? []).join(',')
   useEffect(() => {
     setFeatured(collection.featuredBundles ?? [])
@@ -68,14 +71,33 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
   }, [collection.id, savedFeaturedKey])
 
   const featuredIds = featured.map((p) => p.id)
+  // Only the copy waits for the Save button; boxes and the customisation
+  // switch are saved the moment they change.
   const dirty =
     titleDe !== collection.title.de ||
     titleEn !== collection.title.en ||
     subtitleDe !== (collection.subtitle?.de ?? '') ||
     subtitleEn !== (collection.subtitle?.en ?? '') ||
-    locale !== collection.defaultLocale ||
-    allowCustomization !== collection.allowCustomization ||
-    featuredIds.join(',') !== (collection.featuredBundleIds ?? []).join(',')
+    locale !== collection.defaultLocale
+
+  /**
+   * Show the new running order straight away and save it. On failure the list
+   * goes back to what it was, so the screen never claims a page it isn't.
+   */
+  async function saveBoxes(next: Product[], message: string) {
+    const previous = featured
+    setFeatured(next)
+    try {
+      await saveContent.mutateAsync({
+        id: collection.id,
+        input: { featuredBundleIds: next.map((p) => p.id) },
+      })
+      notifySaved(message)
+    } catch (err) {
+      setFeatured(previous)
+      notifyError(err, 'Could not save the boxes')
+    }
+  }
 
   function move(index: number, by: number) {
     const next = [...featured]
@@ -84,7 +106,33 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
     const held = next[index]
     next[index] = next[target]
     next[target] = held
-    setFeatured(next)
+    void saveBoxes(next, 'Running order saved')
+  }
+
+  function removeBox(box: Product) {
+    void saveBoxes(
+      featured.filter((p) => p.id !== box.id),
+      `${box.name} removed from the boxes shown first`,
+    )
+  }
+
+  async function toggleCustomization(next: boolean) {
+    const previous = allowCustomization
+    setAllowCustomization(next)
+    try {
+      await saveContent.mutateAsync({
+        id: collection.id,
+        input: { allowCustomization: next },
+      })
+      notifySaved(
+        next
+          ? `/c/${collection.slug}: visitors can build their own`
+          : `/c/${collection.slug}: buy only`,
+      )
+    } catch (err) {
+      setAllowCustomization(previous)
+      notifyError(err, 'Could not change the customisation setting')
+    }
   }
 
   async function save() {
@@ -98,20 +146,10 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
             subtitleDe.trim() || subtitleEn.trim()
               ? { de: subtitleDe.trim(), en: subtitleEn.trim() }
               : null,
-          featuredBundleIds: featuredIds,
           defaultLocale: locale,
-          allowCustomization,
         },
       })
-      // Says what the page will now do, not just that a row was written —
-      // the customisation switch changes the shape of the page, and that is
-      // the part worth confirming.
-      notifySaved(
-        `/c/${collection.slug} saved`,
-        allowCustomization
-          ? `${featuredIds.length || 'No'} box${featuredIds.length === 1 ? '' : 'es'} shown first · visitors can build their own`
-          : `${featuredIds.length || 'No'} box${featuredIds.length === 1 ? '' : 'es'} shown first · buy only`,
-      )
+      notifySaved(`/c/${collection.slug} headline saved`)
     } catch (err) {
       const message = apiErrorMessage(err, 'Could not save this page')
       setError(message)
@@ -137,18 +175,13 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
       throw err
     }
 
-    setFeatured((prev) => [
-      ...prev,
-      ...picked.filter((p) => !prev.some((f) => f.id === p.id)),
-    ])
-    // The running order is saved with the button like the rest of the form.
-    notifySaved(
+    setPickingBoxes(false)
+    await saveBoxes(
+      [...featured, ...picked],
       picked.length === 1
         ? `${picked[0].name} added to the boxes shown first`
         : `${picked.length} boxes added to the boxes shown first`,
-      'Save changes to publish the new running order.',
     )
-    setPickingBoxes(false)
   }
 
   return (
@@ -169,7 +202,8 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
             <Checkbox
               id={`custom-${collection.id}`}
               checked={allowCustomization}
-              onCheckedChange={(c) => setAllowCustomization(c === true)}
+              disabled={saveContent.isPending}
+              onCheckedChange={(c) => void toggleCustomization(c === true)}
               className="mt-0.5"
             />
             <div className="space-y-0.5">
@@ -190,15 +224,10 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
           <CollectionBoxesTable
             boxes={featured}
             max={MAX_FEATURED}
-            unsaved={
-              featuredIds.join(',') !==
-              (collection.featuredBundleIds ?? []).join(',')
-            }
+            saving={saveContent.isPending}
             onAdd={() => setPickingBoxes(true)}
             onMove={move}
-            onRemove={(box) =>
-              setFeatured((prev) => prev.filter((p) => p.id !== box.id))
-            }
+            onRemove={removeBox}
           />
 
           <CollectionProductsTable collection={collection} />
@@ -268,29 +297,29 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
               </p>
             </div>
           </div>
+
+          {error && (
+            <p className="mt-4 rounded-brand border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </p>
+          )}
+
+          <div className="mt-4 flex items-center gap-2 border-t border-border/40 pt-3">
+            <Button
+              type="button"
+              disabled={!dirty || updateCollection.isPending}
+              onClick={save}
+            >
+              {updateCollection.isPending ? 'Saving…' : 'Save changes'}
+            </Button>
+            {dirty && (
+              <span className="text-xs text-muted-foreground">
+                Unsaved changes to the headline or language.
+              </span>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
-
-      {error && (
-        <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      )}
-
-      <div className="flex items-center gap-2 border-t border-border/40 pt-3">
-        <Button
-          type="button"
-          disabled={!dirty || updateCollection.isPending}
-          onClick={save}
-        >
-          {updateCollection.isPending ? 'Saving…' : 'Save changes'}
-        </Button>
-        {dirty && (
-          <span className="text-xs text-muted-foreground">
-            Unsaved changes to the headline boxes or copy.
-          </span>
-        )}
-      </div>
 
       <AddProductDialog
         open={pickingBoxes}

@@ -68,7 +68,9 @@ export function AppSidebar() {
   const visibleAdmin = adminItems.filter((item) => can(item.capability))
 
   return (
-    <Sidebar collapsible="icon">
+    // Above the sticky dashboard header (z-10), so the header can never
+    // paint over the sidebar where the two meet.
+    <Sidebar collapsible="icon" className="z-20">
       <SidebarHeader className="border-b border-border/40">
         {/* Company logo (same logic as the shop navbar). */}
         <div className="flex h-12 items-center px-2 group-data-[collapsible=icon]:px-0">
