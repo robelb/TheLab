@@ -47,14 +47,21 @@ export const collections = pgTable(
     /** Off switch for a campaign that has ended, without losing the config. */
     active: boolean('active').notNull().default(true),
     /**
-     * Whether this page offers building and branding a box, or only buying one.
+     * Whether this page offers branding products, or only picking them.
      *
-     * Some campaigns sell a finished thing: showing a "build your own" route on
-     * those adds a decision the ad did not promise, and a step to lose people
-     * at. Turning it off hides the builder, the customise buttons and the design
-     * editor for everything reached through this page.
+     * Some campaigns sell a finished thing: showing a design route on those
+     * adds a decision the ad did not promise, and a step to lose people at.
+     * Turning it off hides the customise buttons and the design editor for
+     * everything reached through this page. Building a box is the separate
+     * `allowBoxBuilding` switch.
      */
     allowCustomization: boolean('allow_customization').notNull().default(true),
+    /**
+     * Whether visitors can build their own box from this page's products.
+     * Independent of `allowCustomization`: Christmas builds boxes but does not
+     * brand products, so a design that cannot be produced never reaches it.
+     */
+    allowBoxBuilding: boolean('allow_box_building').notNull().default(true),
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()

@@ -100,8 +100,9 @@ function contentsOf(product: Product): BundleContentsValue {
   const components = product.components ?? []
   return {
     items: components
-      .filter((c) => c.role === 'item')
+      .filter((c) => c.role !== 'packaging' && c.role !== 'filling')
       .map((c) => ({
+        role: c.role as 'item' | 'card' | 'sticker',
         productId: c.product.id,
         name: c.product.name,
         price: c.product.price,
@@ -189,7 +190,7 @@ export function ProductFormDialog({
           ...form.contents.items.map((item, i) => ({
             componentId: item.productId,
             quantity: item.quantity,
-            role: 'item' as const,
+            role: item.role ?? ('item' as const),
             sortOrder: i,
           })),
           ...(form.contents.packagingId

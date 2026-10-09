@@ -52,7 +52,10 @@ export {
   type OrderContact,
   type OrderDelivery,
   type OrderItem,
+  type OrderRecipient,
   type OrderSource,
+  type ShippingMethod,
+  type ShippingSplit,
   type PaymentMethod,
   type PaymentStatus,
 } from './orders.js'
@@ -76,6 +79,8 @@ export {
   type Product,
   type NewProduct,
   type ProductKind,
+  type GraduatedPrice,
+  type ProductLabel,
 } from './products.js'
 export {
   productComponents,

@@ -17,6 +17,19 @@ import { categories } from './categories.js'
 /** An ordinary item, or a pre-configured box made of other items. */
 export type ProductKind = 'single' | 'bundle'
 
+/**
+ * One volume tier: from `minQty` units up to `maxQty` (inclusive) each unit
+ * costs `price`. `maxQty: null` is open-ended. Net, in the product's currency.
+ */
+export interface GraduatedPrice {
+  minQty: number
+  maxQty: number | null
+  price: number
+}
+
+/** Diet and sourcing badges the add-product modal shows. */
+export type ProductLabel = 'vegan' | 'organic'
+
 const vector = customType<{ data: number[]; dpiverName: string }>({
   dataType() {
     return 'vector(768)'
@@ -41,7 +54,16 @@ export const products = pgTable(
     sku: text('sku').notNull(),
     name: text('name').notNull(),
     tagline: text('tagline').notNull().default(''),
+    /** Net price for one unit, and the fallback when no tier applies. */
     price: numeric('price', { precision: 10, scale: 2 }).notNull(),
+    /**
+     * The supplier's volume tiers, sorted by `minQty`. Empty when the product
+     * has one price for every quantity. See `unitPriceFor` in lib/pricing.ts.
+     */
+    graduatedPrices: jsonb('graduated_prices')
+      .$type<GraduatedPrice[]>()
+      .notNull()
+      .default([]),
     currency: text('currency').notNull().default('EUR'),
     stock: integer('stock').notNull().default(0),
     categoryId: uuid('category_id')
@@ -71,6 +93,11 @@ export const products = pgTable(
      * is what a landing page filters on.
      */
     tags: jsonb('tags').$type<string[]>().notNull().default([]),
+    /**
+     * Badges such as `vegan` and `organic`. Kept apart from `tags` because tags
+     * decide which collections a product appears in, and a badge must not.
+     */
+    labels: jsonb('labels').$type<ProductLabel[]>().notNull().default([]),
     /** Smallest order the supplier accepts. 1 unless someone says otherwise. */
     minQuantity: integer('min_quantity').notNull().default(1),
     /**
@@ -81,6 +108,8 @@ export const products = pgTable(
      * later feature can promote a field to a column without re-fetching.
      */
     sourceData: jsonb('source_data').$type<Record<string, unknown>>(),
+    /** When `pnpm sync:endeavour` last refreshed this row from the supplier. */
+    sourceSyncedAt: timestamp('source_synced_at', { withTimezone: true }),
     // Dominant color for brand-color similarity filtering. `dominant_color` is
     // the display hex; `color_l/a/b` are its CIELAB coordinates, so proximity
     // sorting is a plain Euclidean (ΔE) distance in a perceptual color space.

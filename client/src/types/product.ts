@@ -2,7 +2,20 @@
 export type ProductKind = 'single' | 'bundle'
 
 /** What a component sits in a pre-configured box as. */
-export type ComponentRole = 'item' | 'packaging' | 'filling'
+export type ComponentRole = 'item' | 'packaging' | 'filling' | 'card' | 'sticker'
+
+/**
+ * One volume tier: from `minQty` units up to `maxQty` (inclusive, `null` is
+ * open-ended) each unit costs `price`. Net.
+ */
+export interface GraduatedPrice {
+  minQty: number
+  maxQty: number | null
+  price: number
+}
+
+/** Diet and sourcing badges. */
+export type ProductLabel = 'vegan' | 'organic'
 
 /**
  * One line of a pre-configured box's parts list.
@@ -25,6 +38,8 @@ export interface Product {
   name: string
   tagline: string
   price: number
+  /** Volume tiers, sorted; empty when one price fits every quantity. */
+  graduatedPrices?: GraduatedPrice[]
   currency?: string
   stock?: number
   category: string
@@ -43,6 +58,8 @@ export interface Product {
   kind?: ProductKind
   /** Occasion slugs, e.g. `christmas`. What a landing page filters by. */
   tags?: string[]
+  /** Badges such as `vegan` and `organic`. */
+  labels?: ProductLabel[]
   /** Smallest order the supplier accepts. */
   minQuantity?: number
   /** What is inside, on a bundle read one at a time. */

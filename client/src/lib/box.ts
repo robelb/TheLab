@@ -78,7 +78,13 @@ export function cartLineTotal(line: {
   quantity: number
   box?: Pick<
     BoxDetails,
-    'lines' | 'packaging' | 'filling' | 'bundleId' | 'bundlePrice'
+    | 'lines'
+    | 'packaging'
+    | 'filling'
+    | 'greetingCard'
+    | 'stickers'
+    | 'bundleId'
+    | 'bundlePrice'
   > | null
 }): number {
   if (!line.box) return line.price * line.quantity
@@ -92,11 +98,23 @@ export function cartLineTotal(line: {
   return boxSubtotal(boxAllLines(line.box)) * line.quantity
 }
 
-/** Everything a box charges for: its products, plus the box and the filling. */
+/**
+ * Everything a box charges for: its products, plus the box, the filling, the
+ * greeting card and the stickers. Mirrors `boxParts` on the server.
+ */
 export function boxAllLines(
-  box: Pick<BoxDetails, 'lines' | 'packaging' | 'filling'>,
+  box: Pick<
+    BoxDetails,
+    'lines' | 'packaging' | 'filling' | 'greetingCard' | 'stickers'
+  >,
 ): BoxLine[] {
-  return [...box.lines, box.packaging, box.filling].filter(
+  return [
+    ...box.lines,
+    box.packaging,
+    box.filling,
+    box.greetingCard,
+    box.stickers,
+  ].filter(
     (line): line is BoxLine => Boolean(line),
   )
 }

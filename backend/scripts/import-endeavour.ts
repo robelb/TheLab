@@ -16,15 +16,21 @@
  * JTL, so the shop does not depend on the supplier's CDN.
  *
  * Idempotent: products match on SKU (the `jfsku`), a box's parts list is
- * replaced whole, and pictures upsert to a fixed path.
+ * replaced whole, and pictures upsert to a fixed path. Pictures that have not
+ * changed since the last import are not downloaded again.
+ *
+ * To refresh from the live API first, run `pnpm sync:endeavour` (see
+ * scripts/sync-endeavour.ts): it fetches every product and then calls
+ * `importSnapshot` from here, in one go.
  *
  *   pnpm sql sql/product-source-data.sql   # once
+ *   pnpm sql sql/p0-christmas.sql          # once
  *   pnpm import:endeavour                  # write
  *   pnpm import:endeavour --dry            # print what would change
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { eq, inArray } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
 import {
@@ -33,7 +39,9 @@ import {
   productComponents,
   products,
   type ComponentRole,
+  type ProductLabel,
 } from '../src/db/schema/index.js'
+import { normalizeGraduatedPrices } from '../src/lib/pricing.js'
 import { FILLING_SLUG, PACKAGING_SLUG } from '../src/lib/supplies.js'
 import { embedText } from '../src/services/embedding.js'
 import { uploadToSupabase } from '../src/services/supabaseStorage.js'
@@ -68,11 +76,21 @@ const SHEET_CATEGORIES: Record<string, { slug: string; name: string }> = {
   'Cards & Stickers': { slug: 'cards-stickers', name: 'Cards & Stickers' },
 }
 const FILLING_CATEGORY = { slug: FILLING_SLUG, name: 'Filling materials' }
+const CARDS_SLUG = SHEET_CATEGORIES['Cards & Stickers'].slug
+
+/** JTL tag names (lowercased) that become a badge in the shop. */
+const LABEL_TAGS: Record<string, ProductLabel> = {
+  vegan: 'vegan',
+  organic: 'organic',
+  bio: 'organic',
+}
 
 interface Picture {
   number: number
   url?: string
   publicUrl?: string
+  filename?: string
+  size?: number
   mimeType?: string
 }
 
@@ -91,6 +109,7 @@ interface SourceProduct {
   description: string | null
   descriptionDe: string | null
   netRetailPrice: { amount: number; currency: string }
+  graduatedPrices?: { firstUnit: number; lastUnit: number; price: number }[]
   minimumOrderQuantity: number
   pictures: Picture[]
   productCategories: { name: string }[]
@@ -116,7 +135,7 @@ interface SheetRow {
   note?: string
 }
 
-interface Entry {
+export interface Entry {
   sheet: SheetRow | null
   product: SourceProduct
 }
@@ -190,6 +209,15 @@ function categoryFor(entry: Entry): { slug: string; name: string } {
   return SHEET_CATEGORIES['Snacks & Treats']
 }
 
+function labelsFor(p: SourceProduct): ProductLabel[] {
+  const labels = new Set<ProductLabel>()
+  for (const t of p.productTags) {
+    const label = LABEL_TAGS[t.productCategoryTag.name.toLowerCase().trim()]
+    if (label) labels.add(label)
+  }
+  return [...labels].sort()
+}
+
 function tagsFor(p: SourceProduct): string[] {
   const tags = new Set(
     p.productTags.map((t) => tagSlug(t.productCategoryTag.name)).filter(Boolean),
@@ -210,10 +238,37 @@ function detailsFor(p: SourceProduct): string[] {
   return lines
 }
 
-function roleFor(categorySlug: string): ComponentRole {
+function roleFor(categorySlug: string, name: string): ComponentRole {
   if (categorySlug === PACKAGING_SLUG) return 'packaging'
   if (categorySlug === FILLING_SLUG) return 'filling'
+  if (categorySlug === CARDS_SLUG) return /sticker/i.test(name) ? 'sticker' : 'card'
   return 'item'
+}
+
+/**
+ * Each product tag carries every other product with that tag, pictures and
+ * all. Nothing reads it, so it is not worth storing in `source_data`.
+ */
+function withoutRelated(p: SourceProduct): SourceProduct {
+  return {
+    ...p,
+    productTags: p.productTags.map((t) => {
+      const { relatedProducts: _, ...tag } = t.productCategoryTag as {
+        name: string
+        relatedProducts?: unknown
+      }
+      return { ...t, productCategoryTag: tag }
+    }),
+  }
+}
+
+/** What identifies a picture set, to tell whether it changed since last time. */
+function pictureKey(pictures: Picture[] | undefined): string {
+  return JSON.stringify(
+    [...(pictures ?? [])]
+      .sort((a, b) => a.number - b.number)
+      .map((pic) => [pic.number, pic.publicUrl ?? pic.url, pic.size ?? null]),
+  )
 }
 
 function extFor(mime: string | undefined): string {
@@ -222,8 +277,27 @@ function extFor(mime: string | undefined): string {
   return 'jpg'
 }
 
-/** Copy one product's pictures into our bucket, in the supplier's order. */
+/**
+ * Copy one product's pictures into our bucket, in the supplier's order — all
+ * of them, so the product page has a gallery. When the supplier's pictures are
+ * the ones copied last time, the stored copies are reused instead.
+ */
 async function storePictures(p: SourceProduct): Promise<string[]> {
+  const [existing] = await db
+    .select({ images: products.images, sourceData: products.sourceData })
+    .from(products)
+    .where(eq(products.sku, p.jfsku))
+    .limit(1)
+  const previous = existing?.sourceData?.originalPictures as Picture[] | undefined
+  if (
+    existing &&
+    previous &&
+    existing.images.length === p.pictures.length &&
+    pictureKey(previous) === pictureKey(p.pictures)
+  ) {
+    return existing.images
+  }
+
   const sorted = [...p.pictures].sort((a, b) => a.number - b.number)
   const urls: string[] = []
   for (const pic of sorted) {
@@ -299,15 +373,22 @@ async function upsertProduct(values: typeof products.$inferInsert): Promise<stri
   return created.id
 }
 
-async function importProduct(entry: Entry, extra: Partial<typeof products.$inferInsert> = {}) {
-  const p = entry.product
+async function importProduct(
+  entry: Entry,
+  syncedAt: Date,
+  extra: Partial<typeof products.$inferInsert> = {},
+) {
+  const p = withoutRelated(entry.product)
   const category = categoryFor(entry)
   const categoryId = await ensureCategory(category)
   const images = await storePictures(p)
   if (images.length === 0) throw new Error(`${p.name} (${p.jfsku}) has no picture`)
 
   const description = plainText(p.descriptionDe) || plainText(p.description)
-  const price = round2(p.netRetailPrice.amount)
+  const graduatedPrices = normalizeGraduatedPrices(p.graduatedPrices)
+  // Boxes often come with no unit price and only a volume table; the table's
+  // first tier is then the price for the smallest order.
+  const price = round2(p.netRetailPrice.amount || graduatedPrices[0]?.price || 0)
   const embedding = await tryEmbed(
     [p.name, entry.sheet?.name_en, description.slice(0, 1500)].filter(Boolean).join('. '),
   )
@@ -319,6 +400,7 @@ async function importProduct(entry: Entry, extra: Partial<typeof products.$infer
     name: p.name,
     tagline: taglineFrom(description),
     price: String(price),
+    graduatedPrices,
     currency: p.netRetailPrice.currency || 'EUR',
     stock: SHOP_STOCK,
     categoryId,
@@ -329,6 +411,7 @@ async function importProduct(entry: Entry, extra: Partial<typeof products.$infer
     isFeatured: false,
     kind: 'single',
     tags: tagsFor(p),
+    labels: labelsFor(p),
     minQuantity: Math.max(1, p.minimumOrderQuantity || 1),
     sourceData: {
       provider: 'endeavour',
@@ -337,15 +420,29 @@ async function importProduct(entry: Entry, extra: Partial<typeof products.$infer
       originalPictures: p.pictures,
       product: p,
     },
+    sourceSyncedAt: syncedAt,
     ...(embedding ? { embedding, embeddingUpdatedAt: new Date() } : {}),
     ...extra,
   })
-  return { id, category, price }
+  return { id, category, price, tiers: graduatedPrices.length }
 }
 
-async function main() {
-  const snapshot = JSON.parse(readFileSync(SNAPSHOT, 'utf-8')) as { items: Entry[] }
+export interface Snapshot {
+  fetchedAt?: string
+  items: Entry[]
+}
+
+/**
+ * Write a snapshot into the catalogue. Reads `endeavour-christmas.json` unless
+ * one is handed in — the sync script passes what it just fetched. `--dry` on
+ * the command line makes it print instead of write.
+ */
+export async function importSnapshot(
+  snapshot: Snapshot = JSON.parse(readFileSync(SNAPSHOT, 'utf-8')) as Snapshot,
+): Promise<void> {
   const entries = snapshot.items
+  const fetched = snapshot.fetchedAt ? new Date(snapshot.fetchedAt) : null
+  const syncedAt = fetched && !Number.isNaN(fetched.getTime()) ? fetched : new Date()
   const isBox = (e: Entry) => Boolean(e.product.specifications?.isBillOfMaterials)
   const singles = entries.filter((e) => !isBox(e))
   const boxes = entries.filter(isBox)
@@ -359,13 +456,26 @@ async function main() {
   await ensureCategory(FILLING_CATEGORY)
 
   // ── Singles ─────────────────────────────────────────────────────────────
-  const byJfsku = new Map<string, { id: string; categorySlug: string; price: number }>()
+  const byJfsku = new Map<
+    string,
+    { id: string; categorySlug: string; price: number; name: string }
+  >()
   const unpriced: string[] = []
+  let tiered = 0
   for (const entry of singles) {
-    const { id, category, price } = await importProduct(entry)
-    byJfsku.set(entry.product.jfsku, { id, categorySlug: category.slug, price })
+    const { id, category, price, tiers } = await importProduct(entry, syncedAt)
+    byJfsku.set(entry.product.jfsku, {
+      id,
+      categorySlug: category.slug,
+      price,
+      name: entry.product.name,
+    })
     if (price === 0) unpriced.push(entry.product.name)
-    console.log(`  single  ${entry.product.name} — €${price.toFixed(2)} [${category.slug}]`)
+    if (tiers > 0) tiered++
+    console.log(
+      `  single  ${entry.product.name} — €${price.toFixed(2)} [${category.slug}]` +
+        (tiers > 0 ? ` (${tiers} volume tiers)` : ''),
+    )
   }
 
   // ── Boxes, last ─────────────────────────────────────────────────────────
@@ -381,10 +491,12 @@ async function main() {
       )
     }
 
-    const itemCount = bom.filter(
-      (c) => roleFor(byJfsku.get(c.jfsku)!.categorySlug) === 'item',
-    ).length
-    const { id, price } = await importProduct(entry, {
+    const roleOf = (c: BomComponent) => {
+      const part = byJfsku.get(c.jfsku)!
+      return roleFor(part.categorySlug, part.name)
+    }
+    const itemCount = bom.filter((c) => roleOf(c) === 'item').length
+    const { id, price, tiers } = await importProduct(entry, syncedAt, {
       kind: 'bundle',
       tagline: `${itemCount} Produkte, weihnachtlich verpackt`,
       details: [
@@ -393,6 +505,8 @@ async function main() {
       ],
     })
     boxIds.set(entry.product.name, id)
+    if (price === 0) unpriced.push(entry.product.name)
+    if (tiers > 0) tiered++
 
     // One row per part: the table holds a part once, so repeats add up.
     const rows = new Map<string, typeof productComponents.$inferInsert>()
@@ -407,7 +521,7 @@ async function main() {
         bundleId: id,
         componentId: part.id,
         quantity: c.quantity,
-        role: roleFor(part.categorySlug),
+        role: roleOf(c),
         sortOrder: i,
       })
     })
@@ -442,15 +556,19 @@ async function main() {
   }
   console.log(`\n/c/${COLLECTION_SLUG} features: ${FEATURED_NAMES.join(', ')}`)
 
+  console.log(`\n${tiered} of ${entries.length} products have graduated prices.`)
   if (unpriced.length > 0) {
     console.log(`\n${unpriced.length} products have no price in JTL (€0): ${unpriced.join(', ')}`)
   }
   if (dryRun) console.log('\nDry run — nothing was written.')
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((err) => {
-    console.error('Endeavour import failed:', err)
-    process.exit(1)
-  })
+// Run on its own only when invoked directly, not when the sync script imports it.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  importSnapshot()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error('Endeavour import failed:', err)
+      process.exit(1)
+    })
+}

@@ -144,6 +144,7 @@ export async function createCollection(
       defaultLocale: input.defaultLocale,
       active: input.active,
       allowCustomization: input.allowCustomization,
+      allowBoxBuilding: input.allowBoxBuilding,
       sortOrder: input.sortOrder,
     })
     .returning()
@@ -171,6 +172,9 @@ export async function updateCollection(
   if (input.active !== undefined) values.active = input.active
   if (input.allowCustomization !== undefined) {
     values.allowCustomization = input.allowCustomization
+  }
+  if (input.allowBoxBuilding !== undefined) {
+    values.allowBoxBuilding = input.allowBoxBuilding
   }
   if (input.sortOrder !== undefined) values.sortOrder = input.sortOrder
 

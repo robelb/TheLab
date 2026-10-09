@@ -28,6 +28,8 @@ export const createCollectionSchema = z.object({
   active: z.boolean().default(true),
   /** False for a page that only sells ready-made boxes. */
   allowCustomization: z.boolean().default(true),
+  /** False for a page where visitors cannot build their own box. */
+  allowBoxBuilding: z.boolean().default(true),
   sortOrder: z.coerce.number().int().min(0).max(500).default(0),
 })
 

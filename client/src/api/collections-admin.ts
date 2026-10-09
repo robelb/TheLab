@@ -12,6 +12,8 @@ export interface CollectionInput {
   defaultLocale: 'de' | 'en'
   active: boolean
   allowCustomization: boolean
+  /** Defaults to on when left out. */
+  allowBoxBuilding?: boolean
   sortOrder: number
 }
 

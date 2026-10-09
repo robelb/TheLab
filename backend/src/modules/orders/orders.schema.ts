@@ -23,6 +23,14 @@ const boxLineSchema = z.object({
   customPrint: z.boolean().nullish(),
 })
 
+/** Longest greeting the card printer takes; the builder counts down to it. */
+export const GREETING_MAX_LENGTH = 500
+
+/** The card that goes in the box, and what it says. We do the formatting. */
+const greetingCardSchema = boxLineSchema.extend({
+  message: z.string().max(GREETING_MAX_LENGTH).default(''),
+})
+
 /**
  * A built box. `designs` and `packagingLayout` are passed through unchecked:
  * they are the editor's own structures, stored so the print shop can see what
@@ -42,6 +50,9 @@ const boxSchema = z.object({
   lines: z.array(boxLineSchema).max(64),
   packaging: boxLineSchema.nullish(),
   filling: boxLineSchema.nullish(),
+  greetingCard: greetingCardSchema.nullish(),
+  /** Optional logo stickers; skipped boxes have none. */
+  stickers: boxLineSchema.nullish(),
   packagingPrompt: z.string().max(4000).nullish(),
   packagingLayout: z.unknown().nullish(),
   designs: z.unknown().nullish(),

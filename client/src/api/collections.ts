@@ -22,8 +22,10 @@ export interface Collection {
   featuredBundleIds: string[]
   defaultLocale: string
   active: boolean
-  /** False when this page only sells ready-made boxes. */
+  /** False when this page does not offer branding products. */
   allowCustomization: boolean
+  /** False when visitors cannot build their own box from this page. */
+  allowBoxBuilding: boolean
   sortOrder: number
   /** The headline boxes, loaded by every read that returns a collection. */
   featuredBundles: Product[]

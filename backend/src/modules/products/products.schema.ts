@@ -215,7 +215,9 @@ export type ImageSearchBody = z.infer<typeof imageSearchSchema>
 export const productComponentSchema = z.object({
   componentId: z.string().uuid('componentId must be a valid product'),
   quantity: z.coerce.number().int().min(1).max(1000).default(1),
-  role: z.enum(['item', 'packaging', 'filling']).default('item'),
+  role: z
+    .enum(['item', 'packaging', 'filling', 'card', 'sticker'])
+    .default('item'),
   sortOrder: z.coerce.number().int().min(0).max(500).optional(),
 })
 

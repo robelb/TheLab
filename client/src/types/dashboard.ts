@@ -1,3 +1,5 @@
+import type { ComponentRole } from '@/types/product'
+
 export interface Category {
   id: string
   name: string
@@ -61,7 +63,7 @@ export interface DashboardStats {
 export interface ProductComponentInput {
   componentId: string
   quantity: number
-  role: 'item' | 'packaging' | 'filling'
+  role: ComponentRole
   sortOrder?: number
 }
 

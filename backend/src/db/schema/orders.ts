@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   jsonb,
   numeric,
@@ -48,6 +49,27 @@ export const orders = pgTable(
     /** Where it goes and when it is needed. Absent until someone asks for it. */
     delivery: jsonb('delivery').$type<OrderDelivery | null>(),
     /**
+     * `bulk` sends every box to the `delivery` address; `individual` sends one
+     * box to each of `recipients`; `mixed` does some of each, split by
+     * `shippingSplit`.
+     */
+    shippingMethod: text('shipping_method')
+      .$type<ShippingMethod>()
+      .notNull()
+      .default('bulk'),
+    /** How many boxes go each way. Set only for `mixed`. */
+    shippingSplit: jsonb('shipping_split').$type<ShippingSplit | null>(),
+    /**
+     * The customer will send recipient addresses after ordering. Someone buying
+     * for a hundred employees rarely has the list to hand at checkout.
+     */
+    addressesLater: boolean('addresses_later').notNull().default(false),
+    /** Where individually shipped boxes go. Empty until the addresses arrive. */
+    recipients: jsonb('recipients')
+      .$type<OrderRecipient[]>()
+      .notNull()
+      .default([]),
+    /**
      * The cart exactly as it was sent, boxes and their designs included.
      *
      * Stored whole rather than split into rows because it is a record of what
@@ -57,6 +79,14 @@ export const orders = pgTable(
     items: jsonb('items').$type<OrderItem[]>().notNull(),
     subtotal: numeric('subtotal', { precision: 10, scale: 2 }).notNull(),
     shipping: numeric('shipping', { precision: 10, scale: 2 }).notNull(),
+    /**
+     * The per-item pick fee for packing boxes (€0.15 for each item put into a
+     * box). Its own column so the operator can change it on confirm and the
+     * invoice shows it as its own line. Included in `total`.
+     */
+    fulfilmentFee: numeric('fulfilment_fee', { precision: 10, scale: 2 })
+      .notNull()
+      .default('0'),
     total: numeric('total', { precision: 10, scale: 2 }).notNull(),
     currency: text('currency').notNull(),
     /** `storefront` is the shop itself; `funnel` came in off a landing page. */
@@ -115,6 +145,26 @@ export const orders = pgTable(
 )
 
 export type OrderSource = 'storefront' | 'funnel'
+export type ShippingMethod = 'bulk' | 'individual' | 'mixed'
+
+export interface ShippingSplit {
+  bulkBoxes: number
+  individualBoxes: number
+}
+
+/** One person an individually shipped box goes to. */
+export interface OrderRecipient {
+  name: string
+  company?: string | null
+  street: string
+  line2?: string | null
+  zip: string
+  city: string
+  /** ISO 3166-1 alpha-2. */
+  country: string
+  /** How many boxes this person gets. */
+  boxes?: number | null
+}
 export type PaymentMethod = 'invoice'
 export type PaymentStatus = 'unpaid' | 'paid'
 
@@ -200,6 +250,11 @@ export interface OrderItem {
    * something and it was summed from its contents.
    */
   pricingMode?: 'bundle' | 'parts'
+  /**
+   * Set when a graduated price applied to this line: the per-unit price the
+   * volume tier gave, in place of the catalogue price.
+   */
+  tierPrice?: number
 }
 
 export type Order = typeof orders.$inferSelect

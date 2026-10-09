@@ -3,7 +3,12 @@ import {
   normalizePublicImageUrl,
   normalizePublicImageUrls,
 } from '../lib/publicImageUrl.js'
-import type { ComponentRole, ProductKind } from '../db/schema/index.js'
+import type {
+  ComponentRole,
+  GraduatedPrice,
+  ProductKind,
+  ProductLabel,
+} from '../db/schema/index.js'
 
 /**
  * One line of a pre-configured box's parts list.
@@ -27,6 +32,8 @@ export interface ProductWithCategory {
   name: string
   tagline: string
   price: number
+  /** Volume tiers, sorted; empty when one price fits every quantity. */
+  graduatedPrices: GraduatedPrice[]
   currency: string
   stock: number
   category: string
@@ -41,6 +48,7 @@ export interface ProductWithCategory {
   dominantColor: string | null
   kind: ProductKind
   tags: string[]
+  labels: ProductLabel[]
   minQuantity: number
   /** Present on a `bundle`, when it was read one at a time. */
   components?: BundleComponent[]
@@ -55,6 +63,7 @@ export interface ProductRow {
   name: string
   tagline: string
   price: string
+  graduatedPrices: GraduatedPrice[] | null
   currency: string
   stock: number
   categoryId: string
@@ -68,6 +77,7 @@ export interface ProductRow {
   dominantColor: string | null
   kind: ProductKind
   tags: string[] | null
+  labels: ProductLabel[] | null
   minQuantity: number
   createdAt: Date
   updatedAt: Date
@@ -84,6 +94,7 @@ export interface RawProductRow {
   name: string
   tagline: string
   price: string
+  graduated_prices: GraduatedPrice[] | null
   currency: string
   stock: number
   image: string
@@ -96,6 +107,7 @@ export interface RawProductRow {
   dominant_color: string | null
   kind: ProductKind
   tags: string[] | null
+  labels: ProductLabel[] | null
   min_quantity: number
   created_at: Date
   updated_at: Date
@@ -112,6 +124,8 @@ export interface RawProductJson {
   name: string
   tagline: string
   price: number
+  /** Volume tiers, sorted; empty when one price fits every quantity. */
+  graduatedPrices: GraduatedPrice[]
   currency: string
   stock: number
   category: string
@@ -196,6 +210,7 @@ export function toProductWithCategory(row: ProductRow): ProductWithCategory {
     name: row.name,
     tagline: row.tagline,
     price: Number(row.price),
+    graduatedPrices: row.graduatedPrices ?? [],
     currency: row.currency,
     stock: row.stock,
     category: row.categoryName,
@@ -212,6 +227,7 @@ export function toProductWithCategory(row: ProductRow): ProductWithCategory {
     dominantColor: row.dominantColor,
     kind: row.kind ?? 'single',
     tags: row.tags ?? [],
+    labels: row.labels ?? [],
     minQuantity: row.minQuantity ?? 1,
   }
 }
@@ -225,6 +241,7 @@ export function rawRowToProductRow(row: RawProductRow): ProductRow {
     name: row.name,
     tagline: row.tagline,
     price: row.price,
+    graduatedPrices: row.graduated_prices,
     currency: row.currency,
     stock: row.stock,
     categoryId: '',
@@ -238,6 +255,7 @@ export function rawRowToProductRow(row: RawProductRow): ProductRow {
     dominantColor: row.dominant_color,
     kind: row.kind ?? 'single',
     tags: row.tags ?? [],
+    labels: row.labels ?? [],
     minQuantity: row.min_quantity ?? 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

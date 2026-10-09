@@ -13,9 +13,11 @@ import { products } from './products.js'
  *
  * The box and its filling are ordinary products in the `packaging` and
  * `filling-materials` categories, so the role is what tells the builder which
- * slot a component fills when a bundle is opened for customisation.
+ * slot a component fills when a bundle is opened for customisation. Greeting
+ * cards and logo stickers get roles of their own for the builder's card and
+ * sticker steps.
  */
-export type ComponentRole = 'item' | 'packaging' | 'filling'
+export type ComponentRole = 'item' | 'packaging' | 'filling' | 'card' | 'sticker'
 
 /**
  * The contents of a pre-configured box.

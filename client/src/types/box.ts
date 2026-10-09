@@ -34,6 +34,13 @@ export interface BoxLine {
   customPrint?: boolean
 }
 
+export interface GreetingCardLine extends BoxLine {
+  message: string
+}
+
+/** Mirrors the server's limit in orders.schema.ts. */
+export const GREETING_MAX_LENGTH = 500
+
 export interface BoxDetails {
   /** The saved campaign this box was built from, when it has one. */
   campaignId: string | null
@@ -60,6 +67,13 @@ export interface BoxDetails {
    */
   packaging?: BoxLine | null
   filling?: BoxLine | null
+  /**
+   * The greeting card chosen in the builder, with the shopper's message (at
+   * most `GREETING_MAX_LENGTH` characters; we do the formatting).
+   */
+  greetingCard?: GreetingCardLine | null
+  /** Logo stickers, when the shopper did not skip that step. */
+  stickers?: BoxLine | null
   /**
    * The wording that produced the box's printed design, when the shopper
    * customized it. The design itself is the packaging line's `customizedImage`;

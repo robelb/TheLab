@@ -22,6 +22,11 @@ export interface BundleItemDraft {
   currency?: string
   image: string
   quantity: number
+  /**
+   * `card` or `sticker` when the import placed it in one of those slots; kept
+   * so saving the bundle here does not demote it to an ordinary item.
+   */
+  role?: 'item' | 'card' | 'sticker'
 }
 
 export interface BundleContentsValue {

@@ -65,6 +65,7 @@ const productSelect = {
   name: products.name,
   tagline: products.tagline,
   price: products.price,
+  graduatedPrices: products.graduatedPrices,
   currency: products.currency,
   stock: products.stock,
   categoryId: products.categoryId,
@@ -78,6 +79,7 @@ const productSelect = {
   dominantColor: products.dominantColor,
   kind: products.kind,
   tags: products.tags,
+  labels: products.labels,
   minQuantity: products.minQuantity,
   createdAt: products.createdAt,
   updatedAt: products.updatedAt,
@@ -487,9 +489,10 @@ async function semanticSearch(
   const rows = (await rawSql`
     SELECT
       p.id, p.source_id, p.variant_id, p.sku, p.name, p.tagline,
-      p.price, p.currency, p.stock, p.image, p.images, p.customized_image,
-      p.description, p.details, p.is_featured, p.is_best_seller, p.dominant_color,
-      p.kind, p.tags, p.min_quantity,
+      p.price, p.graduated_prices, p.currency, p.stock, p.image, p.images,
+      p.customized_image, p.description, p.details, p.is_featured,
+      p.is_best_seller, p.dominant_color, p.kind, p.tags, p.labels,
+      p.min_quantity,
       p.created_at, p.updated_at,
       c.name AS category_name, c.slug AS category_slug
     FROM products p
@@ -1443,9 +1446,10 @@ export async function getRelatedProducts(
   const rows = (await rawSql`
     SELECT
       p.id, p.source_id, p.variant_id, p.sku, p.name, p.tagline,
-      p.price, p.currency, p.stock, p.image, p.images, p.customized_image,
-      p.description, p.details, p.is_featured, p.is_best_seller, p.dominant_color,
-      p.kind, p.tags, p.min_quantity,
+      p.price, p.graduated_prices, p.currency, p.stock, p.image, p.images,
+      p.customized_image, p.description, p.details, p.is_featured,
+      p.is_best_seller, p.dominant_color, p.kind, p.tags, p.labels,
+      p.min_quantity,
       p.created_at, p.updated_at,
       c.name AS category_name, c.slug AS category_slug
     FROM products p

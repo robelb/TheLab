@@ -14,12 +14,14 @@ import {
   orders,
   outboundEvents,
   products,
+  type GraduatedPrice,
   type OrderDelivery,
   type PaymentStatus,
 } from '../../db/schema/index.js'
 import { env } from '../../config/env.js'
 import { missingSellerDetails } from '../../config/seller.js'
 import { getBundleComponents } from '../products/products.service.js'
+import { unitPriceFor } from '../../lib/pricing.js'
 import { enqueueLeadEvent } from '../../services/leadIntake.js'
 import { enqueueEmail, sendEmailNow } from '../../services/mailer.js'
 import type { SendOutcome } from '../../services/outbox.js'
@@ -69,9 +71,18 @@ export type PricingMode = 'bundle' | 'parts'
 type Item = CreateOrderBody['items'][number]
 type Box = NonNullable<Item['box']>
 
-/** Everything in a box that is charged: the contents, the box, the filling. */
+/**
+ * Everything in a box that is charged: the contents, the box, the filling, the
+ * greeting card and the stickers.
+ */
 function boxParts(box: Box) {
-  return [...box.lines, box.packaging, box.filling].filter(
+  return [
+    ...box.lines,
+    box.packaging,
+    box.filling,
+    box.greetingCard,
+    box.stickers,
+  ].filter(
     (line): line is NonNullable<typeof line> => Boolean(line),
   )
 }
@@ -116,6 +127,35 @@ interface BundleFacts {
   components: Map<string, BundleComponent[]>
 }
 
+/** Product id → its volume tiers, for the products that have any. */
+type TierTable = Map<string, GraduatedPrice[]>
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * The graduated prices of every product the order mentions — loose lines, box
+ * contents, and the boxes themselves.
+ */
+async function loadTiers(items: Item[]): Promise<TierTable> {
+  const ids = new Set<string>()
+  for (const item of items) {
+    ids.add(item.productId)
+    if (item.box?.bundleId) ids.add(item.box.bundleId)
+    if (item.box) for (const part of boxParts(item.box)) ids.add(part.productId)
+  }
+  // Design lines and the like carry ids that are not catalogue rows.
+  const lookup = [...ids].filter((id) => UUID.test(id))
+  if (lookup.length === 0) return new Map()
+
+  const rows = await db
+    .select({ id: products.id, tiers: products.graduatedPrices })
+    .from(products)
+    .where(inArray(products.id, lookup))
+  return new Map(
+    rows.filter((r) => r.tiers?.length).map((r) => [r.id, r.tiers]),
+  )
+}
+
 async function loadBundles(items: Item[]): Promise<BundleFacts> {
   const ids = [
     ...new Set(
@@ -157,11 +197,23 @@ async function loadBundles(items: Item[]): Promise<BundleFacts> {
  * what that row is for. Change anything and it reverts to being priced by
  * parts, which is what the builder shows the shopper as they change it.
  */
-function lineTotal(item: Item, bundles: BundleFacts): {
+function lineTotal(
+  item: Item,
+  bundles: BundleFacts,
+  tiers: TierTable,
+): {
   total: number
   pricingMode?: PricingMode
+  tierPrice?: number
 } {
-  if (!item.box) return { total: item.unitPrice * item.quantity }
+  if (!item.box) {
+    const table = tiers.get(item.productId)
+    const unit = unitPriceFor(item.unitPrice, table, item.quantity)
+    return {
+      total: unit * item.quantity,
+      ...(table && unit !== item.unitPrice ? { tierPrice: unit } : {}),
+    }
+  }
 
   const parts = boxParts(item.box)
   const bundleId = item.box.bundleId
@@ -169,12 +221,26 @@ function lineTotal(item: Item, bundles: BundleFacts): {
     const price = bundles.prices.get(bundleId)
     const components = bundles.components.get(bundleId)
     if (price !== undefined && components && sameComposition(parts, components)) {
-      return { total: price * item.quantity, pricingMode: 'bundle' }
+      const unit = unitPriceFor(price, tiers.get(bundleId), item.quantity)
+      return {
+        total: unit * item.quantity,
+        pricingMode: 'bundle',
+        ...(unit !== price ? { tierPrice: unit } : {}),
+      }
     }
   }
 
+  // Each part's tier is chosen by how many of it the whole line needs: units
+  // per box times the number of boxes.
   const boxPrice = parts.reduce(
-    (sum, line) => sum + line.price * line.quantity,
+    (sum, line) =>
+      sum +
+      unitPriceFor(
+        line.price,
+        tiers.get(line.productId),
+        line.quantity * item.quantity,
+      ) *
+        line.quantity,
     0,
   )
   return { total: boxPrice * item.quantity, pricingMode: 'parts' }
@@ -189,16 +255,24 @@ export interface PricedOrder {
 }
 
 export async function priceOrder(body: CreateOrderBody): Promise<PricedOrder> {
-  const bundles = await loadBundles(body.items)
+  const [bundles, tiers] = await Promise.all([
+    loadBundles(body.items),
+    loadTiers(body.items),
+  ])
 
   let running = 0
   const items = body.items.map((item) => {
-    const { total, pricingMode } = lineTotal(item, bundles)
+    const { total, pricingMode, tierPrice } = lineTotal(item, bundles, tiers)
     running += total
     // The stored unit price is the one the server charged, so the lines always
     // add up to the subtotal — and are what the confirm screen starts from.
     const unitPrice = money(total / item.quantity)
-    return pricingMode ? { ...item, unitPrice, pricingMode } : { ...item, unitPrice }
+    return {
+      ...item,
+      unitPrice,
+      ...(pricingMode ? { pricingMode } : {}),
+      ...(tierPrice !== undefined ? { tierPrice } : {}),
+    }
   })
 
   const subtotal = money(running)

@@ -20,6 +20,8 @@
     "import:christmas": "tsx scripts/import-christmas.ts",
     "import:supplies": "tsx scripts/import-supplies.ts",
     "import:endeavour": "tsx scripts/import-endeavour.ts",
+    "sync:endeavour": "tsx scripts/sync-endeavour.ts",
+    "sync:endeavour:fetch": "tsx scripts/sync-endeavour.ts --fetch-only",
     "audit:prompts": "tsx scripts/audit-prompts.ts",
     "embed": "tsx scripts/generate-embeddings.ts",
     "colors": "tsx scripts/generate-colors.ts",

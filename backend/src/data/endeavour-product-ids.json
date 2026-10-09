@@ -1,0 +1,1574 @@
+[
+  {
+    "id": "72d6e670-5bd6-11ef-85fa-6bd8761f5e6b",
+    "name": "Glühweingewürz 7g",
+    "sheet": {
+      "row": 6,
+      "category": "Snacks & Treats",
+      "name_en": "Mulled Wine Spice Mix",
+      "name_de": "Glühweingewürz",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/72d6e670-5bd6-11ef-85fa-6bd8761f5e6b"
+    }
+  },
+  {
+    "id": "01992f10-1f5f-726c-8b02-0234194074c5",
+    "name": "Bülow - Lakrids Salt and Caramel 12g",
+    "sheet": {
+      "row": 7,
+      "category": "Snacks & Treats",
+      "name_en": "Lakrids by Bülow Salt & Caramel",
+      "name_de": "Lakrids by Bülow Salt & Caramel",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01992f10-1f5f-726c-8b02-0234194074c5"
+    }
+  },
+  {
+    "id": "019f611b-451e-72a6-88c2-afee5a4fa61b",
+    "name": "Lakrids by Bülow Himbeere 12g",
+    "sheet": {
+      "row": 8,
+      "category": "Snacks & Treats",
+      "name_en": "Lakrids by Bülow Raspberry",
+      "name_de": "Lakrids by Bülow Himbeere",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/019f611b-451e-72a6-88c2-afee5a4fa61b"
+    }
+  },
+  {
+    "id": "0198a3b1-f1c9-768c-85ee-1ac614f6181b",
+    "name": "Vollmilchkugel 5,3g",
+    "sheet": {
+      "row": 9,
+      "category": "Snacks & Treats",
+      "name_en": "Milk Chocolate Truffle Ball 5.3g",
+      "name_de": "Vollmilchkugel 5,3g",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/0198a3b1-f1c9-768c-85ee-1ac614f6181b"
+    }
+  },
+  {
+    "id": "01991a3f-bf4f-7418-ae07-1b76b9afb7fe",
+    "name": "Bio Waffel mit Kakao-Haselnuss Creme 30g",
+    "sheet": {
+      "row": 10,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Cocoa-Hazelnut Cream Wafer",
+      "name_de": "Bio Waffel mit Kakao-Haselnuss Creme",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01991a3f-bf4f-7418-ae07-1b76b9afb7fe"
+    }
+  },
+  {
+    "id": "934c9c70-95dc-11ef-924c-91955c079481",
+    "name": "Bio Dattel-Riegel Mandel Cinnamon Roll 30g",
+    "sheet": {
+      "row": 11,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Almond Cinnamon Roll Date Bar",
+      "name_de": "Bio Dattel-Riegel Mandel Cinnamon Roll",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/934c9c70-95dc-11ef-924c-91955c079481"
+    }
+  },
+  {
+    "id": "ac672dc0-9ced-11ef-9dc8-0f8eb0608962",
+    "name": "Bio Dattel-Riegel Haselnuss Choco Crush 30g",
+    "sheet": {
+      "row": 12,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Hazelnut Choco Crush Date Bar",
+      "name_de": "Bio Dattel-Riegel Haselnuss Choco Crush",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/ac672dc0-9ced-11ef-9dc8-0f8eb0608962"
+    }
+  },
+  {
+    "id": "0199516e-4c6e-76a6-b70c-02773334b2ee",
+    "name": "Edelvollmilch – Weihnachtsschoki 100g",
+    "sheet": {
+      "row": 13,
+      "category": "Snacks & Treats",
+      "name_en": "Fine Milk Chocolate – Christmas Edition",
+      "name_de": "Edelvollmilch – Weihnachtsschoki",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/0199516e-4c6e-76a6-b70c-02773334b2ee"
+    }
+  },
+  {
+    "id": "01991aa4-5d20-77ed-ba01-bf43c583fb73",
+    "name": "Bio Kookie Cat Cookie 50g",
+    "sheet": {
+      "row": 14,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Kookie Cat Cookie",
+      "name_de": "Bio Kookie Cat Cookie",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01991aa4-5d20-77ed-ba01-bf43c583fb73"
+    }
+  },
+  {
+    "id": "01a0c954-ed1c-74b7-9770-92d5bc4a5cd6",
+    "name": "Bio Christmas cookie with spices 50g",
+    "sheet": {
+      "row": 15,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Spiced Christmas Cookie",
+      "name_de": "Bio Christmas cookie with spices",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0c954-ed1c-74b7-9770-92d5bc4a5cd6"
+    }
+  },
+  {
+    "id": "019b4a6f-f154-74f8-bcf7-1065e55a526b",
+    "name": "Bio Hazelnut Butter Bar 30g",
+    "sheet": {
+      "row": 16,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Hazelnut Butter Bar",
+      "name_de": "Bio Hazelnut Butter Bar",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/019b4a6f-f154-74f8-bcf7-1065e55a526b"
+    }
+  },
+  {
+    "id": "c831fdc0-c9bf-11ee-b43f-37d529b7a7d8",
+    "name": "Bio Immun Shot 60ml",
+    "sheet": {
+      "row": 17,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Ginger Immune Shot",
+      "name_de": "Bio Ingwer Immun Shot",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/c831fdc0-c9bf-11ee-b43f-37d529b7a7d8"
+    }
+  },
+  {
+    "id": "01a0c870-3079-741a-aa0e-04a700678221",
+    "name": "Stollen Riegel Rosine 80g",
+    "sheet": {
+      "row": 18,
+      "category": "Snacks & Treats",
+      "name_en": "Stollen Raisin Bar",
+      "name_de": "Stollen Riegel Rosine",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0c870-3079-741a-aa0e-04a700678221"
+    }
+  },
+  {
+    "id": "01a0cdbe-70f8-727f-861b-9eed306964e7",
+    "name": "Elisenlebkuchen 400g",
+    "sheet": {
+      "row": 19,
+      "category": "Snacks & Treats",
+      "name_en": "Traditional Elisen Gingerbread",
+      "name_de": "Elisenlebkuchen",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0cdb7-08df-742e-a7ce-07bf2fa243a2",
+      "note": "sheet link id 01a0cdb7-08df-742e-a7ce-07bf2fa243a2 returns 404; matched by name to 01a0cdbe-70f8-727f-861b-9eed306964e7"
+    }
+  },
+  {
+    "id": "6c965f7d-dba9-4329-a99b-12504d21ed03",
+    "name": "Raumspray Lavendel 30ml",
+    "sheet": {
+      "row": 20,
+      "category": "Snacks & Treats",
+      "name_en": "Lavender Room Spray",
+      "name_de": "Raumspray Lavendel",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/6c965f7d-dba9-4329-a99b-12504d21ed03"
+    }
+  },
+  {
+    "id": "452cb6e9-65d9-4330-89d2-33870000d1eb",
+    "name": "Glühwein Piccolo rot 250ml",
+    "sheet": {
+      "row": 21,
+      "category": "Snacks & Treats",
+      "name_en": "Mulled Red Wine Piccolo",
+      "name_de": "Glühwein Piccolo rot",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/452cb6e9-65d9-4330-89d2-33870000d1eb"
+    }
+  },
+  {
+    "id": "fa14ef80-ef33-11ed-9705-137e8ae9fb09",
+    "name": "Glühwein Piccolo weiß 250ml",
+    "sheet": {
+      "row": 22,
+      "category": "Snacks & Treats",
+      "name_en": "Mulled White Wine Piccolo",
+      "name_de": "Glühwein Piccolo weiß",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/fa14ef80-ef33-11ed-9705-137e8ae9fb09"
+    }
+  },
+  {
+    "id": "e6edea50-d237-11ee-b738-eb5f4c51e6b4",
+    "name": "Tonic Water 200ml",
+    "sheet": {
+      "row": 23,
+      "category": "Snacks & Treats",
+      "name_en": "Tonic Water",
+      "name_de": "Tonic Water",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/e6edea50-d237-11ee-b738-eb5f4c51e6b4"
+    }
+  },
+  {
+    "id": "51744ea0-908d-11ef-92bb-e53854ba3993",
+    "name": "Winterschorli Punsch 250ml",
+    "sheet": {
+      "row": 24,
+      "category": "Snacks & Treats",
+      "name_en": "Winter Punch Spritzer",
+      "name_de": "Winterschorli Punsch",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/51744ea0-908d-11ef-92bb-e53854ba3993"
+    }
+  },
+  {
+    "id": "a320d210-5bda-11ef-a2d3-f15b5df16d8a",
+    "name": "Kirsche Dunkle Schokolade 30g",
+    "sheet": {
+      "row": 25,
+      "category": "Snacks & Treats",
+      "name_en": "Cherry Dark Chocolate",
+      "name_de": "Kirsche Dunkle Schokolade",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/a320d210-5bda-11ef-a2d3-f15b5df16d8a"
+    }
+  },
+  {
+    "id": "01992de1-eb50-731a-bc6c-69bf20d92bba",
+    "name": "Rosmarin Nussmix 30g",
+    "sheet": {
+      "row": 26,
+      "category": "Snacks & Treats",
+      "name_en": "Rosemary Nut Mix",
+      "name_de": "Rosmarin Nussmix",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01992de1-eb50-731a-bc6c-69bf20d92bba"
+    }
+  },
+  {
+    "id": "d286ce81-789e-11ee-914c-bf2b28b14b73",
+    "name": "Mandel Trüffel Schokolade 30g",
+    "sheet": {
+      "row": 27,
+      "category": "Snacks & Treats",
+      "name_en": "Almond Truffle Chocolate",
+      "name_de": "Mandel Trüffel Schokolade",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/d286ce81-789e-11ee-914c-bf2b28b14b73"
+    }
+  },
+  {
+    "id": "d286ce80-789e-11ee-914c-bf2b28b14b73",
+    "name": "Mandel Zimt & Zucker 30g",
+    "sheet": {
+      "row": 28,
+      "category": "Snacks & Treats",
+      "name_en": "Almond Cinnamon & Sugar",
+      "name_de": "Mandel Zimt & Zucker",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/d286ce80-789e-11ee-914c-bf2b28b14b73"
+    }
+  },
+  {
+    "id": "51fd75d0-a1e6-11ef-a9df-4bf18f78a110",
+    "name": "Ingwer Sticks 25g",
+    "sheet": {
+      "row": 29,
+      "category": "Snacks & Treats",
+      "name_en": "Ginger Sticks",
+      "name_de": "Ingwer Sticks",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/51fd75d0-a1e6-11ef-a9df-4bf18f78a110"
+    }
+  },
+  {
+    "id": "01a0ce19-fb8a-74b7-9fd0-feddd9f02220",
+    "name": "Cranberry mit Zartbitterschokolade 30g",
+    "sheet": {
+      "row": 30,
+      "category": "Snacks & Treats",
+      "name_en": "Cranberry with Dark Chocolate",
+      "name_de": "Cranberry mit Zartbitterschokolade",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce19-fb8a-74b7-9fd0-feddd9f02220"
+    }
+  },
+  {
+    "id": "01a0ce19-fb8a-74b7-9fd0-f8a032df868f",
+    "name": "Mandel mit Zartbitterschokolade 30g",
+    "sheet": {
+      "row": 31,
+      "category": "Snacks & Treats",
+      "name_en": "Almond with Dark Chocolate",
+      "name_de": "Mandel mit Zartbitterschokolade",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce19-fb8a-74b7-9fd0-f8a032df868f"
+    }
+  },
+  {
+    "id": "12ffa650-d243-11ee-b738-eb5f4c51e6b4",
+    "name": "Bio Energy Ball Peanut 30g",
+    "sheet": {
+      "row": 32,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Peanut Energy Ball",
+      "name_de": "Bio Energy Ball Peanut",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/12ffa650-d243-11ee-b738-eb5f4c51e6b4"
+    }
+  },
+  {
+    "id": "bbbc5f1b-88d2-4bda-93a8-1a2d8ecd2a55",
+    "name": "Bio Nussriegel - Rock O Choc 30g",
+    "sheet": {
+      "row": 33,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Nut Bar - Rock O Choc",
+      "name_de": "Bio Nussriegel - Rock O Choc",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/bbbc5f1b-88d2-4bda-93a8-1a2d8ecd2a55"
+    }
+  },
+  {
+    "id": "019a4e8f-570a-707b-8c9d-ff412c60ae75",
+    "name": "Bio Fruchtkugeln Pistazienfüllung 15g",
+    "sheet": {
+      "row": 34,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Fruit Bites with Pistachio Filling",
+      "name_de": "Bio Fruchtkugeln Pistazienfüllung",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/019a4e8f-570a-707b-8c9d-ff412c60ae75"
+    }
+  },
+  {
+    "id": "9adfef71-78a8-11ee-914c-bf2b28b14b73",
+    "name": "Bio Flapjack mit Cranberry 65g",
+    "sheet": {
+      "row": 35,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Cranberry Flapjack",
+      "name_de": "Bio Flapjack mit Cranberry",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/9adfef71-78a8-11ee-914c-bf2b28b14b73"
+    }
+  },
+  {
+    "id": "01a0ce23-36dc-7471-b2a7-06bbb6a6a6a6",
+    "name": "Bratapfel Gewürz Spice Tube 17g",
+    "sheet": {
+      "row": 36,
+      "category": "Snacks & Treats",
+      "name_en": "Baked Apple Spice Tube",
+      "name_de": "Bratapfel Gewürz Spice Tube",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce23-36dc-7471-b2a7-06bbb6a6a6a6"
+    }
+  },
+  {
+    "id": "5318221c-487e-4d83-8e69-72318d526b3c",
+    "name": "Bio Gebrannte Mandeln 50g",
+    "sheet": {
+      "row": 37,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Roasted Candied Almonds",
+      "name_de": "Bio Gebrannte Mandeln",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/5318221c-487e-4d83-8e69-72318d526b3c"
+    }
+  },
+  {
+    "id": "019929e9-cb30-778a-8fb4-8b4bd7c66ba3",
+    "name": "Bio Apfelringe 35g",
+    "sheet": {
+      "row": 38,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Dried Apple Rings",
+      "name_de": "Bio Apfelringe",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/019929e9-cb30-778a-8fb4-8b4bd7c66ba3"
+    }
+  },
+  {
+    "id": "01a0ce2c-595e-7149-ab4f-43defc275ab7",
+    "name": "Bio Choc Delights Peanut Caramel 40g",
+    "sheet": {
+      "row": 39,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Choc Delights Peanut Caramel",
+      "name_de": "Bio Choc Delights Peanut Caramel",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce2c-595e-7149-ab4f-43defc275ab7"
+    }
+  },
+  {
+    "id": "01a0ce2c-595e-7149-ab4f-3c9cda74927a",
+    "name": "Bio Churros Zimt 65g",
+    "sheet": {
+      "row": 40,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Cinnamon Churros",
+      "name_de": "Bio Churros Zimt",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce2c-595e-7149-ab4f-3c9cda74927a"
+    }
+  },
+  {
+    "id": "01999618-5a54-71de-9711-cb3cdc2df4d8",
+    "name": "Bio AirPops Salted Caramel 55g",
+    "sheet": {
+      "row": 41,
+      "category": "Snacks & Treats",
+      "name_en": "Organic AirPops Salted Caramel",
+      "name_de": "Bio AirPops Salted Caramel",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01999618-5a54-71de-9711-cb3cdc2df4d8"
+    }
+  },
+  {
+    "id": "837885e0-8bda-11ef-a58e-dd6b108d4b43",
+    "name": "Bio Salted Caramel Popcorn 90g",
+    "sheet": {
+      "row": 42,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Salted Caramel Popcorn",
+      "name_de": "Bio Salted Caramel Popcorn",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/837885e0-8bda-11ef-a58e-dd6b108d4b43"
+    }
+  },
+  {
+    "id": "01985b86-a482-76e4-b65c-28da13e1fcd6",
+    "name": "Bio AIRPOPS Cinnamon Roll 55g",
+    "sheet": {
+      "row": 43,
+      "category": "Snacks & Treats",
+      "name_en": "Organic AirPops Cinnamon Roll",
+      "name_de": "Bio AIRPOPS Cinnamon Roll",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01985b86-a482-76e4-b65c-28da13e1fcd6"
+    }
+  },
+  {
+    "id": "01a0ce35-7bf8-76fb-83c3-4f085f34f2f3",
+    "name": "Bio White Delights Pistazie 40g",
+    "sheet": {
+      "row": 44,
+      "category": "Snacks & Treats",
+      "name_en": "Organic White Delights Pistachio",
+      "name_de": "Bio White Delights Pistazie",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce35-7bf8-76fb-83c3-4f085f34f2f3"
+    }
+  },
+  {
+    "id": "5a6e7205-270a-4b5a-bcf4-039f14683f36",
+    "name": "Berliner Winter 100ml",
+    "sheet": {
+      "row": 45,
+      "category": "Snacks & Treats",
+      "name_en": "Berliner Winter (Apple Cider & Herbs)",
+      "name_de": "Berliner Winter",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/5a6e7205-270a-4b5a-bcf4-039f14683f36"
+    }
+  },
+  {
+    "id": "01a0ce2c-595e-7149-ab4f-394f36229951",
+    "name": "Bio Zartbitter Schokolade gebrannte Mandel 80g",
+    "sheet": {
+      "row": 46,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Dark Chocolate Candied Almond",
+      "name_de": "Bio Zartbitter Schokolade gebrannte Mandel",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce2c-595e-7149-ab4f-394f36229951"
+    }
+  },
+  {
+    "id": "019d95ce-19c7-706d-965e-90a747d829b1",
+    "name": "Bio Dunkle Nougat Schokolade 80g",
+    "sheet": {
+      "row": 47,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Dark Nougat Chocolate",
+      "name_de": "Bio Dunkle Nougat Schokolade",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/019d95ce-19c7-706d-965e-90a747d829b1"
+    }
+  },
+  {
+    "id": "01a0ce35-7bf8-76fb-83c3-4b9ad765374f",
+    "name": "Tannenbaum Wunderkerze 12g",
+    "sheet": {
+      "row": 48,
+      "category": "Snacks & Treats",
+      "name_en": "Christmas Tree Sparkler",
+      "name_de": "Tannenbaum Wunderkerze",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce35-7bf8-76fb-83c3-4b9ad765374f"
+    }
+  },
+  {
+    "id": "019929f2-dd96-765c-9015-60bcea4e02bd",
+    "name": "Bio Nussmischung mit Trüffel 55g",
+    "sheet": {
+      "row": 49,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Truffle Nut Mix",
+      "name_de": "Bio Nussmischung mit Trüffel",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/019929f2-dd96-765c-9015-60bcea4e02bd"
+    }
+  },
+  {
+    "id": "01a08acb-c47f-72c5-bf9f-b1ebe573975d",
+    "name": "Weihnachts-Dreierlei 35g",
+    "sheet": {
+      "row": 50,
+      "category": "Snacks & Treats",
+      "name_en": "Christmas Trio Sweet Treats",
+      "name_de": "Weihnachts-Dreierlei",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a08acb-c47f-72c5-bf9f-b1ebe573975d"
+    }
+  },
+  {
+    "id": "0198a3b1-f1c9-768c-85ee-0d4b065e03bd",
+    "name": "Spekulatius Gewürz 45g",
+    "sheet": {
+      "row": 51,
+      "category": "Snacks & Treats",
+      "name_en": "Speculoos Spice Mix",
+      "name_de": "Spekulatius Gewürz",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/0198a3b1-f1c9-768c-85ee-0d4b065e03bd"
+    }
+  },
+  {
+    "id": "01a0cdc7-98b9-762d-aff5-9d5f6f58dff0",
+    "name": "Bio Kandierte Walnuss Ahornsirup Popcorn 40g",
+    "sheet": {
+      "row": 52,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Candied Walnut Maple Popcorn 40g",
+      "name_de": "Bio Kandierte Walnuss Ahornsirup Popcorn 40g ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0cdc7-98b9-762d-aff5-9d5f6f58dff0"
+    }
+  },
+  {
+    "id": "01a0d882-2d92-7425-8ed5-50881d43dd2f",
+    "name": "Bio Kandierte Walnuss Ahornsirup Popcorn 100g",
+    "sheet": {
+      "row": 53,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Candied Walnut Maple Popcorn 100g",
+      "name_de": "Bio Kandierte Walnuss Ahornsirup Popcorn 100g ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0d882-2d92-7425-8ed5-50881d43dd2f"
+    }
+  },
+  {
+    "id": "019634d9-be1b-7088-a8c8-92e7be6a0b75",
+    "name": "Trink-Schokolade 45g",
+    "sheet": {
+      "row": 54,
+      "category": "Snacks & Treats",
+      "name_en": "Drinking Hot Chocolate",
+      "name_de": "Trink-Schokolade",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/019634d9-be1b-7088-a8c8-92e7be6a0b75"
+    }
+  },
+  {
+    "id": "01a0ce3e-9e40-735f-a419-718bfd5d44c5",
+    "name": "Glühwein Gelee 250g",
+    "sheet": {
+      "row": 55,
+      "category": "Snacks & Treats",
+      "name_en": "Mulled Wine Jelly",
+      "name_de": "Glühwein Gelee",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce3e-9e40-735f-a419-718bfd5d44c5"
+    }
+  },
+  {
+    "id": "cda4897e-b044-4451-b096-ac20d38e5f80",
+    "name": "Bio Glühwein Tee 100g",
+    "sheet": {
+      "row": 56,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Mulled Wine Herbal Tea",
+      "name_de": "Bio Glühwein Tee",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/cda4897e-b044-4451-b096-ac20d38e5f80"
+    }
+  },
+  {
+    "id": "02bd17ca-e2c8-4aaa-b3f5-7d7be9a1b2c0",
+    "name": "Brezen Stückerl Paprika 90g",
+    "sheet": {
+      "row": 57,
+      "category": "Snacks & Treats",
+      "name_en": "Pretzel Bites Paprika",
+      "name_de": "Brezen Stückerl Paprika",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/02bd17ca-e2c8-4aaa-b3f5-7d7be9a1b2c0"
+    }
+  },
+  {
+    "id": "c4d06649-8ec2-488d-b26b-22c576b90a8c",
+    "name": "Naturseife Lavendel 80g",
+    "sheet": {
+      "row": 58,
+      "category": "Snacks & Treats",
+      "name_en": "Natural Lavender Soap",
+      "name_de": "Naturseife Lavendel",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/c4d06649-8ec2-488d-b26b-22c576b90a8c"
+    }
+  },
+  {
+    "id": "6857e9f0-45d4-11ef-8c76-2f90fbac5908",
+    "name": "Heimatgut - Bio Popcorn Zimt 30g",
+    "sheet": {
+      "row": 59,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Cinnamon Popcorn 30g",
+      "name_de": "Bio Popcorn Zimt 30g",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/6857e9f0-45d4-11ef-8c76-2f90fbac5908"
+    }
+  },
+  {
+    "id": "e7430238-7357-43ac-a117-3ac0a5432efd",
+    "name": "Heimatgut - Bio Popcorn Zimt 90g",
+    "sheet": {
+      "row": 60,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Cinnamon Popcorn 90g",
+      "name_de": "Bio Popcorn Zimt 90g",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/e7430238-7357-43ac-a117-3ac0a5432efd"
+    }
+  },
+  {
+    "id": "0230c6b3-d2a5-49a7-a183-5a71c8497309",
+    "name": "Weihnachtsmarmelade Apfelstrudel Marzipan 240g",
+    "sheet": {
+      "row": 61,
+      "category": "Snacks & Treats",
+      "name_en": "Christmas Apple Strudel Marzipan Jam",
+      "name_de": "Weihnachtsmarmelade Apfelstrudel Marzipan",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/0230c6b3-d2a5-49a7-a183-5a71c8497309"
+    }
+  },
+  {
+    "id": "01a0ce47-c4d5-7129-807e-4e91623825ce",
+    "name": "Blueberry Jam 110g",
+    "sheet": {
+      "row": 62,
+      "category": "Snacks & Treats",
+      "name_en": "Blueberry Jam",
+      "name_de": "Blueberry Jam",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce47-c4d5-7129-807e-4e91623825ce"
+    }
+  },
+  {
+    "id": "5c95e506-3725-4073-9a99-5ac0049d515b",
+    "name": "Bio vegane Spekulatius 175g",
+    "sheet": {
+      "row": 63,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Vegan Speculoos Biscuits",
+      "name_de": "Bio vegane Spekulatius",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/5c95e506-3725-4073-9a99-5ac0049d515b"
+    }
+  },
+  {
+    "id": "6e351a40-7a6a-11ee-b6c6-61cdf996f8d2",
+    "name": "Bio Futterknödel 90g",
+    "sheet": {
+      "row": 64,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Bird Suet Dumpling",
+      "name_de": "Bio Futterknödel",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/6e351a40-7a6a-11ee-b6c6-61cdf996f8d2"
+    }
+  },
+  {
+    "id": "01a0ce07-ae95-760a-9b02-a55a703df5cd",
+    "name": "Kandissticks 3er Set",
+    "sheet": {
+      "row": 65,
+      "category": "Snacks & Treats",
+      "name_en": "Rock Candy Sugar Sticks",
+      "name_de": "Kandissticks",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce07-ae95-760a-9b02-a55a703df5cd"
+    }
+  },
+  {
+    "id": "019932ff-2ae4-76bc-82a2-fa3e9393367a",
+    "name": "Weihnachtsschokolade vintage 70g",
+    "sheet": {
+      "row": 66,
+      "category": "Snacks & Treats",
+      "name_en": "Vintage Christmas Chocolate",
+      "name_de": "Weihnachtsschokolade vintage",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/019932ff-2ae4-76bc-82a2-fa3e9393367a"
+    }
+  },
+  {
+    "id": "0198a3b1-f1c9-768c-85ee-1f1a456a5663",
+    "name": "Frohe Weihnachten Schokolade 70g",
+    "sheet": {
+      "row": 67,
+      "category": "Snacks & Treats",
+      "name_en": "Merry Christmas' Milk Chocolate",
+      "name_de": "Frohe Weihnachten Schokolade",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/0198a3b1-f1c9-768c-85ee-1f1a456a5663"
+    }
+  },
+  {
+    "id": "cff2d777-1ce0-40c8-babd-984f3ad35f18",
+    "name": "Bio Früchtepunsch 330ml",
+    "sheet": {
+      "row": 68,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Fruit Punch",
+      "name_de": "Bio Früchtepunsch",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/cff2d777-1ce0-40c8-babd-984f3ad35f18"
+    }
+  },
+  {
+    "id": "f733ee86-f217-4c26-ac14-83fecaed4344",
+    "name": "Bio Lebkuchen Herz 70g",
+    "sheet": {
+      "row": 69,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Gingerbread Heart",
+      "name_de": "Bio Lebkuchen Herz",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/f733ee86-f217-4c26-ac14-83fecaed4344"
+    }
+  },
+  {
+    "id": "01992e0f-af85-723f-a912-f62aa4154ff2",
+    "name": "Pistazien Nüsse Minze & Zitrone 50g",
+    "sheet": {
+      "row": 70,
+      "category": "Snacks & Treats",
+      "name_en": "Pistachios with Mint & Lemon",
+      "name_de": "Pistazien Nüsse Minze & Zitrone",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01992e0f-af85-723f-a912-f62aa4154ff2"
+    }
+  },
+  {
+    "id": "01992e06-84d7-76b4-9200-ae7b3d271a9a",
+    "name": "Mandel Dunkle Schokolade mit Zimt Orange 50g",
+    "sheet": {
+      "row": 71,
+      "category": "Snacks & Treats",
+      "name_en": "Dark Chocolate Almonds with Cinnamon Orange",
+      "name_de": "Mandel Dunkle Schokolade mit Zimt Orange",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01992e06-84d7-76b4-9200-ae7b3d271a9a"
+    }
+  },
+  {
+    "id": "01992deb-15bb-75b3-8a2d-cabb306170bf",
+    "name": "Pistazien Persisches Blausalz 50g",
+    "sheet": {
+      "row": 72,
+      "category": "Snacks & Treats",
+      "name_en": "Pistachios with Persian Blue Salt",
+      "name_de": "Pistazien Persisches Blausalz",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01992deb-15bb-75b3-8a2d-cabb306170bf"
+    }
+  },
+  {
+    "id": "01992dbd-607b-77fe-b9b3-c3fb92bd9b7f",
+    "name": "Weihnachtsmann 40g",
+    "sheet": {
+      "row": 73,
+      "category": "Snacks & Treats",
+      "name_en": "Chocolate Santa Claus 40g",
+      "name_de": "Weihnachtsmann 40g",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01992dbd-607b-77fe-b9b3-c3fb92bd9b7f"
+    }
+  },
+  {
+    "id": "d91d51d0-77d9-11ee-914c-bf2b28b14b73",
+    "name": "Weihnachtsmann 70g",
+    "sheet": {
+      "row": 74,
+      "category": "Snacks & Treats",
+      "name_en": "Chocolate Santa Claus 70g",
+      "name_de": "Weihnachtsmann 70g",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/d91d51d0-77d9-11ee-914c-bf2b28b14b73"
+    }
+  },
+  {
+    "id": "019f6108-f603-7498-8089-831195349580",
+    "name": "Risotto al Pomodoro 170g",
+    "sheet": {
+      "row": 75,
+      "category": "Snacks & Treats",
+      "name_en": "Tomato Risotto (Risotto al Pomodoro)",
+      "name_de": "Risotto al Pomodoro",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/019f6108-f603-7498-8089-831195349580"
+    }
+  },
+  {
+    "id": "544ec960-7a3c-11ee-b6c6-61cdf996f8d2",
+    "name": "Bio Christbaumkugel mit Gin 50ml",
+    "sheet": {
+      "row": 76,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Christmas Bauble with Gin",
+      "name_de": "Bio Christbaumkugel mit Gin",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/544ec960-7a3c-11ee-b6c6-61cdf996f8d2"
+    }
+  },
+  {
+    "id": "12028937-f8c0-4690-a30a-3185e5034247",
+    "name": "Bio Berliner Stadthonig 180g",
+    "sheet": {
+      "row": 77,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Berlin Honey",
+      "name_de": "Bio Berliner Stadthonig",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/12028937-f8c0-4690-a30a-3185e5034247"
+    }
+  },
+  {
+    "id": "01993323-d08b-70dc-a6c0-8642903156b9",
+    "name": "Bio Honig Zimt 180g",
+    "sheet": {
+      "row": 78,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Cinnamon Honey",
+      "name_de": "Bio Honig Zimt",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01993323-d08b-70dc-a6c0-8642903156b9"
+    }
+  },
+  {
+    "id": "b7c9f3e6-b634-4e94-be99-11d891c5627c",
+    "name": "Bio Honig Orange Ingwer 180g",
+    "sheet": {
+      "row": 79,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Orange Ginger Honey",
+      "name_de": "Bio Honig Orange Ingwer",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/b7c9f3e6-b634-4e94-be99-11d891c5627c"
+    }
+  },
+  {
+    "id": "f54df2b5-fa4a-4f2f-a5fa-29aa203c3c29",
+    "name": "Honig Pistazie 175g",
+    "sheet": {
+      "row": 80,
+      "category": "Snacks & Treats",
+      "name_en": "Pistachio Honey",
+      "name_de": "Honig Pistazie",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/f54df2b5-fa4a-4f2f-a5fa-29aa203c3c29"
+    }
+  },
+  {
+    "id": "019a5ecb-cca0-70a0-bc42-69880d41b990",
+    "name": "Bio Jute-Tee Pur 35g",
+    "sheet": {
+      "row": 81,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Pure Jute Tea",
+      "name_de": "Bio Jute-Tee Pur",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/019a5ecb-cca0-70a0-bc42-69880d41b990"
+    }
+  },
+  {
+    "id": "01a0ce50-e9f1-7586-a697-216a67b24d2d",
+    "name": "Truffle bites | Nocciola 55g",
+    "sheet": {
+      "row": 82,
+      "category": "Snacks & Treats",
+      "name_en": "Hazelnut Truffle Bites | Nocciola",
+      "name_de": "Truffle bites | Nocciola",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce50-e9f1-7586-a697-216a67b24d2d"
+    }
+  },
+  {
+    "id": "0b749e00-d251-11ee-b738-eb5f4c51e6b4",
+    "name": "Hanseatensalz 140g",
+    "sheet": {
+      "row": 83,
+      "category": "Snacks & Treats",
+      "name_en": "Hanseatic Seasoned Sea Salt",
+      "name_de": "Hanseatensalz",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/0b749e00-d251-11ee-b738-eb5f4c51e6b4"
+    }
+  },
+  {
+    "id": "252c3b63-6f3f-4caa-8b20-0856bb925cc0",
+    "name": "Bio Schoko Weihnachtsmandeln 100g",
+    "sheet": {
+      "row": 84,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Chocolate Christmas Almonds",
+      "name_de": "Bio Schoko Weihnachtsmandeln",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/252c3b63-6f3f-4caa-8b20-0856bb925cc0"
+    }
+  },
+  {
+    "id": "ca71cc70-4bc6-444e-951a-ec9bb93a91ae",
+    "name": "Weihnachtliche Kerze Ancient",
+    "sheet": {
+      "row": 85,
+      "category": "Snacks & Treats",
+      "name_en": "Ancient Scented Christmas Candle",
+      "name_de": "Weihnachtliche Kerze Ancient",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/ca71cc70-4bc6-444e-951a-ec9bb93a91ae"
+    }
+  },
+  {
+    "id": "1056caa0-6e70-11ee-8725-afbefbe673bf",
+    "name": "Bio Fettuccine Pasta 250g",
+    "sheet": {
+      "row": 86,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Fettuccine Pasta",
+      "name_de": "Bio Fettuccine Pasta",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/1056caa0-6e70-11ee-8725-afbefbe673bf"
+    }
+  },
+  {
+    "id": "4dd1ff7d-32e4-4ce3-931c-b70c0fd91aa0",
+    "name": "Bio Weihnachtstee 100g",
+    "sheet": {
+      "row": 87,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Christmas Herbal Tea",
+      "name_de": "Bio Weihnachtstee",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/4dd1ff7d-32e4-4ce3-931c-b70c0fd91aa0"
+    }
+  },
+  {
+    "id": "01a0ce50-e9f1-7586-a697-1e2dfcf6bf0c",
+    "name": "Bio Schokolade Lebkuchen 75g",
+    "sheet": {
+      "row": 88,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Gingerbread Dark Chocolate",
+      "name_de": "Bio Schokolade Lebkuchen",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce50-e9f1-7586-a697-1e2dfcf6bf0c"
+    }
+  },
+  {
+    "id": "019f6112-1cfb-74a8-a820-df617ebdcec3",
+    "name": "Pistazien Black Chili Orange 50g",
+    "sheet": {
+      "row": 89,
+      "category": "Snacks & Treats",
+      "name_en": "Pistachios with Black Chili & Orange",
+      "name_de": "Pistazien Black Chili Orange ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/019f6112-1cfb-74a8-a820-df617ebdcec3"
+    }
+  },
+  {
+    "id": "0198a3b1-f1c9-768c-85ee-1400b6e019a2",
+    "name": "Erdbeere weiße Schokolade 30g",
+    "sheet": {
+      "row": 90,
+      "category": "Snacks & Treats",
+      "name_en": "Strawberries & White Chocolate",
+      "name_de": "Erdbeere + Weiße Schokolade ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/0198a3b1-f1c9-768c-85ee-1400b6e019a2"
+    }
+  },
+  {
+    "id": "019f6124-7382-7771-acdb-f1d04546d57f",
+    "name": "Peanut Butter Bites 40g",
+    "sheet": {
+      "row": 91,
+      "category": "Snacks & Treats",
+      "name_en": "Foodloose - Organic Peanut Butter Bites with Sea Salt 40g",
+      "name_de": "Foodloose - Bio Peanut Butter Bites - Crunchy Peanut mit Meersalz 40g",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/019f6124-7382-7771-acdb-f1d04546d57f"
+    }
+  },
+  {
+    "id": "01a0ce5a-1454-7338-a3e7-5ecdc86f99f4",
+    "name": "Bio Schokolade Pur 73 % 75g",
+    "sheet": {
+      "row": 92,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Dark Chocolate 73% Pure",
+      "name_de": "Bio Schokolade Pur 73 %",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0ce5a-1454-7338-a3e7-5ecdc86f99f4"
+    }
+  },
+  {
+    "id": "3b4c4a40-3230-4ac6-b8b5-aa092eed1043",
+    "name": "Feinwürziger Spekulatius 150g",
+    "sheet": {
+      "row": 93,
+      "category": "Snacks & Treats",
+      "name_en": "Fine Spiced Speculoos Biscuits",
+      "name_de": "Feinwürziger Spekulatius",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/3b4c4a40-3230-4ac6-b8b5-aa092eed1043"
+    }
+  },
+  {
+    "id": "15fc767d-16e6-44a1-8405-2715d7d4b5fe",
+    "name": "Bio Pflanzwürfel Weihnachtsbaum",
+    "sheet": {
+      "row": 94,
+      "category": "Snacks & Treats",
+      "name_en": "Organic Christmas Tree Plant Cube",
+      "name_de": "Bio Pflanzwürfel Weihnachtsbaum",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/15fc767d-16e6-44a1-8405-2715d7d4b5fe"
+    }
+  },
+  {
+    "id": "bee3c712-a747-11ef-9116-c53b82bb93be",
+    "name": "Weihnachtliche Verpackung",
+    "sheet": {
+      "row": 95,
+      "category": "Packaging",
+      "name_en": "Christmas Gift Box Packaging",
+      "name_de": "Weihnachtliche Verpackung ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/bee3c712-a747-11ef-9116-c53b82bb93be"
+    }
+  },
+  {
+    "id": "bee3c713-a747-11ef-9116-c53b82bb93be",
+    "name": "Religionsneutrale Verpackung",
+    "sheet": {
+      "row": 96,
+      "category": "Packaging",
+      "name_en": "Non-Religious / Winter Packaging",
+      "name_de": "Religionsneutrale Verpackung ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/bee3c713-a747-11ef-9116-c53b82bb93be"
+    }
+  },
+  {
+    "id": "5b777741-a746-11ef-9453-018c7aec3dad",
+    "name": "Eigenes Design - Box",
+    "sheet": {
+      "row": 97,
+      "category": "Packaging",
+      "name_en": "Custom Branded Design Gift Box",
+      "name_de": "Eigenes Design - Box ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/5b777741-a746-11ef-9453-018c7aec3dad"
+    }
+  },
+  {
+    "id": "01a0cf35-db38-7737-8d0d-4f5f3b767b72",
+    "name": "Vollfarbige Verpackung",
+    "sheet": {
+      "row": 98,
+      "category": "Packaging",
+      "name_en": "Full-Color Printed Packaging",
+      "name_de": "Vollfarbige Verpackung ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0cf35-db38-7737-8d0d-4f5f3b767b72"
+    }
+  },
+  {
+    "id": "2b165989-1d7d-4ee4-838b-ba118bc14541",
+    "name": "Beutel - Jute Large - Weihnachten",
+    "sheet": {
+      "row": 99,
+      "category": "Packaging",
+      "name_en": "Christmas Jute Bag (Large)",
+      "name_de": "Beutel - Jute Large - Weihnachten ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/2b165989-1d7d-4ee4-838b-ba118bc14541"
+    }
+  },
+  {
+    "id": "bee3c714-a747-11ef-9116-c53b82bb93be",
+    "name": "Eigenes Design - Weihnachtsbeutel",
+    "sheet": {
+      "row": 100,
+      "category": "Packaging",
+      "name_en": "Custom Branded Christmas Bag",
+      "name_de": "Eigenes Design - Weihnachtsbeutel ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/bee3c714-a747-11ef-9116-c53b82bb93be"
+    }
+  },
+  {
+    "id": "26e6dd11-a749-11ef-aeaa-eb5a4085df34",
+    "name": "Neutrale Verpackung",
+    "sheet": {
+      "row": 101,
+      "category": "Packaging",
+      "name_en": "Neutral Packaging Box",
+      "name_de": "Neutrale Verpackung ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/26e6dd11-a749-11ef-aeaa-eb5a4085df34"
+    }
+  },
+  {
+    "id": "01a0cf35-db38-7737-8d0d-5044d956004b",
+    "name": "Blanko Verpackung",
+    "sheet": {
+      "row": 102,
+      "category": "Packaging",
+      "name_en": "Blank / Unprinted Packaging",
+      "name_de": "Blanko Verpackung ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0cf35-db38-7737-8d0d-5044d956004b"
+    }
+  },
+  {
+    "id": "8e7d234c-1d7e-43b9-82b0-c9e84f89a358",
+    "name": "Grußkarte Weihnachten #1",
+    "sheet": {
+      "row": 103,
+      "category": "Cards & Stickers",
+      "name_en": "Holiday Greeting Card - Design 1",
+      "name_de": "Motiv 1",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/8e7d234c-1d7e-43b9-82b0-c9e84f89a358"
+    }
+  },
+  {
+    "id": "bf28f134-477f-421b-bec8-8ef365e303ce",
+    "name": "Grußkarte Weihnachten #2",
+    "sheet": {
+      "row": 104,
+      "category": "Cards & Stickers",
+      "name_en": "Holiday Greeting Card - Design 2",
+      "name_de": "Motiv 2",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/bf28f134-477f-421b-bec8-8ef365e303ce"
+    }
+  },
+  {
+    "id": "9acc5600-bfb3-4064-a49a-62c43eeb98a7",
+    "name": "Grußkarte Weihnachten #3",
+    "sheet": {
+      "row": 105,
+      "category": "Cards & Stickers",
+      "name_en": "Holiday Greeting Card - Design 3",
+      "name_de": "Motiv 3",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/9acc5600-bfb3-4064-a49a-62c43eeb98a7"
+    }
+  },
+  {
+    "id": "df702422-e638-4784-a57f-32f561fda7e3",
+    "name": "Grußkarte Weihnachten #4",
+    "sheet": {
+      "row": 106,
+      "category": "Cards & Stickers",
+      "name_en": "Holiday Greeting Card - Design 4",
+      "name_de": "Motiv 4",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/df702422-e638-4784-a57f-32f561fda7e3"
+    }
+  },
+  {
+    "id": "f16eb48c-5843-4077-8e7c-cd72a977d63d",
+    "name": "Grußkarte Weihnachten #5",
+    "sheet": {
+      "row": 107,
+      "category": "Cards & Stickers",
+      "name_en": "Holiday Greeting Card - Design 5",
+      "name_de": "Motiv 5",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/f16eb48c-5843-4077-8e7c-cd72a977d63d"
+    }
+  },
+  {
+    "id": "8dc1130b-da48-46a1-911d-2aac6796c6c6",
+    "name": "Grußkarte Weihnachten #6",
+    "sheet": {
+      "row": 108,
+      "category": "Cards & Stickers",
+      "name_en": "Holiday Greeting Card - Design 6",
+      "name_de": "Motiv 6",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/8dc1130b-da48-46a1-911d-2aac6796c6c6"
+    }
+  },
+  {
+    "id": "48c0572d-67b6-43d2-9f15-870fd64f949c",
+    "name": "Grußkarte Weihnachten #7",
+    "sheet": {
+      "row": 109,
+      "category": "Cards & Stickers",
+      "name_en": "Holiday Greeting Card - Design 7",
+      "name_de": "Motiv 7",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/48c0572d-67b6-43d2-9f15-870fd64f949c"
+    }
+  },
+  {
+    "id": "e6589a55-1d83-4d81-bd8d-b90826eaf2d3",
+    "name": "Grußkarte Weihnachten #8",
+    "sheet": {
+      "row": 110,
+      "category": "Cards & Stickers",
+      "name_en": "Holiday Greeting Card - Design 8",
+      "name_de": "Motiv 8",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/e6589a55-1d83-4d81-bd8d-b90826eaf2d3"
+    }
+  },
+  {
+    "id": "cbeac017-3c41-494b-81a9-dd016c8f886e",
+    "name": "Grußkarte Weihnachten #9",
+    "sheet": {
+      "row": 111,
+      "category": "Cards & Stickers",
+      "name_en": "Holiday Greeting Card - Design 9",
+      "name_de": "Motiv 9 ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/cbeac017-3c41-494b-81a9-dd016c8f886e"
+    }
+  },
+  {
+    "id": "101d097e-0f5d-4709-9950-fc070bdbdee8",
+    "name": "Grußkarte Weihnachten #10",
+    "sheet": {
+      "row": 112,
+      "category": "Cards & Stickers",
+      "name_en": "Holiday Greeting Card - Design 10",
+      "name_de": "Motiv 10",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/101d097e-0f5d-4709-9950-fc070bdbdee8"
+    }
+  },
+  {
+    "id": "e5b3179a-ea4f-41e6-8451-e4e4525ae4c0",
+    "name": "Grußkarte Weihnachten #11",
+    "sheet": {
+      "row": 113,
+      "category": "Cards & Stickers",
+      "name_en": "Holiday Greeting Card - Design 11",
+      "name_de": "Motiv 11",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/e5b3179a-ea4f-41e6-8451-e4e4525ae4c0"
+    }
+  },
+  {
+    "id": "43c8b60c-1003-468e-9c91-08e5bd5a4409",
+    "name": "Grußkarte Weihnachten #12",
+    "sheet": {
+      "row": 114,
+      "category": "Cards & Stickers",
+      "name_en": "Holiday Greeting Card - Design 12",
+      "name_de": "Motiv 12",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/43c8b60c-1003-468e-9c91-08e5bd5a4409"
+    }
+  },
+  {
+    "id": "7a732c8f-1c06-4bbf-a089-5047f3137c1b",
+    "name": "Grußkarte Weihnachten #13",
+    "sheet": {
+      "row": 115,
+      "category": "Cards & Stickers",
+      "name_en": "Holiday Greeting Card - Design 13",
+      "name_de": "Motiv 13",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/7a732c8f-1c06-4bbf-a089-5047f3137c1b"
+    }
+  },
+  {
+    "id": "01a0d292-70d0-76ed-bb94-7cfe892a8d4b",
+    "name": "Grußkarte - Eigenes Design",
+    "sheet": {
+      "row": 116,
+      "category": "Cards & Stickers",
+      "name_en": "Custom Branded Greeting Card",
+      "name_de": "Grußkarte - Eigenes Design ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0d292-70d0-76ed-bb94-7cfe892a8d4b"
+    }
+  },
+  {
+    "id": "01a0cf35-db38-7737-8d0d-4938299b7ffa",
+    "name": "Logo Sticker - Motiv 1",
+    "sheet": {
+      "row": 117,
+      "category": "Cards & Stickers",
+      "name_en": "Logo Sticker - Design 1",
+      "name_de": "Logo Sticker - Motiv 1",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0cf35-db38-7737-8d0d-4938299b7ffa"
+    }
+  },
+  {
+    "id": "01a0cf35-db38-7737-8d0d-46e34a169a1d",
+    "name": "Logo Sticker - Motiv 2",
+    "sheet": {
+      "row": 118,
+      "category": "Cards & Stickers",
+      "name_en": "Logo Sticker - Design 2",
+      "name_de": "Logo Sticker - Motiv 2",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0cf35-db38-7737-8d0d-46e34a169a1d"
+    }
+  },
+  {
+    "id": "01a0cf35-db38-7737-8d0d-434c9b58c751",
+    "name": "Logo Sticker - Motiv 3",
+    "sheet": {
+      "row": 119,
+      "category": "Cards & Stickers",
+      "name_en": "Logo Sticker - Design 3",
+      "name_de": "Logo Sticker - Motiv 3",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0cf35-db38-7737-8d0d-434c9b58c751"
+    }
+  },
+  {
+    "id": "01a0cf35-da71-7755-9d61-82492e2b4fa2",
+    "name": "Logo Sticker - Eigenes Design",
+    "sheet": {
+      "row": 120,
+      "category": "Cards & Stickers",
+      "name_en": "Custom Branded Logo Sticker",
+      "name_de": "Logo Sticker - Eigenes Design ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01a0cf35-da71-7755-9d61-82492e2b4fa2"
+    }
+  },
+  {
+    "id": "84f99170-8554-11ef-b1dc-916d107d18cd",
+    "name": "Kleine Weihnachtsbox",
+    "sheet": {
+      "row": 121,
+      "category": "Gift Boxes & Bundles",
+      "name_en": "Small Christmas Gift Box",
+      "name_de": "Kleine Weihnachtsbox ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/84f99170-8554-11ef-b1dc-916d107d18cd"
+    }
+  },
+  {
+    "id": "01995c5f-c81f-7698-9f5c-ad327501f9e3",
+    "name": "Kleine Weihnachtsüberraschung - mit Glühwein",
+    "sheet": {
+      "row": 122,
+      "category": "Gift Boxes & Bundles",
+      "name_en": "Christmas Surprise Box - with Mulled Wine",
+      "name_de": "Weihnachtsüberraschung - mit Glühwein",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01995c5f-c81f-7698-9f5c-ad327501f9e3"
+    }
+  },
+  {
+    "id": "01993e9e-9c50-77fc-8765-a2bc4b8fee50",
+    "name": "Kleine Weihnachtsüberraschung - mit Punsch",
+    "sheet": {
+      "row": 123,
+      "category": "Gift Boxes & Bundles",
+      "name_en": "Christmas Surprise Box - with Punch",
+      "name_de": "Weihnachtsüberraschung - mit Punsch ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01993e9e-9c50-77fc-8765-a2bc4b8fee50"
+    }
+  },
+  {
+    "id": "01995c3b-2a8e-711e-a173-88576af20856",
+    "name": "Weihnachtsbox Vol. 1 - mit Glühwein",
+    "sheet": {
+      "row": 124,
+      "category": "Gift Boxes & Bundles",
+      "name_en": "Christmas Box Vol. 1 - with Mulled Wine",
+      "name_de": "Weihnachtsbox Vol.1 - mit Glühwein",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01995c3b-2a8e-711e-a173-88576af20856"
+    }
+  },
+  {
+    "id": "01995c4d-72b8-7088-98e5-cafbfd34ddad",
+    "name": "Weihnachtsbox Vol. 1 - mit Punsch",
+    "sheet": {
+      "row": 125,
+      "category": "Gift Boxes & Bundles",
+      "name_en": "Christmas Box Vol. 1 - with Punch",
+      "name_de": "Weihnachtsbox Vol.1 - mit Punsch ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01995c4d-72b8-7088-98e5-cafbfd34ddad"
+    }
+  },
+  {
+    "id": "01995c68-e6e3-764a-be5b-7a9e4a02ea65",
+    "name": "Weihnachtsbox Vol. 2 - mit Glühwein",
+    "sheet": {
+      "row": 126,
+      "category": "Gift Boxes & Bundles",
+      "name_en": "Christmas Box Vol. 2 - with Mulled Wine",
+      "name_de": "Weihnachtsbox Vol. 2 - mit Glühwein",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01995c68-e6e3-764a-be5b-7a9e4a02ea65"
+    }
+  },
+  {
+    "id": "01995152-c7cc-7068-819d-8055159832c4",
+    "name": "Weihnachtsbox Vol. 2 - mit Punsch",
+    "sheet": {
+      "row": 127,
+      "category": "Gift Boxes & Bundles",
+      "name_en": "Christmas Box Vol. 2 - with Punch",
+      "name_de": "Weihnachtsbox Vol. 2 - mit Punsch ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01995152-c7cc-7068-819d-8055159832c4"
+    }
+  },
+  {
+    "id": "0199515b-f4a2-770e-b8a6-3ee320fca900",
+    "name": "Weihnachtsbox Vol. 3",
+    "sheet": {
+      "row": 128,
+      "category": "Gift Boxes & Bundles",
+      "name_en": "Christmas Box Vol. 3",
+      "name_de": "Weihnachtsbox Vol. 3 ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/0199515b-f4a2-770e-b8a6-3ee320fca900"
+    }
+  },
+  {
+    "id": "01995189-c5a3-73f3-866f-1bdf4fb99e11",
+    "name": "Weihnachtsbox M",
+    "sheet": {
+      "row": 129,
+      "category": "Gift Boxes & Bundles",
+      "name_en": "Christmas Box M",
+      "name_de": "Weihnachtsbox M ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01995189-c5a3-73f3-866f-1bdf4fb99e11"
+    }
+  },
+  {
+    "id": "01995180-94d9-7142-afc8-c3e0079d9a59",
+    "name": "Weihnachtsbox L - mit Glühwein",
+    "sheet": {
+      "row": 130,
+      "category": "Gift Boxes & Bundles",
+      "name_en": "Christmas Box L - with Mulled Wine",
+      "name_de": "Weihnachtsbox L - mit Glühwein ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01995180-94d9-7142-afc8-c3e0079d9a59"
+    }
+  },
+  {
+    "id": "01995c72-0f6b-706e-a63b-17c6268bd2ac",
+    "name": "Weihnachtsbox L - mit Punsch",
+    "sheet": {
+      "row": 131,
+      "category": "Gift Boxes & Bundles",
+      "name_en": "Christmas Box L - with Punch",
+      "name_de": "Weihnachtsbox L - mit Punsch ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01995c72-0f6b-706e-a63b-17c6268bd2ac"
+    }
+  },
+  {
+    "id": "01995c7b-4b7b-7007-92a8-720b5b850540",
+    "name": "Weihnachtsbeutel - mit Glühwein",
+    "sheet": {
+      "row": 132,
+      "category": "Gift Boxes & Bundles",
+      "name_en": "Christmas Gift Bag - with Mulled Wine",
+      "name_de": "Weihnachtsbeutel - mit Glühwein",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01995c7b-4b7b-7007-92a8-720b5b850540"
+    }
+  },
+  {
+    "id": "01994e5a-e9cd-74a9-8156-e3b0abd61522",
+    "name": "Weihnachtsbeutel - mit Punsch",
+    "sheet": {
+      "row": 133,
+      "category": "Gift Boxes & Bundles",
+      "name_en": "Christmas Gift Bag - with Punch",
+      "name_de": "Weihnachtsbeutel - mit Punsch ",
+      "shop_tag": "✔️",
+      "url": "https://app.biglittlethings.de/inventory/01994e5a-e9cd-74a9-8156-e3b0abd61522"
+    }
+  },
+  {
+    "id": "0198a3b1-f1c9-768c-85ee-122af4f56fb5",
+    "name": "Lebkuchen Gewürz 40g",
+    "sheet": null
+  },
+  {
+    "id": "01992dcf-9e28-7659-9649-64f84c407429",
+    "name": "Risotto al Funghi 170g - Greenomic",
+    "sheet": null
+  },
+  {
+    "id": "01993308-474f-75f4-a1d3-c3203e2b1f13",
+    "name": "Knalle - Winterapfel Haselnuss 40g",
+    "sheet": null
+  },
+  {
+    "id": "5c725cb1-4b93-48db-a4af-85c81645c464",
+    "name": "Kartonage - kraftliner - F71 - Frohe Weihnachten",
+    "sheet": null
+  },
+  {
+    "id": "aa416d90-8b94-11ef-a50d-59eaab7fbfd2",
+    "name": "Mäxle Punsch 0,25 - alkoholfrei",
+    "sheet": null
+  },
+  {
+    "id": "e63c923b-518c-4969-b536-cd1d85ea8172",
+    "name": "Rettergut - Schokolade - Salted Caramel",
+    "sheet": null
+  },
+  {
+    "id": "fccaa3e3-9414-44e8-b46f-72c4dc9cd40e",
+    "name": "Füllmaterial - Natur",
+    "sheet": null
+  }
+]
