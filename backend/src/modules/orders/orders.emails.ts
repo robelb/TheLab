@@ -29,16 +29,71 @@ import {
   registerEmailBuilder,
 } from '../../services/mailer.js'
 import { renderInvoicePdf } from '../../services/invoicePdf.js'
+import { vatRateFor, zeroVatReason } from '../../lib/shipping.js'
 import { getInvoiceByOrder } from './invoices.service.js'
 import { getOrder, type OrderDto } from './orders.service.js'
 
-const COUNTRY: Record<string, { de: string; en: string }> = {
-  DE: { de: 'Deutschland', en: 'Germany' },
-}
-
+/** A country's name in the email's language, e.g. `AT` → „Österreich“. */
 function country(code: string | null | undefined, locale: EmailLocale): string | null {
   if (!code) return null
-  return COUNTRY[code.toUpperCase()]?.[locale] ?? code
+  try {
+    return new Intl.DisplayNames([locale], { type: 'region' }).of(code.toUpperCase()) ?? code
+  } catch {
+    return code
+  }
+}
+
+/** The VAT line's label: the rate, and why it is nothing when it is. */
+function vatLabel(rate: number, billingCountry: string | null | undefined, de: boolean): string {
+  const shown = new Intl.NumberFormat(de ? 'de-DE' : 'en-GB', {
+    maximumFractionDigits: 2,
+  }).format(rate)
+  if (rate > 0) return de ? `zzgl. USt. ${shown} %` : `VAT ${shown} %`
+  const reason = zeroVatReason(billingCountry, de ? 'de' : 'en').short
+  return de ? `USt. 0 % (${reason})` : `VAT 0 % (${reason})`
+}
+
+/** „Einzelversand“, „Gemischt: 60 zusammen, 40 einzeln“ and so on. */
+function shippingMethodText(order: OrderDto, de: boolean): string {
+  if (order.shippingMethod === 'individual') {
+    return de ? 'Einzelversand an jede:n Empfänger:in' : 'Individually, one box per recipient'
+  }
+  if (order.shippingMethod === 'mixed') {
+    const split = order.shippingSplit
+    const detail = split
+      ? de
+        ? `: ${split.bulkBoxes} an die Lieferadresse, ${split.individualBoxes} einzeln`
+        : `: ${split.bulkBoxes} to the delivery address, ${split.individualBoxes} individually`
+      : ''
+    return (de ? 'Gemischt' : 'Mixed') + detail
+  }
+  return de ? 'Sammelversand an eine Adresse' : 'In bulk, everything to one address'
+}
+
+/**
+ * Whether any box in the order has logo stickers, and whether every such box
+ * came with its logo file: `missing` means it is to follow.
+ */
+function stickerLogoStatus(order: OrderDto): 'uploaded' | 'missing' | null {
+  const boxes = order.items
+    .map((item) => item.box as { stickers?: unknown; stickerLogo?: { url?: string } | null } | null)
+    .filter((box) => box?.stickers)
+  if (boxes.length === 0) return null
+  return boxes.every((box) => box?.stickerLogo?.url) ? 'uploaded' : 'missing'
+}
+
+/** What to send us when the sticker logo comes after the request. */
+function logoRequest(de: boolean): string {
+  return de
+    ? 'Für die Logo-Sticker benötigen wir noch Ihr Logo – am besten als Vektordatei (PDF oder SVG). Antworten Sie einfach mit der Datei im Anhang.'
+    : 'For the logo stickers we still need your logo — ideally as a vector file (PDF or SVG). Just reply with the file attached.'
+}
+
+/** What to send us when the recipient addresses come after the request. */
+function addressesRequest(de: boolean): string {
+  return de
+    ? 'Bitte senden Sie uns die Adressen der Empfänger:innen als Antwort auf diese E-Mail – am liebsten als Excel- oder CSV-Liste mit Name, Firma, Straße und Hausnummer, PLZ, Ort und Land. Wir melden uns, falls etwas fehlt.'
+    : "Please send us the recipients' addresses by replying to this email — ideally as an Excel or CSV list with name, company, street and number, postcode, city and country. We'll be in touch if anything is missing."
 }
 
 function greetingName(order: OrderDto): string {
@@ -91,11 +146,8 @@ export function orderReceivedEmail(order: OrderDto): RenderedEmail {
   const m = (n: number) => formatMoney(n, order.currency, locale)
 
   // The same figures the checkout showed: net, the VAT on it, and the gross.
-  const vatRate = env.VAT_RATE
+  const vatRate = vatRateFor(order.billing?.country, env.VAT_RATE)
   const vat = Math.round(order.total * vatRate) / 100
-  const rate = new Intl.NumberFormat(de ? 'de-DE' : 'en-GB', {
-    maximumFractionDigits: 2,
-  }).format(vatRate)
   const totals: Row[] = [
     { label: de ? 'Zwischensumme' : 'Subtotal', value: m(order.subtotal) },
     {
@@ -103,7 +155,7 @@ export function orderReceivedEmail(order: OrderDto): RenderedEmail {
       value: order.shipping === 0 ? (de ? 'kostenlos' : 'free') : m(order.shipping),
     },
     { label: de ? 'Nettobetrag' : 'Net amount', value: m(order.total) },
-    { label: de ? `zzgl. USt. ${rate} %` : `VAT ${rate} %`, value: m(vat) },
+    { label: vatLabel(vatRate, order.billing?.country, de), value: m(vat) },
     {
       label: de ? 'Voraussichtlich gesamt' : 'Estimated total',
       value: m(order.total + vat),
@@ -122,9 +174,12 @@ export function orderReceivedEmail(order: OrderDto): RenderedEmail {
     : "Until then your request isn't binding and nothing is charged. The prices below are estimates."
 
   const billing = billingLines(order, locale)
-  const delivery = deliveryLines(order, locale)
+  const delivery = order.shippingMethod === 'individual' ? [] : deliveryLines(order, locale)
   const neededBy = order.delivery?.neededBy
   const notes = order.delivery?.notes
+  const shippingLabel = de ? 'Versand' : 'Shipping'
+  const method = shippingMethodText(order, de)
+  const logoMissing = stickerLogoStatus(order) === 'missing'
 
   const html = layout({
     locale,
@@ -139,6 +194,9 @@ export function orderReceivedEmail(order: OrderDto): RenderedEmail {
       `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">${rowsHtml(itemRows(order, locale))}</table>`,
       `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-top:1px solid #eee;margin-top:8px;">${rowsHtml(totals)}</table>`,
       billing.length ? heading(de ? 'Rechnungsadresse' : 'Billing address') + paragraph(linesHtml(billing)) : '',
+      heading(shippingLabel) + paragraph(escapeHtml(method)),
+      order.addressesLater ? paragraph(`<strong>${escapeHtml(addressesRequest(de))}</strong>`) : '',
+      logoMissing ? paragraph(`<strong>${escapeHtml(logoRequest(de))}</strong>`) : '',
       delivery.length ? heading(de ? 'Lieferadresse' : 'Delivery address') + paragraph(linesHtml(delivery)) : '',
       neededBy ? paragraph(`<strong>${escapeHtml(de ? 'Lieferdatum' : 'Delivery date')}:</strong> ${escapeHtml(formatDate(neededBy, locale))}`) : '',
       notes ? paragraph(`<strong>${escapeHtml(de ? 'Ihre Anmerkungen' : 'Your notes')}:</strong><br>${escapeHtml(notes)}`) : '',
@@ -164,6 +222,9 @@ export function orderReceivedEmail(order: OrderDto): RenderedEmail {
     '',
     rowsText(totals),
     billing.length ? `\n${de ? 'Rechnungsadresse' : 'Billing address'}:\n${linesText(billing)}` : '',
+    `\n${shippingLabel}: ${method}`,
+    order.addressesLater ? addressesRequest(de) : '',
+    logoMissing ? logoRequest(de) : '',
     delivery.length ? `\n${de ? 'Lieferadresse' : 'Delivery address'}:\n${linesText(delivery)}` : '',
     neededBy ? `\n${de ? 'Lieferdatum' : 'Delivery date'}: ${formatDate(neededBy, locale)}` : '',
     notes ? `\n${de ? 'Ihre Anmerkungen' : 'Your notes'}: ${notes}` : '',
@@ -197,6 +258,25 @@ export function orderNotifyEmail(order: OrderDto): RenderedEmail {
     {
       label: de ? 'Lieferdatum' : 'Delivery date',
       value: order.delivery?.neededBy ? formatDate(order.delivery.neededBy, locale) : '—',
+    },
+    { label: de ? 'Versand' : 'Shipping', value: shippingMethodText(order, de) },
+    ...(order.addressesLater
+      ? [{ label: de ? 'Adressen' : 'Addresses', value: de ? 'folgen per E-Mail' : 'to follow by email' }]
+      : []),
+    ...(stickerLogoStatus(order)
+      ? [
+          {
+            label: de ? 'Sticker-Logo' : 'Sticker logo',
+            value:
+              stickerLogoStatus(order) === 'uploaded'
+                ? de ? 'hochgeladen (im Dashboard)' : 'uploaded (see dashboard)'
+                : de ? 'folgt per E-Mail' : 'to follow by email',
+          },
+        ]
+      : []),
+    {
+      label: de ? 'Rechnungsland' : 'Invoice country',
+      value: country(order.billing?.country, locale) ?? '—',
     },
     { label: de ? 'Geschätzt (netto)' : 'Estimated (net)', value: m(order.total), strong: true },
   ]
@@ -248,9 +328,6 @@ export function orderConfirmedEmail(order: OrderDto, invoice: Invoice): Rendered
   const locale = localeOf(order.locale)
   const de = locale === 'de'
   const m = (n: number | string) => formatMoney(Number(n), invoice.currency, locale)
-  const rate = new Intl.NumberFormat(de ? 'de-DE' : 'en-GB', {
-    maximumFractionDigits: 2,
-  }).format(Number(invoice.vatRate))
   const due = formatDate(invoice.dueAt, locale)
   const seller = invoice.seller
 
@@ -267,7 +344,10 @@ export function orderConfirmedEmail(order: OrderDto, invoice: Invoice): Rendered
   }))
   const totals: Row[] = [
     { label: de ? 'Nettobetrag' : 'Net amount', value: m(invoice.net) },
-    { label: de ? `zzgl. USt. ${rate} %` : `VAT ${rate} %`, value: m(invoice.vat) },
+    {
+      label: vatLabel(Number(invoice.vatRate), invoice.buyer.country, de),
+      value: m(invoice.vat),
+    },
     { label: de ? 'Rechnungsbetrag' : 'Total due', value: m(invoice.gross), strong: true },
   ]
   const bank: Row[] = [

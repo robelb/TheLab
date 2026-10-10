@@ -15,14 +15,13 @@ import { Input } from '@/components/ui/input'
 import { FormAlert, FormField } from '@/components/ui/form-field'
 import { useZodForm } from '@/lib/form'
 import { makeLoginSchema } from '@/lib/schemas/auth'
-import { Separator } from '@/components/ui/separator'
 import { Loader2, Sparkles } from 'lucide-react'
 
 export function LoginPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
-  const { login, loginWithDefault, isAuthenticated } = useAuth()
+  const { login, isAuthenticated } = useAuth()
 
   /**
    * Back to whatever asked for a sign-in, not to the shop.
@@ -64,19 +63,6 @@ export function LoginPage() {
   useEffect(() => {
     if (isAuthenticated) navigate(destination, { replace: true })
   }, [isAuthenticated, navigate, destination])
-
-  async function handleDefaultLogin() {
-    setSubmitError(null)
-    setLoading(true)
-    try {
-      await loginWithDefault()
-      navigate(destination, { replace: true })
-    } catch {
-      setSubmitError(t('common.somethingWentWrong'))
-    } finally {
-      setLoading(false)
-    }
-  }
 
   async function submit({ email, password }: { email: string; password: string }) {
     setSubmitError(null)
@@ -160,23 +146,6 @@ export function LoginPage() {
               {t('auth.createAccountLink')}
             </Link>
           </p>
-
-          <div className="relative">
-            <Separator />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
-              {t('auth.or')}
-            </span>
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            disabled={loading}
-            onClick={handleDefaultLogin}
-          >
-            {t('auth.demo')}
-          </Button>
         </CardContent>
       </Card>
     </div>

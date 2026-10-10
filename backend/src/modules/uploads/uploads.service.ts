@@ -300,6 +300,69 @@ async function faststartRemux(
  * (no sharp re-encode). Uses Supabase Storage when configured, else local disk
  * under `public/videos`.
  */
+/**
+ * File types a logo for printing can come in, onto the extension it is
+ * stored under. Vector formats are the ones a printer actually wants.
+ */
+const LOGO_TYPES: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  pdf: 'application/pdf',
+  eps: 'application/postscript',
+  ai: 'application/postscript',
+}
+const LOGO_EXT_BY_MIME: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/svg+xml': 'svg',
+  'application/pdf': 'pdf',
+  'application/postscript': 'eps',
+  'application/eps': 'eps',
+  'image/x-eps': 'eps',
+  'application/illustrator': 'ai',
+}
+
+/**
+ * The type a logo file is stored as, from its declared type or — since
+ * browsers send `.ai` and `.eps` as anything from PostScript to
+ * octet-stream — its name. Null for anything that is not a logo format.
+ */
+export function logoFileType(
+  mimetype: string,
+  filename: string,
+): { ext: string; contentType: string } | null {
+  const fromName = filename.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
+  if (fromName && LOGO_TYPES[fromName]) {
+    const ext = fromName === 'jpeg' ? 'jpg' : fromName
+    return { ext, contentType: LOGO_TYPES[fromName] }
+  }
+  const ext = LOGO_EXT_BY_MIME[mimetype]
+  return ext ? { ext, contentType: LOGO_TYPES[ext] } : null
+}
+
+/**
+ * Store a logo file exactly as it was sent — no resizing, no re-encoding.
+ * The image upload above turns everything into a downsized WebP, which is
+ * fine to look at and useless to print a sticker from.
+ */
+export async function saveLogoFile(
+  buffer: Buffer,
+  { ext, contentType }: { ext: string; contentType: string },
+): Promise<string> {
+  if (isSupabaseStorageConfigured()) {
+    return uploadToSupabase(buffer, { contentType, ext, prefix: 'logos' })
+  }
+
+  await mkdir(UPLOADS_DIR, { recursive: true })
+  const filename = `logo-${randomUUID()}.${ext}`
+  await writeFile(path.join(UPLOADS_DIR, filename), buffer)
+  return apiPublicImageUrl(`${PUBLIC_PATH}/${filename}`)
+}
+
 export async function saveVideo(
   buffer: Buffer,
   mimetype: string,

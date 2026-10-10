@@ -581,7 +581,11 @@ export async function listProducts(
   let total: number
 
   if (hasQuery) {
-    const [semanticResults, keywordResults, [countRow]] = await Promise.all([
+    // One ranking for every page: the semantic matches first, then the keyword
+    // matches they did not already cover, each page cut from that list. The
+    // semantic half is the same top-N on every request, so merging it with
+    // one page of keyword matches at a time repeated it on every page.
+    const [semanticResults, keywordResults, keywordIds] = await Promise.all([
       semanticSearch(effective.q!, effective).catch((err) => {
         console.warn('[search] semantic search failed, falling back to keyword:', err.message)
         return [] as ProductWithCategory[]
@@ -592,10 +596,9 @@ export async function listProducts(
         .innerJoin(categories, eq(products.categoryId, categories.id))
         .where(buildAllFilters(effective))
         .orderBy(...buildListOrder(undefined, true, effective.bestSellersFirst))
-        .limit(effective.limit)
-        .offset(offset),
+        .limit(offset + effective.limit),
       db
-        .select({ total: count() })
+        .select({ id: products.id })
         .from(products)
         .innerJoin(categories, eq(products.categoryId, categories.id))
         .where(buildAllFilters(effective)),
@@ -611,10 +614,12 @@ export async function listProducts(
     if (effective.bestSellersFirst) {
       merged.sort((a, b) => Number(b.isBestSeller) - Number(a.isBestSeller))
     }
-    data = merged.slice(0, effective.limit)
+    data = merged.slice(offset, offset + effective.limit)
 
-    const keywordTotal = countRow?.total ?? 0
-    total = Math.max(keywordTotal, merged.length)
+    // Every keyword match, plus the semantic matches the keywords missed.
+    const keywordSet = new Set(keywordIds.map((r) => r.id))
+    total =
+      keywordSet.size + semanticResults.filter((p) => !keywordSet.has(p.id)).length
   } else {
     // No text to match (e.g. query was only "under 5€"): plain filtered list,
     // still honoring any price/category constraints parsed from the phrase.

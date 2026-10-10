@@ -42,7 +42,12 @@ import {
   type ProductLabel,
 } from '../src/db/schema/index.js'
 import { normalizeGraduatedPrices } from '../src/lib/pricing.js'
-import { FILLING_SLUG, PACKAGING_SLUG } from '../src/lib/supplies.js'
+import {
+  FILLING_SLUG,
+  GREETING_CARDS_SLUG,
+  PACKAGING_SLUG,
+  STICKERS_SLUG,
+} from '../src/lib/supplies.js'
 import { embedText } from '../src/services/embedding.js'
 import { uploadToSupabase } from '../src/services/supabaseStorage.js'
 
@@ -68,15 +73,19 @@ const FEATURED_NAMES = [
   'Weihnachtsbox Vol. 3',
 ]
 
-/** The sheet's four groups, onto the shop's categories. */
+/**
+ * The sheet's four groups, onto the shop's categories. "Cards & Stickers" is
+ * split by name — see `categoryFor` — because the builder offers greeting
+ * cards and logo stickers in separate steps.
+ */
 const SHEET_CATEGORIES: Record<string, { slug: string; name: string }> = {
   'Snacks & Treats': { slug: 'snacks-treats', name: 'Snacks & Treats' },
   'Gift Boxes & Bundles': { slug: 'gift-boxes', name: 'Gift Boxes & Bundles' },
   Packaging: { slug: PACKAGING_SLUG, name: 'Packaging' },
-  'Cards & Stickers': { slug: 'cards-stickers', name: 'Cards & Stickers' },
+  'Cards & Stickers': { slug: GREETING_CARDS_SLUG, name: 'Greeting cards' },
 }
+const STICKERS_CATEGORY = { slug: STICKERS_SLUG, name: 'Logo stickers' }
 const FILLING_CATEGORY = { slug: FILLING_SLUG, name: 'Filling materials' }
-const CARDS_SLUG = SHEET_CATEGORIES['Cards & Stickers'].slug
 
 /** JTL tag names (lowercased) that become a badge in the shop. */
 const LABEL_TAGS: Record<string, ProductLabel> = {
@@ -197,6 +206,9 @@ function categoryFor(entry: Entry): { slug: string; name: string } {
   if (entry.sheet) {
     const mapped = SHEET_CATEGORIES[entry.sheet.category]
     if (!mapped) throw new Error(`Unmapped sheet category "${entry.sheet.category}"`)
+    if (mapped.slug === GREETING_CARDS_SLUG && /sticker/i.test(entry.product.name)) {
+      return STICKERS_CATEGORY
+    }
     return mapped
   }
   const tags = entry.product.productTags.map((t) =>
@@ -238,10 +250,11 @@ function detailsFor(p: SourceProduct): string[] {
   return lines
 }
 
-function roleFor(categorySlug: string, name: string): ComponentRole {
+function roleFor(categorySlug: string): ComponentRole {
   if (categorySlug === PACKAGING_SLUG) return 'packaging'
   if (categorySlug === FILLING_SLUG) return 'filling'
-  if (categorySlug === CARDS_SLUG) return /sticker/i.test(name) ? 'sticker' : 'card'
+  if (categorySlug === GREETING_CARDS_SLUG) return 'card'
+  if (categorySlug === STICKERS_SLUG) return 'sticker'
   return 'item'
 }
 
@@ -451,9 +464,11 @@ export async function importSnapshot(
       `${dryRun ? ' (dry run)' : ''}\n`,
   )
 
-  // Both supply categories exist even when empty: the builder asks for them.
+  // Every supply category exists even when empty: the builder asks for them.
   await ensureCategory(SHEET_CATEGORIES.Packaging)
   await ensureCategory(FILLING_CATEGORY)
+  await ensureCategory(SHEET_CATEGORIES['Cards & Stickers'])
+  await ensureCategory(STICKERS_CATEGORY)
 
   // ── Singles ─────────────────────────────────────────────────────────────
   const byJfsku = new Map<
@@ -491,10 +506,7 @@ export async function importSnapshot(
       )
     }
 
-    const roleOf = (c: BomComponent) => {
-      const part = byJfsku.get(c.jfsku)!
-      return roleFor(part.categorySlug, part.name)
-    }
+    const roleOf = (c: BomComponent) => roleFor(byJfsku.get(c.jfsku)!.categorySlug)
     const itemCount = bom.filter((c) => roleOf(c) === 'item').length
     const { id, price, tiers } = await importProduct(entry, syncedAt, {
       kind: 'bundle',

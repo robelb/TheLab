@@ -11,6 +11,7 @@ import { ROLES } from '../../lib/roles.js'
 import {
   confirmOrderSchema,
   createOrderSchema,
+  checkoutProblems,
   guestProblems,
   ORDER_STATUSES,
   PAYMENT_STATUSES,
@@ -161,6 +162,8 @@ ordersRouter.post('/', async (req, res) => {
     const problem = guestProblems(parsed.data)
     if (problem) return res.status(400).json({ error: problem })
   }
+  const problem = checkoutProblems(parsed.data)
+  if (problem) return res.status(400).json({ error: problem })
 
   try {
     const order = await createOrder({

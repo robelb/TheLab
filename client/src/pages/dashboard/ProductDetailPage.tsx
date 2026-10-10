@@ -1,6 +1,6 @@
 import { ArrowLeft, Check, Maximize2, Pencil, Share2, Star, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { createShare, shareUrl, type ShareBrand } from '@/api/share'
 import { ProductFormDialog } from '@/components/dashboard/ProductFormDialog'
 import { PhotoshootPanel } from '@/components/dashboard/PhotoshootPanel'
@@ -44,13 +44,16 @@ export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { data: product, isLoading, error } = useProduct(id)
   const { brand } = useBrand()
-  const { domain } = useAuth()
+  const { domain, can } = useAuth()
   const designsQuery = useProductShares(id ?? '')
   const saveShareMut = useSaveShare(id ?? '')
   const deleteShareMut = useDeleteShare(id ?? '')
   const [editing, setEditing] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
   const [sharingSrc, setSharingSrc] = useState<string | null>(null)
+
+  // The catalogue is big little things' own — see ProductsAdminPage.
+  if (!can('manage_all')) return <Navigate to="/dashboard" replace />
 
   if (isLoading) {
     return (

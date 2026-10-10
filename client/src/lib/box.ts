@@ -12,10 +12,20 @@ export const BOX_SKU_PREFIX = 'BOX-'
 export const PACKAGING_SLUG = 'packaging'
 export const FILLING_SLUG = 'filling-materials'
 /**
- * Greeting cards and logo stickers: they go into a box, priced at nothing on
- * their own, so a landing page's product grid leaves them out.
+ * Greeting cards and logo stickers: supplies too, each picked in a step of
+ * the box builder, so the shop's product lists leave them out.
  */
-export const CARDS_STICKERS_SLUG = 'cards-stickers'
+export const GREETING_CARDS_SLUG = 'greeting-cards'
+export const STICKERS_SLUG = 'stickers'
+
+/**
+ * A supply whose artwork is agreed with the customer after the request —
+ * "Eigenes Design" packaging, greeting cards and stickers. That is
+ * customising, so a collection with customising off never offers one.
+ */
+export function isCustomDesignSupply(product: { name: string }): boolean {
+  return /eigenes design/i.test(product.name)
+}
 
 export function isBoxSku(sku?: string): boolean {
   return Boolean(sku?.startsWith(BOX_SKU_PREFIX))
@@ -23,7 +33,12 @@ export function isBoxSku(sku?: string): boolean {
 
 /** A box-building material rather than something the shop sells. */
 export function isSupplyCategory(slug?: string | null): boolean {
-  return slug === PACKAGING_SLUG || slug === FILLING_SLUG
+  return (
+    slug === PACKAGING_SLUG ||
+    slug === FILLING_SLUG ||
+    slug === GREETING_CARDS_SLUG ||
+    slug === STICKERS_SLUG
+  )
 }
 
 const KNOWN_BOX_COLORS: Record<string, string> = {
@@ -117,34 +132,6 @@ export function boxAllLines(
   ].filter(
     (line): line is BoxLine => Boolean(line),
   )
-}
-
-/**
- * Free over this, a flat fee under it.
- *
- * Mirrors `FREE_SHIPPING_THRESHOLD` / `FLAT_SHIPPING` in the server's orders
- * service, which is what a request is actually priced with. This copy exists so
- * the cart and checkout can show the figure before anything is sent — it used to
- * be the same expression pasted into both pages, which meant they could disagree
- * about what somebody owed.
- */
-export const FREE_SHIPPING_THRESHOLD = 200
-export const FLAT_SHIPPING = 12
-
-export function shippingFor(subtotal: number): number {
-  return subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING
-}
-
-/**
- * VAT on top of the net prices the shop shows.
- *
- * Mirrors `VAT_RATE` on the server, which is what the invoice is priced with —
- * this copy lets the cart and checkout show the same gross figure the emails do.
- */
-export const VAT_RATE = 19
-
-export function vatFor(net: number): number {
-  return Math.round(net * VAT_RATE) / 100
 }
 
 /** What the given lines cost together — unit price times how many of each. */

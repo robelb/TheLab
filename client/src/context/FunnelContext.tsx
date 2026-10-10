@@ -20,12 +20,18 @@ interface FunnelValue {
   /** True while the visitor is following a campaign rather than browsing. */
   inFunnel: boolean
   /**
-   * Whether building and branding a box is on offer.
+   * Whether branding products is on offer.
    *
    * True everywhere outside a campaign — the shop itself always offers it —
-   * and true inside one unless that campaign sells finished boxes only.
+   * and true inside one unless that campaign turned it off.
    */
   allowCustomization: boolean
+  /**
+   * Whether building your own box is on offer. Independent of customising:
+   * a campaign can offer one without the other. When building is on and
+   * customising off, the builder is the step-by-step one.
+   */
+  allowBoxBuilding: boolean
   /**
    * The campaign's product tag, once the collection has loaded. What the
    * builder and "related products" narrow to, so neither is a side door into
@@ -45,6 +51,7 @@ const FunnelContext = createContext<FunnelValue>({
   collectionSlug: null,
   inFunnel: false,
   allowCustomization: true,
+  allowBoxBuilding: true,
   collectionTag: null,
   shopHome: '/',
   ready: true,
@@ -129,6 +136,7 @@ export function FunnelProvider({ children }: { children: ReactNode }) {
         collectionSlug: null,
         inFunnel: false,
         allowCustomization: true,
+        allowBoxBuilding: true,
         collectionTag: null,
         shopHome: '/',
         ready: !authLoading,
@@ -137,19 +145,29 @@ export function FunnelProvider({ children }: { children: ReactNode }) {
     // Until the collection loads, what was remembered beats guessing: it stops
     // the builder appearing for an instant on a page that forbids it. It only
     // describes the remembered page, so it says nothing about another one.
-    const rememberedAllow =
-      lock?.slug === slug ? lock.allowCustomization : true
+    const remembered = lock?.slug === slug ? lock : null
     return {
       collectionSlug: slug,
       inFunnel: true,
       allowCustomization: collection
         ? collection.allowCustomization
-        : rememberedAllow,
+        : (remembered?.allowCustomization ?? true),
+      allowBoxBuilding: collection
+        ? collection.allowBoxBuilding
+        : (remembered?.allowBoxBuilding ?? true),
       collectionTag: collection?.tag ?? null,
       shopHome: `/c/${slug}`,
       ready: !authLoading,
     }
-  }, [slug, gone, collection, lock?.slug, lock?.allowCustomization, authLoading])
+  }, [
+    slug,
+    gone,
+    collection,
+    lock?.slug,
+    lock?.allowCustomization,
+    lock?.allowBoxBuilding,
+    authLoading,
+  ])
 
   // A collection is ours: whoever opens it — a signed-in customer, the demo
   // company, our own team previewing — sees it in the house brand, never in

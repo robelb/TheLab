@@ -1,6 +1,6 @@
 import { Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { CategoryFilter } from '@/components/dashboard/CategoryFilter'
 import { FeaturedBulkActions } from '@/components/dashboard/FeaturedBulkActions'
 import { ProductFormDialog } from '@/components/dashboard/ProductFormDialog'
@@ -66,10 +66,10 @@ export function ProductsAdminPage() {
     includeSupplies: true,
   })
   const deleteMutation = useDeleteProduct()
-  // Any admin — super admin or company admin — gets the checkboxes and the
-  // bulk featured actions. Featured is global: it orders every company's shop.
+  // The catalogue is big little things' own: only its admins manage it, here
+  // and on the server. Featured is global too — it orders every company's shop.
   const { can } = useAuth()
-  const canFeature = can('manage_company')
+  const canFeature = can('manage_all')
 
   const products = data?.data ?? []
   const selection = useRowSelection('products', products.map((p) => p.id))
@@ -103,6 +103,8 @@ export function ProductsAdminPage() {
       notifyError(err, `Could not delete ${name}`)
     }
   }
+
+  if (!can('manage_all')) return <Navigate to="/dashboard" replace />
 
   return (
     <div className="space-y-6">

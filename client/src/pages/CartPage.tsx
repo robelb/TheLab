@@ -10,9 +10,6 @@ import { useBrand } from '@/context/BrandContext'
 import {
   boxPieceCount,
   isBoxSku,
-  shippingFor,
-  VAT_RATE,
-  vatFor,
 } from '@/lib/box'
 import { getProductDisplayImage } from '@/lib/productImage'
 import { formatPrice } from '@/utils/format'
@@ -24,7 +21,8 @@ import { ProductImage } from '@/components/ProductImage'
 export function CartPage() {
   const { t } = useTranslation()
   const { brand } = useBrand()
-  const { inFunnel, allowCustomization, shopHome } = useFunnel()
+  const { inFunnel, allowCustomization, allowBoxBuilding, shopHome } =
+    useFunnel()
   const funnelLink = useFunnelLink()
   /** A campaign that sells finished boxes has no editing anywhere in it. */
   const focused = inFunnel && !allowCustomization
@@ -64,10 +62,6 @@ export function CartPage() {
     )
   }
 
-  const shipping = shippingFor(subtotal)
-  const total = subtotal + shipping
-  const vat = vatFor(total)
-
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -84,10 +78,14 @@ export function CartPage() {
             // its detail page is the box builder, opened on this very box.
             // Boxes added before contents were tracked just open the builder.
             const editBoxUrl = `/build-box?edit=${encodeURIComponent(product.id)}`
-            // In a focused campaign a box line leads to the box it came from,
-            // never to the builder — following the picture into an editor is
-            // exactly the route the campaign was set up to close.
-            const productUrl = focused
+            // A box built step by step reopens in that builder wherever box
+            // building is on. A ready-made box in a focused campaign leads to
+            // the box it came from, never to a builder — following the picture
+            // into an editor is the route the campaign was set up to close.
+            const canEditBox = Boolean(
+              box && (!focused || (allowBoxBuilding && !box.bundleId)),
+            )
+            const productUrl = focused && !canEditBox
               ? funnelLink(`/product/${product.id}`)
               : box
                 ? editBoxUrl
@@ -204,9 +202,12 @@ export function CartPage() {
                     </ul>
                     {/* The box and its filling are charged alongside the
                         contents, so they're itemised rather than folded in. */}
-                    {(box.packaging || box.filling) && (
+                    {(box.packaging ||
+                      box.filling ||
+                      box.greetingCard ||
+                      box.stickers) && (
                       <ul className="mt-2 space-y-1.5 border-t border-border/40 pt-2">
-                        {[box.packaging, box.filling]
+                        {[box.packaging, box.filling, box.greetingCard, box.stickers]
                           .filter((line) => Boolean(line))
                           .map((line) => (
                             <li
@@ -231,6 +232,19 @@ export function CartPage() {
                                     {box.packagingPrompt
                                       ? `: “${box.packagingPrompt}”`
                                       : ''}
+                                  </span>
+                                )}
+                                {line === box.greetingCard &&
+                                  box.greetingCard?.message && (
+                                    <span className="block truncate italic">
+                                      “{box.greetingCard.message}”
+                                    </span>
+                                  )}
+                                {line === box.stickers && (
+                                  <span className="block truncate">
+                                    {box.stickerLogo
+                                      ? `${t('stepBuilder.stickers.logoUploaded')}: ${box.stickerLogo.name ?? ''}`
+                                      : t('stepBuilder.stickers.logoFollows')}
                                   </span>
                                 )}
                               </span>
@@ -278,7 +292,7 @@ export function CartPage() {
                   </Button>
                 </div>
                 <div className="flex items-center gap-1 sm:flex-col sm:items-end">
-                  {box && !focused && (
+                  {canEditBox && (
                     <Button
                       asChild
                       variant="ghost"
@@ -329,24 +343,16 @@ export function CartPage() {
             <CardTitle>{t('cart.summary')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{t('cart.subtotal')}</span>
-              <span>{formatPrice(subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{t('cart.shipping')}</span>
-              <span>
-                {shipping === 0 ? t('common.free') : formatPrice(shipping)}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{t('cart.vat', { rate: VAT_RATE })}</span>
-              <span>{formatPrice(vat)}</span>
-            </div>
+            {/* Both depend on answers the checkout asks for — where the
+                invoice goes and how the boxes travel — so they are worked
+                out there rather than guessed here. */}
+            <p className="text-xs text-muted-foreground">
+              {t('cart.shippingVatAtCheckout')}
+            </p>
             <Separator />
             <div className="flex justify-between font-semibold">
-              <span>{t('cart.total')}</span>
-              <span>{formatPrice(total + vat)}</span>
+              <span>{t('cart.totalNet')}</span>
+              <span>{formatPrice(subtotal)}</span>
             </div>
             <Button asChild className="mt-2 w-full" size="lg">
               <Link to="/checkout">{t('cart.checkout')}</Link>

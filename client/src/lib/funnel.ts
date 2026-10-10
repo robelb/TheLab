@@ -39,13 +39,15 @@ export interface CampaignLock {
    */
   slug: string
   /**
-   * Whether that page offered building a box.
+   * Whether that page offered branding products.
    *
    * Kept here so the cart and the checkout — which are part of the same
    * journey but know nothing about collections — can stay as focused as the
    * page that started it, without a lookup on every render.
    */
   allowCustomization: boolean
+  /** Whether that page offered building a box, for the same reason. */
+  allowBoxBuilding: boolean
   /** Last time they opened the page; the lock lapses `LOCK_TTL_MS` after it. */
   seenAt: string
 }
@@ -53,6 +55,7 @@ export interface CampaignLock {
 export function rememberFunnelEntry(
   collectionSlug: string,
   allowCustomization: boolean,
+  allowBoxBuilding: boolean,
 ): void {
   try {
     // First touch for attribution, like the campaign tags: the page that
@@ -69,6 +72,7 @@ export function rememberFunnelEntry(
     const lock: CampaignLock = {
       slug: collectionSlug,
       allowCustomization,
+      allowBoxBuilding,
       seenAt: new Date().toISOString(),
     }
     localStorage.setItem(LOCK_KEY, JSON.stringify(lock))
@@ -118,6 +122,10 @@ export function loadCampaignLock(): CampaignLock | null {
         slug: lock.slug,
         // Entries written before this existed predate buy-only pages.
         allowCustomization: lock.allowCustomization !== false,
+        // Locks written before box building had its own switch: building
+        // came with customising.
+        allowBoxBuilding:
+          lock.allowBoxBuilding ?? lock.allowCustomization !== false,
         seenAt: lock.seenAt ?? '',
       }
     }
@@ -153,6 +161,7 @@ function migrateLegacyEntry(): CampaignLock | null {
   const lock: CampaignLock = {
     slug,
     allowCustomization: legacy.allowCustomization !== false,
+    allowBoxBuilding: legacy.allowCustomization !== false,
     seenAt: new Date().toISOString(),
   }
   localStorage.setItem(LOCK_KEY, JSON.stringify(lock))

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { routeParam } from '../../lib/routeParam.js'
 import {
   optionalAuth,
   requireAuth,
@@ -97,7 +98,15 @@ productsRouter.get('/', async (req, res) => {
   res.json(result)
 })
 
-productsRouter.post('/', async (req, res) => {
+/**
+ * The catalogue belongs to big little things: creating, editing, deleting and
+ * featuring products, and re-photographing them, are for its own admins.
+ * Companies brand products for themselves through their own gallery instead —
+ * see `POST /:id/images`.
+ */
+const catalogueAdmin = requireCapability('manage_all')
+
+productsRouter.post('/', requireAuth, catalogueAdmin, async (req, res) => {
   const parsed = createProductSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
@@ -118,14 +127,13 @@ productsRouter.post('/', async (req, res) => {
   }
 })
 
-// Bulk featured toggle, for any admin — super admin or company admin. Featured
-// is global: it orders every company's shop and picks what gets auto-branded
-// at onboarding. Registered before `/:id` so the literal segment isn't
-// captured as an id.
+// Bulk featured toggle. Featured is global: it orders every company's shop and
+// picks what gets auto-branded at onboarding, so it is a catalogue decision.
+// Registered before `/:id` so the literal segment isn't captured as an id.
 productsRouter.patch(
   '/featured',
   requireAuth,
-  requireCapability('manage_company'),
+  catalogueAdmin,
   async (req, res) => {
     const parsed = setFeaturedSchema.safeParse(req.body)
     if (!parsed.success) {
@@ -150,7 +158,7 @@ productsRouter.patch(
   },
 )
 
-productsRouter.patch('/:id', async (req, res) => {
+productsRouter.patch('/:id', requireAuth, catalogueAdmin, async (req, res) => {
   const parsed = updateProductSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
@@ -158,7 +166,7 @@ productsRouter.patch('/:id', async (req, res) => {
 
   try {
     const product = await updateProduct(
-      req.params.id,
+      routeParam(req, 'id'),
       parsed.data,
       req.authUser?.companyId ?? undefined,
     )
@@ -220,9 +228,9 @@ productsRouter.post('/:id/images', async (req, res) => {
   }
 })
 
-productsRouter.delete('/:id', async (req, res) => {
+productsRouter.delete('/:id', requireAuth, catalogueAdmin, async (req, res) => {
   try {
-    const ok = await deleteProduct(req.params.id)
+    const ok = await deleteProduct(routeParam(req, 'id'))
     if (!ok) {
       return res.status(404).json({ error: 'Product not found' })
     }
@@ -235,14 +243,14 @@ productsRouter.delete('/:id', async (req, res) => {
   }
 })
 
-productsRouter.post('/:id/photoshoot', async (req, res) => {
+productsRouter.post('/:id/photoshoot', requireAuth, catalogueAdmin, async (req, res) => {
   const parsed = photoshootSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
   }
 
   try {
-    const result = await runProductPhotoshoot(req.params.id, parsed.data)
+    const result = await runProductPhotoshoot(routeParam(req, 'id'), parsed.data)
 
     // Persist the generated image as a pending, shareable design so it survives
     // refresh and shows in the dashboard (never in the shop product response).
@@ -251,7 +259,7 @@ productsRouter.post('/:id/photoshoot', async (req, res) => {
     try {
       ;({ slug } = await createShare({
         imageUrl: result.url,
-        productId: req.params.id,
+        productId: routeParam(req, 'id'),
         prompt: result.prompt,
         // Scope the design to the dashboard user's company so that, once saved,
         // its image shows in the shop ONLY for that company's logged-in users.

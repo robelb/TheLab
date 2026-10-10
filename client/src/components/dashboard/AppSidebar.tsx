@@ -42,8 +42,9 @@ const navItems: NavItem[] = [
   { to: '/', end: true, label: 'Shop', icon: Store, capability: 'manage_company' },
   { to: '/dashboard', end: true, label: 'Overview', icon: LayoutDashboard, capability: 'manage_company' },
   { to: '/dashboard/orders', end: false, label: 'Orders', icon: Inbox, capability: 'manage_company' },
-  { to: '/dashboard/products', end: false, label: 'Products', icon: Package, capability: 'manage_company' },
-  { to: '/dashboard/featured', end: false, label: 'Featured', icon: Star, capability: 'manage_company' },
+  // The catalogue is big little things' own; companies do not edit it.
+  { to: '/dashboard/products', end: false, label: 'Products', icon: Package, capability: 'manage_all' },
+  { to: '/dashboard/featured', end: false, label: 'Featured', icon: Star, capability: 'manage_all' },
   { to: '/dashboard/campaign', end: false, label: 'Campaign', icon: Megaphone, capability: 'manage_company' },
   { to: '/dashboard/branding', end: false, label: 'Branding', icon: Palette, capability: 'manage_company' },
   { to: '/dashboard/team', end: false, label: 'Team', icon: Users, capability: 'manage_company' },

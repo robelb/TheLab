@@ -93,7 +93,7 @@ import { useHistory } from '@/hooks/use-history'
 import { useUpdateProduct } from '@/hooks/use-product-mutations'
 import { useCustomizeProduct, useProductsByIds } from '@/hooks/use-products'
 import { boxColorOptions, isFullColourBox, PACKAGING_SLUG } from '@/lib/box'
-import { designFor, loadBoxDraft, writeDesign } from '@/lib/boxDraft'
+import { stepDesignFor, writeStepDesign } from '@/lib/stepDraft'
 import { readProductDesign, writeProductDesign } from '@/lib/productDesign'
 import { takeLegacyVersions, versionStamps } from '@/lib/designVersions'
 import {
@@ -196,7 +196,7 @@ export function DesignPage() {
    */
   const [saved] = useState(() =>
     target === 'box'
-      ? designFor(loadBoxDraft(), productId)
+      ? stepDesignFor(productId)
       : target === 'product'
         ? readProductDesign(productId)
         : null,
@@ -721,7 +721,7 @@ export function DesignPage() {
     // and instant, and — like the single-product branch above — it goes no
     // further: a shopper's box design is not one of the product's source
     // photographs.
-    writeDesign(productId, {
+    writeStepDesign(productId, {
       image: chosen,
       flat: confirmImage,
       photoreal,
@@ -847,7 +847,7 @@ export function DesignPage() {
     // brought the discarded design straight back. The catalogue keeps nothing
     // of its own — its designs are the product's images, and dropping one of
     // those is a deliberate edit, not a side effect of clearing a canvas.
-    if (target === 'box') writeDesign(productId, null)
+    if (target === 'box') writeStepDesign(productId, null)
     else if (target === 'product') {
       writeProductDesign(productId, null)
       setItemDesign(productId, null)

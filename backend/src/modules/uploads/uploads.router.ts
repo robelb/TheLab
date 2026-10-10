@@ -1,7 +1,12 @@
 import { Router } from 'express'
 import multer from 'multer'
 import { z } from 'zod'
-import { saveImages, saveVideo } from './uploads.service.js'
+import {
+  logoFileType,
+  saveImages,
+  saveLogoFile,
+  saveVideo,
+} from './uploads.service.js'
 
 const uploadSchema = z.object({
   images: z
@@ -19,6 +24,16 @@ const videoUpload = multer({
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('video/')) cb(null, true)
     else cb(new Error('Only video files are allowed'))
+  },
+})
+
+const MAX_LOGO_BYTES = 10 * 1024 * 1024 // 10 MB
+const logoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_LOGO_BYTES },
+  fileFilter: (_req, file, cb) => {
+    if (logoFileType(file.mimetype, file.originalname)) cb(null, true)
+    else cb(new Error('Please upload a PNG, JPG, SVG or PDF file'))
   },
 })
 
@@ -43,6 +58,35 @@ uploadsRouter.post('/', async (req, res) => {
     console.warn('[uploads] failed:', message)
     res.status(500).json({ error: message })
   }
+})
+
+/**
+ * A logo for printing — e.g. the box's logo stickers. Multipart (field
+ * `logo`), stored byte for byte; returns the stored public URL.
+ */
+uploadsRouter.post('/logo', (req, res) => {
+  logoUpload.single('logo')(req, res, async (err) => {
+    if (err) {
+      const message =
+        err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE'
+          ? 'The logo file is larger than 10 MB'
+          : err instanceof Error
+            ? err.message
+            : 'Upload failed'
+      return res.status(400).json({ error: message })
+    }
+    if (!req.file) return res.status(400).json({ error: 'No logo file provided' })
+    try {
+      const type = logoFileType(req.file.mimetype, req.file.originalname)
+      if (!type) return res.status(400).json({ error: 'Unsupported logo file type' })
+      const url = await saveLogoFile(req.file.buffer, type)
+      res.status(201).json({ url })
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to store the logo'
+      console.warn('[uploads] logo failed:', message)
+      res.status(500).json({ error: message })
+    }
+  })
 })
 
 /** Multipart video upload (field name `video`) — returns the stored public URL. */

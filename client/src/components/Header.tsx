@@ -24,7 +24,8 @@ export function Header() {
   const { itemCount } = useCart()
   const { user, logout, can } = useAuth()
   const { hasExtractedBrand, houseLocked, brands } = useBrand()
-  const { inFunnel, allowCustomization, shopHome } = useFunnel()
+  const { inFunnel, allowCustomization, allowBoxBuilding, shopHome } =
+    useFunnel()
   const funnelLink = useFunnelLink()
   const canManage = can('manage_company')
 
@@ -67,7 +68,7 @@ export function Header() {
               {t('common.shop')}
             </NavLink>
           )}
-          {allowCustomization && (
+          {allowBoxBuilding && (
             <NavLink to={funnelLink('/build-box')} className={navLinkClass}>
               <span className="flex items-center gap-1.5">
                 <Gift className="size-4" />

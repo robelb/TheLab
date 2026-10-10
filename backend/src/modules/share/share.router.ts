@@ -1,4 +1,6 @@
 import { Router } from 'express'
+import { routeParam } from '../../lib/routeParam.js'
+import { requireAuth, requireCapability } from '../../middleware/auth.js'
 import { createShareSchema } from './share.schema.js'
 import {
   createShare,
@@ -10,14 +12,22 @@ import {
 
 export const shareRouter = Router()
 
+/**
+ * Everything except the public viewer (`GET /:slug`) is the catalogue
+ * dashboard's: minting links for product photoshoots, adding them to a
+ * product's gallery, deleting them. Those change what every shop shows, so
+ * they are for big little things' own admins.
+ */
+const catalogueAdmin = requireCapability('manage_all')
+
 // Dashboard-only: all generated designs for a product (pending + saved).
-shareRouter.get('/product/:productId', async (req, res) => {
-  const designs = await listSharesForProduct(req.params.productId)
+shareRouter.get('/product/:productId', requireAuth, catalogueAdmin, async (req, res) => {
+  const designs = await listSharesForProduct(routeParam(req, 'productId'))
   res.json({ data: designs })
 })
 
 // Mint a public link for any image (defaults to a pending share).
-shareRouter.post('/', async (req, res) => {
+shareRouter.post('/', requireAuth, catalogueAdmin, async (req, res) => {
   const parsed = createShareSchema.safeParse(req.body)
   if (!parsed.success) {
     const { fieldErrors, formErrors } = parsed.error.flatten()
@@ -49,9 +59,9 @@ shareRouter.get('/:slug', async (req, res) => {
 })
 
 // Promote pending → saved (attach image to the product gallery).
-shareRouter.post('/:slug/save', async (req, res) => {
+shareRouter.post('/:slug/save', requireAuth, catalogueAdmin, async (req, res) => {
   try {
-    const view = await saveShare(req.params.slug)
+    const view = await saveShare(routeParam(req, 'slug'))
     res.json(view)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to save share'
@@ -62,8 +72,8 @@ shareRouter.post('/:slug/save', async (req, res) => {
 })
 
 // Remove a generated design record.
-shareRouter.delete('/:slug', async (req, res) => {
-  const ok = await deleteShare(req.params.slug)
+shareRouter.delete('/:slug', requireAuth, catalogueAdmin, async (req, res) => {
+  const ok = await deleteShare(routeParam(req, 'slug'))
   if (!ok) return res.status(404).json({ error: 'Share not found' })
   res.status(204).end()
 })

@@ -7,7 +7,12 @@ import { useCollection } from '@/hooks/use-collections'
 import { useFunnel, useFunnelLink } from '@/context/FunnelContext'
 import { useTaggedProducts } from '@/hooks/use-products'
 import { hasChosenLocale, isLocale, type Locale } from '@/i18n'
-import { CARDS_STICKERS_SLUG, FILLING_SLUG, PACKAGING_SLUG } from '@/lib/box'
+import {
+  FILLING_SLUG,
+  GREETING_CARDS_SLUG,
+  PACKAGING_SLUG,
+  STICKERS_SLUG,
+} from '@/lib/box'
 import { rememberFunnelEntry } from '@/lib/funnel'
 import { useAuth } from '@/context/AuthContext'
 import { useDebounce } from '@/hooks/use-debounce'
@@ -23,7 +28,7 @@ import { Input } from '@/components/ui/input'
  * with, and the cards and stickers that go in with the products. All of them
  * belong to building a box, not to shopping — and the builder still offers them.
  */
-const NOT_IN_GRID = [PACKAGING_SLUG, FILLING_SLUG, CARDS_STICKERS_SLUG]
+const NOT_IN_GRID = [PACKAGING_SLUG, FILLING_SLUG, GREETING_CARDS_SLUG, STICKERS_SLUG]
 
 /**
  * Where an ad click lands.
@@ -67,10 +72,15 @@ export function CollectionPage() {
   useEffect(() => {
     if (!slug || !collection || authLoading) return
     if (staff) return
-    rememberFunnelEntry(slug, collection.allowCustomization)
+    rememberFunnelEntry(
+      slug,
+      collection.allowCustomization,
+      collection.allowBoxBuilding,
+    )
     posthog?.capture('collection opened', {
       collection: slug,
       allow_customization: collection.allowCustomization,
+      allow_box_building: collection.allowBoxBuilding,
     })
   }, [slug, collection, posthog, staff, authLoading])
 
@@ -163,16 +173,19 @@ export function CollectionPage() {
         </section>
       )}
 
-      {/* A page that sells finished boxes does not offer a builder — the ad
-          promised one thing, and a second route is a decision to lose people at. */}
-      {collection.allowCustomization && (
+      {/* A page that sells finished boxes only does not offer a builder — the
+          ad promised one thing, and a second route is a decision to lose
+          people at. */}
+      {collection.allowBoxBuilding && (
         <section className="rounded-brand border border-border/40 bg-muted/10 p-6 text-center sm:p-10">
           <Gift className="mx-auto size-8 text-primary" />
           <h2 className="mt-3 font-display text-2xl font-semibold">
             {t('collection.buildYourOwn')}
           </h2>
           <p className="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">
-            {t('collection.buildYourOwnBody')}
+            {collection.allowCustomization
+              ? t('collection.buildYourOwnBody')
+              : t('collection.buildYourOwnBodySteps')}
           </p>
           <Button asChild size="lg" className="mt-5">
             {/* Carries the campaign, so the builder knows which one sent it. */}
@@ -190,7 +203,7 @@ export function CollectionPage() {
               {t('collection.moreProducts')}
             </h2>
             <p className="text-sm text-muted-foreground">
-              {collection.allowCustomization
+              {collection.allowBoxBuilding
                 ? t('collection.moreProductsBody')
                 : t('collection.moreProductsBuyOnly')}
             </p>

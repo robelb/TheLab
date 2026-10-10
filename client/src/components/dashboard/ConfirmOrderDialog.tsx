@@ -15,15 +15,9 @@ import { Label } from '@/components/ui/label'
 import { useConfirmOrder } from '@/hooks/use-orders'
 import { notifyError, notifySaved } from '@/lib/notify'
 import type { Order, OrderBilling } from '@/api/orders'
-import { VAT_RATE } from '@/lib/box'
+import { vatRateFor } from '@/lib/shipping'
 import { todayIso } from '@/lib/schemas/common'
 import { formatPrice } from '@/utils/format'
-
-/**
- * Shown so the total can be read before it is sent. The server applies its own
- * configured rate and its figures are the ones stored; this only previews them.
- */
-const PREVIEW_VAT_RATE = VAT_RATE
 
 /** What the dialog suggests; the server's `PAYMENT_TERM_DAYS` default. */
 const DEFAULT_PAYMENT_TERM_DAYS = 14
@@ -130,6 +124,10 @@ export function ConfirmOrderDialog({
   const valid =
     parsed.every((p) => p !== null) && parsedShipping !== null && dueValid && billingValid
   const termDays = dueValid ? daysUntil(dueDate) : null
+  // Shown so the total can be read before it is sent: German VAT at home,
+  // none for other invoice countries. The server applies its own rate and its
+  // figures are the ones stored; this only previews them.
+  const previewVatRate = vatRateFor(order.billing?.country ?? 'DE')
 
   const totals = useMemo(() => {
     if (!valid) return null
@@ -137,9 +135,9 @@ export function ConfirmOrderDialog({
       order.items.reduce((sum, item, i) => sum + (parsed[i] ?? 0) * item.quantity, 0),
     )
     const net = round(subtotal + (parsedShipping ?? 0))
-    const vat = round((net * PREVIEW_VAT_RATE) / 100)
+    const vat = round((net * previewVatRate) / 100)
     return { subtotal, net, vat, gross: round(net + vat) }
-  }, [valid, parsed, parsedShipping, order.items])
+  }, [valid, parsed, parsedShipping, order.items, previewVatRate])
 
   const invoiceEmail =
     (needsBilling ? billing.email.trim() : order.billing?.email) || order.contact.email
@@ -261,7 +259,10 @@ export function ConfirmOrderDialog({
               <dd className="tabular-nums">{m(totals.net)}</dd>
             </div>
             <div className="flex justify-between text-muted-foreground">
-              <dt>VAT {PREVIEW_VAT_RATE} %</dt>
+              <dt>
+                VAT {previewVatRate} %
+                {previewVatRate === 0 && order.billing && ` (${order.billing.country}, VAT ID ${order.billing.vatId ?? '—'})`}
+              </dt>
               <dd className="tabular-nums">{m(totals.vat)}</dd>
             </div>
             <div className="flex justify-between text-base font-semibold">

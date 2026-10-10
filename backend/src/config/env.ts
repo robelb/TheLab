@@ -6,6 +6,24 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 config({ path: path.resolve(__dirname, '../../.env') })
 
+const isProduction = process.env.NODE_ENV === 'production'
+
+/**
+ * The key every login token is signed with. Locally a placeholder will do;
+ * in production a missing or short one would let anyone forge a token — a
+ * super admin's included — so the server refuses to start instead.
+ */
+function jwtSecret(): string {
+  const secret = process.env.JWT_SECRET?.trim()
+  if (isProduction && (!secret || secret.length < 32)) {
+    throw new Error(
+      'JWT_SECRET must be set to a random value of at least 32 characters in production ' +
+        '(e.g. `openssl rand -base64 48`).',
+    )
+  }
+  return secret || 'dev-insecure-secret-change-me'
+}
+
 export const env = {
   PORT: Number(process.env.PORT) || 3001,
   DATABASE_URL: process.env.DATABASE_URL ?? '',
@@ -42,9 +60,14 @@ export const env = {
     process.env.PUBLIC_API_URL?.trim() || 'http://localhost:3001',
 
   // Auth (JWT bearer tokens).
-  JWT_SECRET:
-    process.env.JWT_SECRET?.trim() || 'dev-insecure-secret-change-me',
+  JWT_SECRET: jwtSecret(),
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN?.trim() || '7d',
+  /**
+   * The passwordless "demo" login. Off unless explicitly turned on — it signs
+   * whoever asks in as a company owner, so it belongs on a staging setup at
+   * most, never on the live shop.
+   */
+  DEMO_LOGIN_ENABLED: process.env.DEMO_LOGIN_ENABLED?.trim() === 'true',
   // Consumer email domains that may not create/join a company (comma-separated,
   // extends the built-in list). Signups from these are rejected.
   CONSUMER_EMAIL_DOMAINS: process.env.CONSUMER_EMAIL_DOMAINS?.trim() ?? '',

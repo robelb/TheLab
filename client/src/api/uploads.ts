@@ -44,3 +44,19 @@ export async function uploadVideo(file: File): Promise<string> {
   })
   return data.url
 }
+
+/** The logo formats the sticker printer takes; the upload refuses anything else. */
+export const LOGO_FILE_ACCEPT = '.png,.jpg,.jpeg,.webp,.svg,.pdf'
+
+/**
+ * Upload a logo file exactly as it is — vector formats included — for
+ * printing. Returns the stored public URL.
+ */
+export async function uploadLogoFile(file: File): Promise<string> {
+  const form = new FormData()
+  form.append('logo', file)
+  const { data } = await apiClient.post<{ url: string }>('/uploads/logo', form, {
+    headers: { 'Content-Type': undefined },
+  })
+  return data.url
+}

@@ -224,6 +224,8 @@ export function CollectionsPage() {
                     </TableCell>
                     <TableCell>
                       {collection.allowCustomization ? (
+                        <span className="text-sm">Build, brand &amp; buy</span>
+                      ) : collection.allowBoxBuilding ? (
                         <span className="text-sm">Build &amp; buy</span>
                       ) : (
                         <Badge variant="outline">Buy only</Badge>

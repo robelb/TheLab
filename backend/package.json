@@ -35,6 +35,7 @@
     "strip:gallery": "tsx scripts/strip-global-gallery.ts",
     "regenerate:images": "tsx scripts/regenerate-brand-images.ts",
     "demo:user": "tsx scripts/create-demo-user.ts",
+    "demo:disable": "tsx scripts/disable-demo-user.ts",
     "analytics:dashboard": "tsx scripts/posthog-dashboard.ts"
   },
   "dependencies": {

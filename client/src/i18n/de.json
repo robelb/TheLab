@@ -32,6 +32,7 @@
     "readyBoxesBody": "Box auswählen, Logo ergänzen, Angebot erhalten. Hier wird nichts berechnet.",
     "buildYourOwn": "Eigene Box zusammenstellen",
     "buildYourOwnBody": "Produkte selbst auswählen, gestalten — wir kalkulieren das Ergebnis.",
+    "buildYourOwnBodySteps": "Produkte, Grußkarte und Verpackung selbst auswählen — wir kalkulieren das Ergebnis.",
     "startBuilding": "Jetzt konfigurieren",
     "moreProducts": "Mehr für diesen Anlass",
     "moreProductsBody": "Alles hier unten passt in Ihre eigene Box.",
@@ -95,7 +96,9 @@
     "increase": "Menge erhöhen",
     "bundleKept": "Boxpreis — unverändert übernommen",
     "bundleChanged": "Angepasst — Preis pro Artikel",
-    "vat": "zzgl. MwSt. {{rate}} %"
+    "vat": "zzgl. MwSt. {{rate}} %",
+    "shippingVatAtCheckout": "Versand und MwSt. berechnen wir an der Kasse – je nach Rechnungsland und Versandart.",
+    "totalNet": "Zwischensumme (netto)"
   },
   "checkout": {
     "title": "Bestellung anfragen",
@@ -124,7 +127,6 @@
     "city": "Ort",
     "country": "Land",
     "germany": "Deutschland",
-    "germanyOnly": "Wir liefern und berechnen derzeit nur innerhalb Deutschlands.",
     "vatId": "USt-IdNr.",
     "poNumber": "Ihre Bestellnummer",
     "poNumberHint": "Steht dann auf der Rechnung.",
@@ -156,7 +158,37 @@
     "streetPlaceholder": "Hauptstraße 12",
     "vatIdHint": "Nur falls vorhanden. Wir drucken sie auf die Rechnung.",
     "neededByHint": "Dann sagen wir Ihnen gleich, ob der Termin klappt.",
-    "vat": "zzgl. MwSt. {{rate}} %"
+    "vat": "zzgl. MwSt. {{rate}} %",
+    "countryHintDe": "Rechnungen nach Deutschland enthalten 19 % MwSt.",
+    "countryHintEu": "Innerhalb der EU berechnen wir ohne MwSt. – dafür brauchen wir Ihre USt-IdNr.",
+    "countryHintNonEu": "Rechnungen außerhalb der EU stellen wir ohne MwSt. aus.",
+    "vatIdRequiredHint": "Pflichtfeld für Rechnungen in andere EU-Länder. Sie steht auf der Rechnung.",
+    "poNumberLater": "Haben Sie noch keine? Kein Problem – Sie können sie uns auch später schicken.",
+    "shippingMethod": "Versandart",
+    "shipBulk": "Sammelversand",
+    "shipBulkBody": "Alle Boxen gehen zusammen an eine Adresse.",
+    "shipIndividual": "Einzelversand",
+    "shipIndividualBody": "Jede Box geht direkt an eine:n Empfänger:in.",
+    "shipMixed": "Gemischt",
+    "shipMixedBody": "Ein Teil an eine Adresse, der Rest einzeln.",
+    "shipFrom": "ca. {{price}}",
+    "bulkBoxes": "Boxen an eine Adresse",
+    "bulkBoxesHint": "Von insgesamt {{total}} Boxen.",
+    "individualRest_one": "Die übrige {{count}} Box versenden wir einzeln.",
+    "individualRest_other": "Die übrigen {{count}} Boxen versenden wir einzeln.",
+    "addressesLater": "Die Adressen können Sie später schicken",
+    "addressesLaterBody": "Nach Ihrer Anfrage bitten wir Sie per E-Mail um die Liste der Empfänger:innen – am besten als Excel- oder CSV-Datei. Sie müssen sie jetzt nicht zur Hand haben.",
+    "recipientsCountry": "Wohin gehen die Boxen?",
+    "recipientsCountryHint": "Das Land der meisten Empfänger:innen – für die Versandschätzung. Wir liefern innerhalb der EU.",
+    "bulkAddress": "Adresse für den Sammelversand",
+    "shipEuOnly": "Wir liefern derzeit innerhalb der EU.",
+    "shipMethodShort": {
+      "bulk": "Sammelversand",
+      "individual": "Einzelversand",
+      "mixed": "Gemischt"
+    },
+    "vatZeroEu": "innergemeinschaftliche Lieferung",
+    "vatZeroNonEu": "Ausfuhrlieferung"
   },
   "status": {
     "new": "Neu",
@@ -224,7 +256,7 @@
   },
   "auth": {
     "welcomeBack": "Willkommen zurück",
-    "loginIntro": "Melden Sie sich an oder sehen Sie sich den Demo-Shop an.",
+    "loginIntro": "Melden Sie sich mit Ihrem Firmenkonto an.",
     "workEmail": "Geschäftliche E-Mail",
     "emailPlaceholder": "sie@ihrunternehmen.de",
     "password": "Passwort",
@@ -232,8 +264,6 @@
     "signIn": "Anmelden",
     "newHere": "Neu hier?",
     "createAccountLink": "Firmenkonto anlegen",
-    "or": "oder",
-    "demo": "Mit der BLT-Demo fortfahren",
     "createTitle": "Konto anlegen",
     "createIntro": "Registrieren Sie sich mit Ihrer geschäftlichen E-Mail. Die erste Person aus einem Unternehmen legt dessen Marke an — später hinzukommende Kolleginnen und Kollegen übernehmen sie automatisch.",
     "fullName": "Vollständiger Name",
@@ -466,6 +496,133 @@
     "neededByPast": "Bitte wählen Sie heute oder ein späteres Datum.",
     "passwordRequired": "Bitte geben Sie Ihr Passwort ein.",
     "passwordShort": "Ihr Passwort braucht mindestens 8 Zeichen.",
-    "workEmail": "Bitte nutzen Sie Ihre geschäftliche E-Mail. Wir richten die Marke Ihrer Firma anhand der Domain ein, private Adressen wie {{domain}} gehen daher nicht."
+    "workEmail": "Bitte nutzen Sie Ihre geschäftliche E-Mail. Wir richten die Marke Ihrer Firma anhand der Domain ein, private Adressen wie {{domain}} gehen daher nicht.",
+    "zipForeign": "Bitte geben Sie eine gültige Postleitzahl ein.",
+    "invoiceCountry": "In dieses Land können wir noch keine Rechnung stellen.",
+    "vatIdRequired": "Bitte geben Sie Ihre USt-IdNr. an – ohne sie können wir nicht ohne MwSt. berechnen.",
+    "vatIdCountry": "Die USt-IdNr. muss zum Rechnungsland passen und mit {{prefix}} beginnen.",
+    "bulkBoxes": "Bitte geben Sie eine Zahl zwischen 1 und {{max}} ein.",
+    "shipEuOnly": "Wir liefern derzeit nur innerhalb der EU. Bitte geben Sie eine Lieferadresse in der EU an."
+  },
+  "stepBuilder": {
+    "title": "Stellen Sie Ihre Geschenkbox zusammen",
+    "editTitle": "Geschenkbox bearbeiten",
+    "intro": "Fünf kurze Schritte: Produkte auswählen, Grußkarte wählen, Verpackung aussuchen, auf Wunsch Logo-Sticker hinzufügen und alles prüfen, bevor es in den Warenkorb geht.",
+    "boxTitle": "Geschenkbox",
+    "stepsLabel": "Schritte des Box-Builders",
+    "stepOf": "Schritt {{step}} von {{total}}",
+    "optional": "optional",
+    "included": "Inklusive",
+    "noOptions": "Hier gibt es noch nichts zur Auswahl.",
+    "steps": {
+      "products": "Produkte",
+      "card": "Grußkarte",
+      "packaging": "Verpackung",
+      "stickers": "Logo-Sticker",
+      "review": "Übersicht"
+    },
+    "labels": {
+      "vegan": "Vegan",
+      "organic": "Bio"
+    },
+    "products": {
+      "title": "Was kommt in die Box?",
+      "body": "Wählen Sie so viele Produkte aus unserem Sortiment, wie Sie möchten. Die Menge pro Box können Sie anpassen.",
+      "addMore": "Produkte hinzufügen",
+      "empty": "Produkte auswählen",
+      "emptyHint": "Öffnet unser Sortiment: mehrere ankreuzen und gemeinsam hinzufügen.",
+      "less": "Ein {{name}} weniger",
+      "more": "Ein {{name}} mehr"
+    },
+    "picker": {
+      "title": "Unser Sortiment",
+      "body": "Kreuzen Sie alles an, was in die Box soll, und fügen Sie es in einem Schritt hinzu.",
+      "search": "Sortiment durchsuchen",
+      "count_one": "{{count}} Produkt",
+      "count_other": "{{count}} Produkte",
+      "noMatches": "Nichts gefunden für „{{q}}“.",
+      "empty": "In diesem Sortiment gibt es noch keine Produkte.",
+      "selected_one": "{{count}} ausgewählt",
+      "selected_other": "{{count}} ausgewählt",
+      "clear": "Auswahl aufheben",
+      "add_one": "{{count}} Produkt hinzufügen",
+      "add_other": "{{count}} Produkte hinzufügen",
+      "volumePricing": "Staffelpreise",
+      "inBox": "Bereits in Ihrer Box",
+      "more": "Mehr anzeigen"
+    },
+    "card": {
+      "title": "Grußkarte auswählen",
+      "body": "Wählen Sie ein Motiv und schreiben Sie Ihre Botschaft. Um Layout und Druck kümmern wir uns.",
+      "messageLabel": "Ihre Botschaft",
+      "messagePlaceholder": "Liebes Team, danke für ein wundervolles Jahr…",
+      "messageHint": "Lassen Sie das Feld leer, wenn Sie den Text lieber später schicken."
+    },
+    "packaging": {
+      "title": "Verpackung auswählen",
+      "body": "Wählen Sie die Verpackung für Ihre Box. Alle gezeigten Verpackungen sind fertig gestaltet und werden wie abgebildet versendet.",
+      "pick": "Wählen Sie eine Verpackung, um fortzufahren.",
+      "fillingIncluded": "Jede Box wird mit {{name}} gepolstert.",
+      "printed": "Bedruckt mit: {{prompt}}",
+      "printHint": "Möchten Sie die Box mit Ihrem Logo oder Motiv bedrucken?"
+    },
+    "stickers": {
+      "title": "Logo-Sticker hinzufügen",
+      "body": "Verschließen Sie die Box mit einem Sticker mit Ihrem Logo – oder überspringen Sie diesen Schritt.",
+      "none": "Keine Sticker",
+      "logoTitle": "Ihr Logo für die Sticker",
+      "logoBody": "Laden Sie Ihr Logo gleich hoch – oder schicken Sie es uns später. Vor dem Druck erhalten Sie einen Entwurf zur Freigabe.",
+      "upload": "Logo hochladen",
+      "uploading": "Wird hochgeladen…",
+      "replace": "Ersetzen",
+      "remove": "Entfernen",
+      "formats": "PNG, JPG, SVG oder PDF, bis 10 MB. SVG und PDF drucken am schärfsten.",
+      "later": "Gerade keine Datei zur Hand? Kein Problem – überspringen Sie das Hochladen, wir fragen nach Ihrer Anfrage danach.",
+      "logoUploaded": "Logo hochgeladen",
+      "logoFollows": "Logo folgt – wir fragen nach Ihrer Anfrage danach",
+      "tooLarge": "Die Datei ist größer als 10 MB. Bitte wählen Sie eine kleinere oder schicken Sie sie uns später.",
+      "uploadFailed": "Das Logo konnte nicht hochgeladen werden. Versuchen Sie es erneut oder schicken Sie es uns später."
+    },
+    "review": {
+      "title": "Ihre Box",
+      "body": "Prüfen Sie den Inhalt, wählen Sie die Anzahl der Boxen und legen Sie sie in den Warenkorb.",
+      "change": "Ändern",
+      "message": "Text der Grußkarte",
+      "noMessage": "Noch kein Text – Sie können ihn uns später schicken.",
+      "boxes": "Anzahl Boxen",
+      "fewer": "Eine Box weniger",
+      "more": "Eine Box mehr",
+      "total": "Gesamt, netto",
+      "totalNote": "Versand und MwSt. kommen an der Kasse hinzu.",
+      "photographing": "Ihre Box wird fotografiert…",
+      "photoAlt": "Ihre Geschenkbox",
+      "photoFailed": "Das Foto Ihrer Box konnte nicht erstellt werden.",
+      "retry": "Erneut versuchen",
+      "rephotograph": "Neues Foto",
+      "photoNote": "Das Foto ist eine Vorschau des Inhalts; die fertige Box wird von Hand gepackt.",
+      "takesAMinute": "Dauert meist unter einer Minute. Sie können die Box schon jetzt in den Warenkorb legen."
+    },
+    "footer": {
+      "perBox": "Pro Box",
+      "back": "Zurück",
+      "next": "Weiter",
+      "skip": "Überspringen"
+    },
+    "christmas": {
+      "title": "Stellen Sie Ihre Weihnachtsbox zusammen",
+      "editTitle": "Weihnachtsbox bearbeiten",
+      "boxTitle": "Weihnachtsbox",
+      "products": {
+        "body": "Wählen Sie so viele Leckereien aus unserem Weihnachtssortiment, wie Sie möchten. Die Menge pro Box können Sie anpassen.",
+        "emptyHint": "Öffnet das gesamte Weihnachtssortiment: mehrere ankreuzen und gemeinsam hinzufügen."
+      },
+      "picker": {
+        "title": "Unser Weihnachtssortiment"
+      },
+      "review": {
+        "photoAlt": "Ihre Weihnachtsbox"
+      },
+      "intro": "Fünf kurze Schritte: Leckereien auswählen, Grußkarte wählen, Verpackung aussuchen, auf Wunsch Logo-Sticker hinzufügen und alles prüfen, bevor es in den Warenkorb geht."
+    }
   }
 }

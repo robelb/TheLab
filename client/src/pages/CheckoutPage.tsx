@@ -9,13 +9,8 @@ import { useBrand } from '@/context/BrandContext'
 import { useAuth } from '@/context/AuthContext'
 import { useCreateOrder } from '@/hooks/use-orders'
 import type { OrderItem } from '@/api/orders'
-import {
-  boxAllLines,
-  boxPieceCount,
-  shippingFor,
-  VAT_RATE,
-  vatFor,
-} from '@/lib/box'
+import { boxAllLines, boxPieceCount } from '@/lib/box'
+import { shippingCost, vatRateFor, isEu } from '@/lib/shipping'
 import {
   attributionProperties,
   clearAttribution,
@@ -63,11 +58,15 @@ export function CheckoutPage() {
   const posthog = usePostHog()
   const createOrder = useCreateOrder()
 
-  // Rebuilt when the language changes, so the messages follow it.
+  // Gift boxes, counting each box line's quantity: what shipping is per.
+  const boxes = items.reduce((sum, i) => sum + (i.box ? i.quantity : 0), 0)
+
+  // Rebuilt when the language or the box count changes, so the messages and
+  // the mixed-shipping limit follow them.
   const schema = useMemo(
-    () => makeCheckoutSchema(t),
+    () => makeCheckoutSchema(t, boxes),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, i18n.language],
+    [t, i18n.language, boxes],
   )
   const f = useZodForm({
     schema,
@@ -83,9 +82,21 @@ export function CheckoutPage() {
   /** Set once the request is recorded — carries the reference to quote. */
   const [sent, setSent] = useState<{ reference: string; email: string } | null>(null)
 
-  const shipping = shippingFor(subtotal)
+  const v = f.values
+  const method = boxes > 0 ? v.shippingMethod : 'bulk'
+  const destination =
+    v.sameAsBilling && method !== 'individual' ? v.country : v.deliveryCountry
+  // Null outside the countries we ship to; the form says so where it matters.
+  const shipping =
+    shippingCost({
+      method,
+      country: destination,
+      boxes,
+      bulkBoxes: Number(v.bulkBoxes) || null,
+    }) ?? 0
   const total = subtotal + shipping
-  const vat = vatFor(total)
+  const vatRate = vatRateFor(v.country)
+  const vat = Math.round(total * vatRate) / 100
   const currency = items[0]?.product.currency ?? 'EUR'
 
   // Once per visit to the page, so the funnel shows where people drop off.
@@ -152,22 +163,26 @@ export function CheckoutPage() {
           zip: form.zip.trim(),
           city: form.city.trim(),
           country: form.country,
-          vatId: trim(form.vatId),
+          vatId: form.vatId || null,
           poNumber: trim(form.poNumber),
         },
         delivery: {
           sameAsBilling: form.sameAsBilling,
-          ...(form.sameAsBilling
-            ? {}
+          ...(form.sameAsBilling || method === 'individual'
+            ? { country: method === 'individual' ? form.deliveryCountry : form.country }
             : {
                 address: trim(form.deliveryStreet),
                 line2: trim(form.deliveryLine2),
                 zip: trim(form.deliveryZip),
                 city: trim(form.deliveryCity),
-                country: form.country,
+                country: form.deliveryCountry,
               }),
           neededBy: trim(form.neededBy),
           notes: trim(form.notes),
+        },
+        shipping: {
+          method,
+          bulkBoxes: method === 'mixed' ? Number(form.bulkBoxes) : null,
         },
         items: payload,
         currency,
@@ -312,7 +327,7 @@ export function CheckoutPage() {
         <form className="space-y-8" onSubmit={f.handleSubmit(submit)} noValidate>
           <ContactSection f={f} disabled={pending} />
           <BillingSection f={f} disabled={pending} />
-          <DeliverySection f={f} disabled={pending} />
+          <DeliverySection f={f} disabled={pending} boxes={boxes} currency={currency} />
           <PaymentSection disabled={pending} />
 
           <PrivacyConsent f={f} disabled={pending} />
@@ -388,16 +403,26 @@ export function CheckoutPage() {
                 <span>{t('checkout.subtotal')}</span>
                 <span>{formatPrice(subtotal, currency)}</span>
               </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>{t('checkout.shipping')}</span>
+              <div className="flex justify-between gap-3 text-muted-foreground">
                 <span>
-                  {shipping === 0
-                    ? t('checkout.shippingFree')
-                    : formatPrice(shipping, currency)}
+                  {t('checkout.shipping')}
+                  <span className="block text-xs">
+                    {t(`checkout.shipMethodShort.${method}`)}
+                  </span>
                 </span>
+                <span>{formatPrice(shipping, currency)}</span>
               </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>{t('checkout.vat', { rate: VAT_RATE })}</span>
+              <div className="flex justify-between gap-3 text-muted-foreground">
+                <span>
+                  {t('checkout.vat', { rate: vatRate })}
+                  {vatRate === 0 && (
+                    <span className="block text-xs">
+                      {isEu(v.country)
+                        ? t('checkout.vatZeroEu')
+                        : t('checkout.vatZeroNonEu')}
+                    </span>
+                  )}
+                </span>
                 <span>{formatPrice(vat, currency)}</span>
               </div>
             </div>

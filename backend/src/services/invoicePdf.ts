@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit'
 import type { Invoice, InvoiceAddress } from '../db/schema/index.js'
 import { BRAND } from '../emails/layout.js'
+import { zeroVatReason } from '../lib/shipping.js'
 
 /**
  * An invoice as a PDF, drawn from the invoice row alone.
@@ -87,9 +88,13 @@ const LABELS = {
   },
 } as const
 
-const COUNTRY: Record<Locale, Record<string, string>> = {
-  de: { DE: 'Deutschland' },
-  en: { DE: 'Germany' },
+/** A country's name in the invoice's language. */
+function countryName(code: string, locale: Locale): string {
+  try {
+    return new Intl.DisplayNames([locale], { type: 'region' }).of(code) ?? code
+  } catch {
+    return code
+  }
 }
 
 const INK = '#1A1A1A'
@@ -220,14 +225,14 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Buffer> {
 
   // Shipping address on the left, billing address on the right.
   const lineH = 17.3
-  const addressLines = (a: InvoiceAddress, countryName: boolean) =>
+  const addressLines = (a: InvoiceAddress, withCountryName: boolean) =>
     [
       a.name,
       a.company && a.company !== a.name ? a.company : null,
       a.street,
       a.line2,
       `${a.zip} ${a.city}`,
-      countryName ? (COUNTRY[locale][a.country] ?? a.country) : a.country,
+      withCountryName ? countryName(a.country, locale) : a.country,
     ].filter(Boolean) as string[]
 
   const shipping: InvoiceAddress = buyer.shipping ?? {
@@ -244,7 +249,7 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Buffer> {
     buyer.street,
     buyer.line2,
     `${buyer.zip} ${buyer.city}`,
-    COUNTRY[locale][buyer.country] ?? buyer.country,
+    countryName(buyer.country, locale),
     buyer.vatId ? `${L.customerVat}: ${buyer.vatId}` : null,
   ].filter(Boolean) as string[]
 
@@ -252,7 +257,7 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Buffer> {
   bold().text(L.shipping, left, addressTop, { width: half })
   bold().text(L.billing, left + half, addressTop, { width: half, align: 'right' })
   let ly = addressTop + lineH
-  for (const line of addressLines(shipping, false)) {
+  for (const line of addressLines(shipping, shipping.country !== 'DE')) {
     body().text(line, left, ly, { width: half - 10 })
     ly += lineH
   }
@@ -370,6 +375,14 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Buffer> {
   }
   y += 4
   hr(y, RULE, 1)
+
+  // An invoice without VAT has to say why.
+  if (Number(invoice.vatRate) === 0) {
+    y += 10
+    body().text(zeroVatReason(buyer.country, locale).note, left, y, {
+      width: right - left,
+    })
+  }
 
   // Our address, contact and bank details in the footer of every page.
   const footer = [

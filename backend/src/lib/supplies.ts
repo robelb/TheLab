@@ -1,6 +1,6 @@
 /**
- * Fulfilment supplies: the gift box itself and the filling material packed
- * around the products. They're ordinary rows in `products` — same cart, same
+ * Fulfilment supplies: the gift box itself, the filling material packed
+ * around the products, and the greeting card and logo stickers that go in. They're ordinary rows in `products` — same cart, same
  * pricing, same order — but they belong to *building* a box rather than to the
  * catalog, so every shop-facing read excludes their categories and only the box
  * builder asks for them (`GET /api/products/supplies`).
@@ -11,10 +11,14 @@
  */
 export const PACKAGING_SLUG = 'packaging'
 export const FILLING_SLUG = 'filling-materials'
+export const GREETING_CARDS_SLUG = 'greeting-cards'
+export const STICKERS_SLUG = 'stickers'
 
 export const SUPPLY_CATEGORIES: { slug: string; name: string }[] = [
   { slug: PACKAGING_SLUG, name: 'Packaging' },
   { slug: FILLING_SLUG, name: 'Filling materials' },
+  { slug: GREETING_CARDS_SLUG, name: 'Greeting cards' },
+  { slug: STICKERS_SLUG, name: 'Logo stickers' },
 ]
 
 export const SUPPLY_CATEGORY_SLUGS: string[] = SUPPLY_CATEGORIES.map(

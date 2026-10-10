@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { customizeFeaturedImages } from '../../customizer/analyzeWithCustomization.js'
 import { analyze } from '../../extractor/analyze.js'
 import { db } from '../../db/index.js'
+import { env } from '../../config/env.js'
 import {
   companies,
   users,
@@ -326,23 +327,24 @@ export const DEMO_USER_EMAIL =
   process.env.DEMO_USER_EMAIL?.trim().toLowerCase() || 'demo@biglittlethings.de'
 
 /**
- * Passwordless login for the public "BLT demo" account. Signs a token for the
+ * Passwordless login for the "BLT demo" account. Signs a token for the
  * pre-seeded demo user so the shop loads that company's brand + branded product
  * images through the normal authenticated path.
+ *
+ * Off unless `DEMO_LOGIN_ENABLED=true`: it hands whoever asks a company
+ * owner's session with no password, so the live shop must not offer it. Off,
+ * it answers like a route that does not exist.
  */
 export async function loginAsDemo(): Promise<AuthResult> {
+  if (!env.DEMO_LOGIN_ENABLED) throw new AuthError('Not found.', 404)
+
   const [user] = await db
     .select()
     .from(users)
     .where(eq(users.email, DEMO_USER_EMAIL))
     .limit(1)
 
-  if (!user) {
-    throw new AuthError(
-      'Demo account is not set up. Seed it with `pnpm demo:user`.',
-      404,
-    )
-  }
+  if (!user) throw new AuthError('Not found.', 404)
   if (!user.isActive) throw new AuthError('Demo account is deactivated.', 403)
 
   const token = signAuthToken(principalOf(user))

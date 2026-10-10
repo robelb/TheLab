@@ -93,7 +93,9 @@ export function CollectionDetailPage() {
               </Badge>
               <Badge variant="secondary">#{collection.tag}</Badge>
               {!collection.allowCustomization && (
-                <Badge variant="outline">Buy only</Badge>
+                <Badge variant="outline">
+                  {collection.allowBoxBuilding ? 'No customisation' : 'Buy only'}
+                </Badge>
               )}
               {!collection.active && (
                 <Badge variant="outline" className="text-muted-foreground">

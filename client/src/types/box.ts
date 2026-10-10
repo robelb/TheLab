@@ -34,6 +34,13 @@ export interface BoxLine {
   customPrint?: boolean
 }
 
+export interface StickerLogo {
+  /** The file as uploaded, unconverted. */
+  url: string
+  /** Its original file name, so the team knows what they are opening. */
+  name?: string | null
+}
+
 export interface GreetingCardLine extends BoxLine {
   message: string
 }
@@ -74,6 +81,11 @@ export interface BoxDetails {
   greetingCard?: GreetingCardLine | null
   /** Logo stickers, when the shopper did not skip that step. */
   stickers?: BoxLine | null
+  /**
+   * The logo to print on the stickers, when it was uploaded with the box.
+   * Stickers without one means the shopper sends the logo afterwards.
+   */
+  stickerLogo?: StickerLogo | null
   /**
    * The wording that produced the box's printed design, when the shopper
    * customized it. The design itself is the packaging line's `customizedImage`;

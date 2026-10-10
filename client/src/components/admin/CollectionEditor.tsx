@@ -61,6 +61,9 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
   const [allowCustomization, setAllowCustomization] = useState(
     collection.allowCustomization,
   )
+  const [allowBoxBuilding, setAllowBoxBuilding] = useState(
+    collection.allowBoxBuilding,
+  )
 
   // Keyed on the saved ids, not the array: any refetch of the list (ending the
   // campaign, say) hands back a new array with the same boxes.
@@ -71,8 +74,8 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
   }, [collection.id, savedFeaturedKey])
 
   const featuredIds = featured.map((p) => p.id)
-  // Only the copy waits for the Save button; boxes and the customisation
-  // switch are saved the moment they change.
+  // Only the copy waits for the Save button; boxes and the two switches are
+  // saved the moment they change.
   const dirty =
     titleDe !== collection.title.de ||
     titleEn !== collection.title.en ||
@@ -126,12 +129,31 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
       })
       notifySaved(
         next
-          ? `/c/${collection.slug}: visitors can build their own`
-          : `/c/${collection.slug}: buy only`,
+          ? `/c/${collection.slug}: visitors can customise products`
+          : `/c/${collection.slug}: no product customisation`,
       )
     } catch (err) {
       setAllowCustomization(previous)
       notifyError(err, 'Could not change the customisation setting')
+    }
+  }
+
+  async function toggleBoxBuilding(next: boolean) {
+    const previous = allowBoxBuilding
+    setAllowBoxBuilding(next)
+    try {
+      await saveContent.mutateAsync({
+        id: collection.id,
+        input: { allowBoxBuilding: next },
+      })
+      notifySaved(
+        next
+          ? `/c/${collection.slug}: visitors can build their own box`
+          : `/c/${collection.slug}: ready-made boxes only`,
+      )
+    } catch (err) {
+      setAllowBoxBuilding(previous)
+      notifyError(err, 'Could not change the box building setting')
     }
   }
 
@@ -197,27 +219,53 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
         </TabsList>
 
         <TabsContent value="content" className="mt-4 space-y-6">
-          {/* First, because it decides whether half of this page applies. */}
-          <section className="flex items-start gap-3 rounded-brand border border-border/40 bg-muted/10 p-3">
-            <Checkbox
-              id={`custom-${collection.id}`}
-              checked={allowCustomization}
-              disabled={saveContent.isPending}
-              onCheckedChange={(c) => void toggleCustomization(c === true)}
-              className="mt-0.5"
-            />
-            <div className="space-y-0.5">
-              <Label
-                htmlFor={`custom-${collection.id}`}
-                className="font-medium"
-              >
-                Let visitors build and brand their own box
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                {allowCustomization
-                  ? 'The page offers the box builder and a “customise” button on every box.'
-                  : 'Buy only — no builder, no customise buttons, and no design editor for anything reached from this page.'}
-              </p>
+          {/* First, because they decide whether half of this page applies. */}
+          <section className="space-y-3 rounded-brand border border-border/40 bg-muted/10 p-3">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id={`build-${collection.id}`}
+                checked={allowBoxBuilding}
+                disabled={saveContent.isPending}
+                onCheckedChange={(c) => void toggleBoxBuilding(c === true)}
+                className="mt-0.5"
+              />
+              <div className="space-y-0.5">
+                <Label
+                  htmlFor={`build-${collection.id}`}
+                  className="font-medium"
+                >
+                  Visitors can build their own box
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {!allowBoxBuilding
+                    ? 'Ready-made boxes only — no box builder on this page.'
+                    : allowCustomization
+                      ? 'The page offers the full box builder, with design tools.'
+                      : 'The page offers the step-by-step builder: products, greeting card, packaging, stickers.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id={`custom-${collection.id}`}
+                checked={allowCustomization}
+                disabled={saveContent.isPending}
+                onCheckedChange={(c) => void toggleCustomization(c === true)}
+                className="mt-0.5"
+              />
+              <div className="space-y-0.5">
+                <Label
+                  htmlFor={`custom-${collection.id}`}
+                  className="font-medium"
+                >
+                  Visitors can customise products
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {allowCustomization
+                    ? 'Products and boxes can be branded in the design editor.'
+                    : 'No design editor and no customise buttons for anything reached from this page.'}
+                </p>
+              </div>
             </div>
           </section>
 

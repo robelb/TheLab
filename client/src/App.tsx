@@ -10,7 +10,7 @@ import { FunnelProvider } from '@/context/FunnelContext'
 import { RequireCustomization } from '@/components/RequireCustomization'
 import { HomePage } from '@/pages/HomePage'
 import { CollectionPage } from '@/pages/CollectionPage'
-import { BuildBoxPage } from '@/pages/BuildBoxPage'
+import { BoxBuilderRoute } from '@/components/BoxBuilderRoute'
 import { DesignPage } from '@/pages/DesignPage'
 import { CampaignPage } from '@/pages/CampaignPage'
 import { ProductPage } from '@/pages/ProductPage'
@@ -78,14 +78,7 @@ export default function App() {
                   <Route index element={<HomePage />} />
                   {/* Campaign landing pages: /c/weihnachten?lang=de&gclid=… */}
                   <Route path="c/:slug" element={<CollectionPage />} />
-                  <Route
-                    path="build-box"
-                    element={
-                      <RequireCustomization>
-                        <BuildBoxPage />
-                      </RequireCustomization>
-                    }
-                  />
+                  <Route path="build-box" element={<BoxBuilderRoute />} />
                   <Route path="campaign/:id" element={<CampaignPage />} />
                   <Route path="product/:id" element={<ProductPage />} />
                   <Route path="cart" element={<CartPage />} />

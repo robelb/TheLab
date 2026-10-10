@@ -11,7 +11,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { usePostHog } from '@posthog/react'
 import { toast } from 'sonner'
-import { demoLoginRequest, fetchMe, loginRequest, signupRequest } from '@/api/auth'
+import { fetchMe, loginRequest, signupRequest } from '@/api/auth'
 import { clearToken, getToken, setToken } from '@/lib/auth-token'
 import { TOKEN_EXPIRED_EVENT } from '@/lib/api-client'
 import { getDefaultPreset } from '@/config/brands'
@@ -49,7 +49,6 @@ interface AuthContextValue {
   brandGeneration: string | null
   login: (email: string, password: string) => Promise<void>
   signup: (name: string, email: string, password: string) => Promise<void>
-  loginWithDefault: () => Promise<void>
   logout: () => void
   can: (capability: Capability, ctx?: CapabilityContext) => boolean
 }
@@ -211,28 +210,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyBundle, queryClient],
   )
 
-  const loginWithDefault = useCallback(async () => {
-    // The "BLT demo" logs in as the demo company account so the shop loads that
-    // company's brand + its branded product images (via the normal authed path).
-    try {
-      const result = await demoLoginRequest()
-      setToken(result.token)
-      applyBundle(result)
-      queryClient.invalidateQueries({ queryKey: ['products'] })
-      posthog?.capture('blt demo opened')
-    } catch {
-      // The demo account is unavailable. Browsing signed out is a first-class
-      // way to use the shop now, so that is where this lands rather than in an
-      // error — the house brand, the plain catalogue, and a working cart.
-      clearToken()
-      setUser(null)
-      setCompany(null)
-      applyHouseBrand()
-      queryClient.invalidateQueries({ queryKey: ['products'] })
-      posthog?.capture('default shop opened')
-    }
-  }, [applyBundle, applyHouseBrand, queryClient, posthog])
-
   /**
    * A stored token that the API has just rejected.
    *
@@ -299,7 +276,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       brandGeneration: company?.brandGeneration ?? null,
       login,
       signup,
-      loginWithDefault,
       logout,
       can,
     }),
@@ -309,7 +285,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       login,
       signup,
-      loginWithDefault,
       logout,
       can,
     ],

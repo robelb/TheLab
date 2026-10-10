@@ -64,7 +64,8 @@ export function FeaturedProductsPage() {
   const showSkeleton = isLoading || isFetching
   const skeletonRows = Math.min(Math.max(products.length || 6, 4), limit)
 
-  if (!can('manage_company')) return <Navigate to="/dashboard" replace />
+  // Featured orders every company's shop: a catalogue decision, BLT's own.
+  if (!can('manage_all')) return <Navigate to="/dashboard" replace />
 
   function switchView(next: View) {
     setView(next)

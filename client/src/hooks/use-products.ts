@@ -17,7 +17,12 @@ import {
   type FetchProductsParams,
   type ImageSearchParams,
 } from '@/api/products'
-import { FILLING_SLUG, PACKAGING_SLUG } from '@/lib/box'
+import {
+  FILLING_SLUG,
+  GREETING_CARDS_SLUG,
+  PACKAGING_SLUG,
+  STICKERS_SLUG,
+} from '@/lib/box'
 import type { Product } from '@/types/product'
 
 export const productsKeys = {
@@ -31,9 +36,16 @@ export const productsKeys = {
 export interface BoxSupplies {
   packaging: Product[]
   filling: Product[]
+  cards: Product[]
+  stickers: Product[]
 }
 
-const NO_SUPPLIES: BoxSupplies = { packaging: [], filling: [] }
+const NO_SUPPLIES: BoxSupplies = {
+  packaging: [],
+  filling: [],
+  cards: [],
+  stickers: [],
+}
 
 /**
  * The box builder's two pickers. Sits under `['products']` like every other
@@ -51,6 +63,8 @@ export function useBoxSupplies() {
     return {
       packaging: query.data.filter((p) => p.categorySlug === PACKAGING_SLUG),
       filling: query.data.filter((p) => p.categorySlug === FILLING_SLUG),
+      cards: query.data.filter((p) => p.categorySlug === GREETING_CARDS_SLUG),
+      stickers: query.data.filter((p) => p.categorySlug === STICKERS_SLUG),
     }
   }, [query.data])
 
@@ -124,6 +138,10 @@ export function useProducts(
  * the branded images arriving refresh it too.
  */
 export function useTaggedProducts(
+  /**
+   * The occasion to list. Undefined holds the query until it is known, unless
+   * `everything` asks for the whole catalogue instead.
+   */
   tag: string | undefined,
   opts: {
     /** Ordinary items or boxes only; both when left out. */
@@ -133,6 +151,8 @@ export function useTaggedProducts(
     exclude?: string[]
     /** Category slugs to leave out. */
     excludeCategories?: string[]
+    /** List the whole catalogue when there is no tag — the shop's builder. */
+    everything?: boolean
   } = {},
 ) {
   const q = opts.q?.trim() ?? ''
@@ -162,7 +182,7 @@ export function useTaggedProducts(
     initialPageParam: 1,
     getNextPageParam: (last) =>
       last.pagination.hasNextPage ? last.pagination.page + 1 : undefined,
-    enabled: Boolean(tag),
+    enabled: Boolean(tag) || Boolean(opts.everything && tag === undefined),
     // A new search keeps the current grid up until its results arrive, rather
     // than blanking it on every keystroke.
     placeholderData: keepPreviousData,

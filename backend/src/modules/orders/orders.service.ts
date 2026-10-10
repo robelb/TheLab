@@ -22,15 +22,18 @@ import { env } from '../../config/env.js'
 import { missingSellerDetails } from '../../config/seller.js'
 import { getBundleComponents } from '../products/products.service.js'
 import { unitPriceFor } from '../../lib/pricing.js'
+import { shippingCost, vatRateFor } from '../../lib/shipping.js'
 import { enqueueLeadEvent } from '../../services/leadIntake.js'
 import { enqueueEmail, sendEmailNow } from '../../services/mailer.js'
 import type { SendOutcome } from '../../services/outbox.js'
 import { trackPaymentChange, trackStatusChange } from './orders.analytics.js'
 import type { BundleComponent } from '../../types/product.js'
-import type {
-  ConfirmOrderBody,
-  CreateOrderBody,
-  OrderStatus,
+import {
+  boxCount,
+  destinationCountry,
+  type ConfirmOrderBody,
+  type CreateOrderBody,
+  type OrderStatus,
 } from './orders.schema.js'
 import {
   getInvoiceByOrder,
@@ -49,16 +52,6 @@ export class OrderError extends Error {
     super(message)
   }
 }
-
-/**
- * Free over this, flat fee under it.
- *
- * This used to be the same expression copy-pasted into the cart page and the
- * checkout page, which meant the two could disagree about what someone owed.
- * It lives here now because this is the only place the number becomes a record.
- */
-export const FREE_SHIPPING_THRESHOLD = 200
-export const FLAT_SHIPPING = 12
 
 /** Two decimal places, and never `-0`. */
 function money(value: number): number {
@@ -276,8 +269,15 @@ export async function priceOrder(body: CreateOrderBody): Promise<PricedOrder> {
   })
 
   const subtotal = money(running)
+  // An estimate like the rest: the operator confirms or changes it. A country
+  // we do not ship to never gets this far — see `checkoutProblems`.
   const shipping =
-    subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : FLAT_SHIPPING
+    shippingCost({
+      method: body.shipping?.method ?? 'bulk',
+      country: destinationCountry(body),
+      boxes: boxCount(body.items),
+      bulkBoxes: body.shipping?.bulkBoxes,
+    }) ?? 0
   return { subtotal, shipping, total: money(subtotal + shipping), items }
 }
 
@@ -332,6 +332,11 @@ export interface OrderDto {
   vatRate: number | null
   vat: number | null
   totalGross: number | null
+  shippingMethod: Row['shippingMethod']
+  shippingSplit: Row['shippingSplit']
+  /** Recipient addresses for individually sent boxes are still to come. */
+  addressesLater: boolean
+  recipients: Row['recipients']
   invoice: InvoiceSummary | null
 }
 
@@ -370,6 +375,10 @@ function toDto(row: Row, invoice: InvoiceSummary | null = null): OrderDto {
     vatRate: nullableNumber(row.vatRate),
     vat: nullableNumber(row.vat),
     totalGross: nullableNumber(row.totalGross),
+    shippingMethod: row.shippingMethod,
+    shippingSplit: row.shippingSplit,
+    addressesLater: row.addressesLater,
+    recipients: row.recipients,
     invoice,
   }
 }
@@ -410,10 +419,26 @@ async function resolveCollection(
   }
 }
 
-/** Shipping to the billing address means the delivery block copies it. */
+/**
+ * Shipping to the billing address means the delivery block copies it. Boxes
+ * sent individually have no delivery address of their own — only the country
+ * the recipients are in, and the date and notes.
+ */
 function deliveryFor(body: CreateOrderBody): OrderDelivery | null {
   const d = body.delivery
   if (!d) return null
+  if (body.shipping?.method === 'individual') {
+    return {
+      sameAsBilling: false,
+      address: null,
+      line2: null,
+      zip: null,
+      city: null,
+      country: destinationCountry(body),
+      neededBy: d.neededBy ?? null,
+      notes: d.notes ?? null,
+    }
+  }
   if (d.sameAsBilling && body.billing) {
     return {
       ...d,
@@ -437,6 +462,8 @@ export async function createOrder(params: {
   const { body } = params
   const collection = await resolveCollection(body.collectionSlug)
   const { subtotal, shipping, total, items } = await priceOrder(body)
+  const method = body.shipping?.method ?? 'bulk'
+  const boxes = boxCount(body.items)
 
   const [row] = await db
     .insert(orders)
@@ -447,6 +474,17 @@ export async function createOrder(params: {
       status: 'new',
       contact: body.contact,
       delivery: deliveryFor(body),
+      shippingMethod: method,
+      shippingSplit:
+        method === 'mixed' && body.shipping?.bulkBoxes
+          ? {
+              bulkBoxes: body.shipping.bulkBoxes,
+              individualBoxes: boxes - body.shipping.bulkBoxes,
+            }
+          : null,
+      // Nobody types a hundred addresses into a checkout form: individually
+      // sent boxes always get their addresses afterwards.
+      addressesLater: method !== 'bulk',
       billing: body.billing ?? null,
       items: items as Row['items'],
       subtotal: subtotal.toFixed(2),
@@ -710,9 +748,6 @@ export async function confirmOrder(params: {
       'no_billing',
     )
   }
-  if (billing.country !== 'DE') {
-    throw new OrderError('We can only invoice to Germany for now.', 422, 'billing_country')
-  }
   const missing = missingSellerDetails()
   if (missing.length) {
     throw new OrderError(
@@ -733,7 +768,7 @@ export async function confirmOrder(params: {
   )
   const shipping = money(params.body.shipping)
   const net = money(subtotal + shipping)
-  const vatRate = env.VAT_RATE
+  const vatRate = vatRateFor(billing.country, env.VAT_RATE)
   const vat = money((net * vatRate) / 100)
   const gross = money(net + vat)
 

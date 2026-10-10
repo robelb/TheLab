@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/api-client'
 import type { ProductDesign } from '@/lib/boxDraft'
 import type { BoxDetails } from '@/types/box'
+import type { ShippingMethod } from '@/lib/shipping'
 
 export const ORDER_STATUSES = ['new', 'quoted', 'confirmed', 'cancelled'] as const
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
@@ -90,6 +91,8 @@ export interface OrderItem {
   design?: ProductDesign | null
   /** Set by the server: whether a box kept its ready-made price or was summed. */
   pricingMode?: 'bundle' | 'parts'
+  /** Set by the server when a volume tier set the unit price. */
+  tierPrice?: number
 }
 
 export interface Order {
@@ -125,6 +128,10 @@ export interface Order {
   vatRate?: number | null
   vat?: number | null
   totalGross?: number | null
+  shippingMethod?: ShippingMethod
+  shippingSplit?: { bulkBoxes: number; individualBoxes: number } | null
+  /** Recipient addresses for individually sent boxes are still to come. */
+  addressesLater?: boolean
   invoice?: InvoiceSummary | null
 }
 
@@ -147,6 +154,8 @@ export interface CreateOrderBody {
   attribution?: OrderAttribution | null
   paymentMethod?: 'invoice'
   privacyAccepted?: boolean
+  /** How the boxes travel; `bulkBoxes` is the mixed split. */
+  shipping?: { method: ShippingMethod; bulkBoxes?: number | null }
 }
 
 export interface OrderFilters {

@@ -197,23 +197,27 @@ function DesignBlock({
 
 function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
   const parts: BoxLine[] = item.box
-    ? [...item.box.lines, item.box.packaging, item.box.filling].filter(
-        (p): p is BoxLine => Boolean(p),
-      )
+    ? [
+        ...item.box.lines,
+        item.box.packaging,
+        item.box.filling,
+        item.box.greetingCard,
+        item.box.stickers,
+      ].filter((p): p is BoxLine => Boolean(p))
     : []
 
   /**
    * Priced the way the server prices it.
    *
-   * A box's own `unitPrice` is a figure the shop assembles client-side, and the
-   * server deliberately ignores it in favour of the contents. Showing it here
-   * would let a line disagree with the total on the same page — which is what
-   * happened before this: a box arrived claiming zero and read as free while
-   * the total counted every mug in it.
+   * A request priced on the server (`pricingMode` set) stores the unit price
+   * it charged — ready-made price, volume tiers and all — so that is the line.
+   * Older box lines carried a figure the shop assembled client-side, which
+   * once arrived claiming zero; those are summed from their contents instead.
    */
-  const lineTotal = item.box
-    ? parts.reduce((sum, p) => sum + p.price * p.quantity, 0) * item.quantity
-    : item.unitPrice * item.quantity
+  const lineTotal =
+    item.box && !item.pricingMode
+      ? parts.reduce((sum, p) => sum + p.price * p.quantity, 0) * item.quantity
+      : item.unitPrice * item.quantity
 
   return (
     <li className="space-y-3 rounded-brand border border-border/40 p-4 break-inside-avoid">
@@ -274,6 +278,43 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
             </ul>
           </div>
 
+          {item.box.greetingCard && (
+            <div className="rounded-brand border border-border/40 p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Greeting card · {item.box.greetingCard.name}
+              </p>
+              <p className="mt-1 whitespace-pre-line text-sm">
+                {item.box.greetingCard.message || (
+                  <span className="text-muted-foreground">
+                    No message yet — the customer will send it later.
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+          {item.box.stickers && (
+            <div className="rounded-brand border border-border/40 p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Sticker logo · {item.box.stickers.name}
+              </p>
+              {item.box.stickerLogo ? (
+                <a
+                  href={item.box.stickerLogo.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  className="mt-1 inline-block text-sm text-primary underline underline-offset-2"
+                >
+                  {item.box.stickerLogo.name ?? 'Download the logo file'}
+                </a>
+              ) : (
+                <p className="mt-1 text-sm">
+                  <Badge variant="outline">Logo to follow</Badge>{' '}
+                  <span className="text-muted-foreground">Ask the customer for it.</span>
+                </p>
+              )}
+            </div>
+          )}
           {item.box.packagingPrompt && (
             <p className="rounded-brand bg-muted/40 px-2 py-1.5 text-xs">
               <span className="text-muted-foreground">Box print brief: </span>
@@ -471,9 +512,30 @@ export function OrderDetailPage() {
             </dd>
           </div>
           <div className="flex gap-2">
-            <dt className="text-muted-foreground">Deliver to</dt>
+            <dt className="text-muted-foreground">Shipping</dt>
             <dd>
-              {order.delivery?.sameAsBilling
+              {order.shippingMethod === 'individual'
+                ? 'Individually, one box per recipient'
+                : order.shippingMethod === 'mixed'
+                  ? order.shippingSplit
+                    ? `Mixed · ${order.shippingSplit.bulkBoxes} to the address below, ${order.shippingSplit.individualBoxes} individually`
+                    : 'Mixed'
+                  : 'In bulk, to one address'}
+              {order.addressesLater && (
+                <Badge variant="outline" className="ml-2">
+                  Recipient addresses to follow
+                </Badge>
+              )}
+            </dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="text-muted-foreground">
+              {order.shippingMethod === 'individual' ? 'Recipients in' : 'Deliver to'}
+            </dt>
+            <dd>
+              {order.shippingMethod === 'individual'
+                ? (order.delivery?.country ?? '—')
+                : order.delivery?.sameAsBilling
                 ? 'Billing address'
                 : [
                     order.delivery?.address,

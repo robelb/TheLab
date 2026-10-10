@@ -16,6 +16,7 @@ import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAuth } from '@/context/AuthContext'
 import { useDashboardStats } from '@/hooks/use-dashboard'
 import type { DashboardStats } from '@/types/dashboard'
 
@@ -106,6 +107,8 @@ function StatsGrid({ stats }: { stats: DashboardStats }) {
 
 export function DashboardHomePage() {
   const { data, isLoading, error } = useDashboardStats()
+  // Managing the catalogue is big little things' own job.
+  const canManageCatalogue = useAuth().can('manage_all')
 
   return (
     <div className="space-y-8">
@@ -237,12 +240,14 @@ export function DashboardHomePage() {
             <Card>
               <CardHeader className="flex-row items-center justify-between">
                 <CardTitle className="text-base">Recently added</CardTitle>
-                <Link
-                  to="/dashboard/products"
-                  className="text-xs font-medium text-primary hover:underline"
-                >
-                  Manage products
-                </Link>
+                {canManageCatalogue && (
+                  <Link
+                    to="/dashboard/products"
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    Manage products
+                  </Link>
+                )}
               </CardHeader>
               <CardContent className="max-h-72 space-y-3 overflow-y-auto">
                 {data.recentProducts.length === 0 && (

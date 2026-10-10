@@ -32,6 +32,7 @@
     "readyBoxesBody": "Pick one, add your logo, and we quote it. Nothing is charged here.",
     "buildYourOwn": "Build your own box",
     "buildYourOwnBody": "Choose the products yourself, design them, and we price the result.",
+    "buildYourOwnBodySteps": "Choose the products, greeting card and packaging yourself, and we price the result.",
     "startBuilding": "Start building",
     "moreProducts": "More for this occasion",
     "moreProductsBody": "Everything below can go into a box of your own.",
@@ -95,7 +96,9 @@
     "increase": "Increase quantity",
     "bundleKept": "Box price — kept exactly as sold",
     "bundleChanged": "Customised — priced per item",
-    "vat": "VAT {{rate}} %"
+    "vat": "VAT {{rate}} %",
+    "shippingVatAtCheckout": "Shipping and VAT are worked out at checkout, from your invoice country and shipping method.",
+    "totalNet": "Subtotal (net)"
   },
   "checkout": {
     "title": "Request your order",
@@ -124,7 +127,6 @@
     "city": "City",
     "country": "Country",
     "germany": "Germany",
-    "germanyOnly": "For now we deliver and invoice within Germany only.",
     "vatId": "VAT ID",
     "poNumber": "Your PO number",
     "poNumberHint": "We'll print it on the invoice.",
@@ -156,7 +158,37 @@
     "streetPlaceholder": "Main Street 12",
     "vatIdHint": "Only if you have one. We print it on the invoice.",
     "neededByHint": "So we can tell you straight away if the date works.",
-    "vat": "VAT {{rate}} %"
+    "vat": "VAT {{rate}} %",
+    "countryHintDe": "Invoices to Germany include 19 % VAT.",
+    "countryHintEu": "Within the EU we invoice without VAT — for that we need your VAT ID.",
+    "countryHintNonEu": "Invoices outside the EU are issued without VAT.",
+    "vatIdRequiredHint": "Required for invoices to other EU countries. It is printed on the invoice.",
+    "poNumberLater": "Don't have one yet? No problem — you can send it to us later.",
+    "shippingMethod": "Shipping method",
+    "shipBulk": "Bulk",
+    "shipBulkBody": "All boxes go together to one address.",
+    "shipIndividual": "Individual",
+    "shipIndividualBody": "Each box goes straight to its recipient.",
+    "shipMixed": "Mixed",
+    "shipMixedBody": "Some to one address, the rest individually.",
+    "shipFrom": "approx. {{price}}",
+    "bulkBoxes": "Boxes to one address",
+    "bulkBoxesHint": "Out of {{total}} boxes in total.",
+    "individualRest_one": "We send the remaining {{count}} box individually.",
+    "individualRest_other": "We send the remaining {{count}} boxes individually.",
+    "addressesLater": "You can send the addresses later",
+    "addressesLaterBody": "After your request we email you to ask for the recipient list — ideally as an Excel or CSV file. You don't need it to hand now.",
+    "recipientsCountry": "Where are the boxes going?",
+    "recipientsCountryHint": "The country most recipients are in — for the shipping estimate. We deliver within the EU.",
+    "bulkAddress": "Address for the bulk shipment",
+    "shipEuOnly": "We currently deliver within the EU.",
+    "shipMethodShort": {
+      "bulk": "Bulk",
+      "individual": "Individual",
+      "mixed": "Mixed"
+    },
+    "vatZeroEu": "intra-Community supply",
+    "vatZeroNonEu": "export"
   },
   "status": {
     "new": "New",
@@ -224,7 +256,7 @@
   },
   "auth": {
     "welcomeBack": "Welcome back",
-    "loginIntro": "Sign in to your account, or browse the demo shop.",
+    "loginIntro": "Sign in to your company account.",
     "workEmail": "Work email",
     "emailPlaceholder": "you@yourcompany.com",
     "password": "Password",
@@ -232,8 +264,6 @@
     "signIn": "Sign in",
     "newHere": "New here?",
     "createAccountLink": "Create your company account",
-    "or": "or",
-    "demo": "Continue with the BLT demo",
     "createTitle": "Create your account",
     "createIntro": "Sign up with your work email. The first person from a company sets up its brand — teammates who join later share it automatically.",
     "fullName": "Full name",
@@ -466,6 +496,133 @@
     "neededByPast": "Please choose today or a later date.",
     "passwordRequired": "Please enter your password.",
     "passwordShort": "Your password needs at least 8 characters.",
-    "workEmail": "Please use your work email. We set up your company's brand from its domain, so personal addresses like {{domain}} can't be used."
+    "workEmail": "Please use your work email. We set up your company's brand from its domain, so personal addresses like {{domain}} can't be used.",
+    "zipForeign": "Please enter a valid postcode.",
+    "invoiceCountry": "We can't invoice to this country yet.",
+    "vatIdRequired": "Please enter your VAT ID — without it we can't invoice without VAT.",
+    "vatIdCountry": "The VAT ID must match the invoice country and start with {{prefix}}.",
+    "bulkBoxes": "Please enter a number between 1 and {{max}}.",
+    "shipEuOnly": "We currently deliver within the EU only. Please give a delivery address in the EU."
+  },
+  "stepBuilder": {
+    "title": "Build your gift box",
+    "editTitle": "Edit your gift box",
+    "intro": "Five short steps: pick the products, choose a greeting card, pick the packaging, add logo stickers if you like, and check everything before it goes in the cart.",
+    "boxTitle": "Gift box",
+    "stepsLabel": "Box builder steps",
+    "stepOf": "Step {{step}} of {{total}}",
+    "optional": "optional",
+    "included": "Included",
+    "noOptions": "Nothing to choose from here yet.",
+    "steps": {
+      "products": "Products",
+      "card": "Greeting card",
+      "packaging": "Packaging",
+      "stickers": "Logo stickers",
+      "review": "Review"
+    },
+    "labels": {
+      "vegan": "Vegan",
+      "organic": "Organic"
+    },
+    "products": {
+      "title": "What goes in the box?",
+      "body": "Pick as many products as you like from our range. You can change the amount of each per box.",
+      "addMore": "Add products",
+      "empty": "Choose your products",
+      "emptyHint": "Opens our range: tick several and add them at once.",
+      "less": "One fewer {{name}}",
+      "more": "One more {{name}}"
+    },
+    "picker": {
+      "title": "Our range",
+      "body": "Tick everything you want in the box, then add it in one go.",
+      "search": "Search the range",
+      "count_one": "{{count}} product",
+      "count_other": "{{count}} products",
+      "noMatches": "Nothing matches “{{q}}”.",
+      "empty": "No products in this range yet.",
+      "selected_one": "{{count}} selected",
+      "selected_other": "{{count}} selected",
+      "clear": "Clear",
+      "add_one": "Add {{count}} product",
+      "add_other": "Add {{count}} products",
+      "volumePricing": "volume pricing",
+      "inBox": "Already in your box",
+      "more": "Show more"
+    },
+    "card": {
+      "title": "Choose a greeting card",
+      "body": "Pick a design and write your message. We take care of the layout and printing.",
+      "messageLabel": "Your message",
+      "messagePlaceholder": "Dear team, thank you for a wonderful year…",
+      "messageHint": "Leave it empty if you would rather send the text later."
+    },
+    "packaging": {
+      "title": "Choose the packaging",
+      "body": "Pick the packaging your box ships in. Every option shown is ready-made and ships as pictured.",
+      "pick": "Pick a packaging to continue.",
+      "fillingIncluded": "Every box is padded with {{name}}.",
+      "printed": "Printed with: {{prompt}}",
+      "printHint": "Want your logo or artwork printed on the box?"
+    },
+    "stickers": {
+      "title": "Add logo stickers",
+      "body": "Seal the box with a sticker carrying your logo, or skip this step.",
+      "none": "No stickers",
+      "logoTitle": "Your logo for the stickers",
+      "logoBody": "Upload your logo now — or send it to us later. You get a proof to approve before anything is printed.",
+      "upload": "Upload logo",
+      "uploading": "Uploading…",
+      "replace": "Replace",
+      "remove": "Remove",
+      "formats": "PNG, JPG, SVG or PDF, up to 10 MB. SVG and PDF print sharpest.",
+      "later": "No file to hand? No problem — skip the upload and we'll ask for it after your request.",
+      "logoUploaded": "Logo uploaded",
+      "logoFollows": "Logo to follow — we'll ask for it after your request",
+      "tooLarge": "The file is larger than 10 MB. Please pick a smaller one or send it to us later.",
+      "uploadFailed": "The logo could not be uploaded. Try again or send it to us later."
+    },
+    "review": {
+      "title": "Your box",
+      "body": "Check what is inside, choose how many boxes you need and add them to the cart.",
+      "change": "Change",
+      "message": "Card message",
+      "noMessage": "No message yet — you can send it to us later.",
+      "boxes": "Number of boxes",
+      "fewer": "One box fewer",
+      "more": "One box more",
+      "total": "Total, net",
+      "totalNote": "Shipping and VAT are added at checkout.",
+      "photographing": "Photographing your box…",
+      "photoAlt": "Your gift box",
+      "photoFailed": "The photo of your box could not be made.",
+      "retry": "Try again",
+      "rephotograph": "New photo",
+      "photoNote": "The photo is a preview of the contents; the final box is packed by hand.",
+      "takesAMinute": "Usually under a minute. You can already add the box to the cart."
+    },
+    "footer": {
+      "perBox": "Per box",
+      "back": "Back",
+      "next": "Continue",
+      "skip": "Skip"
+    },
+    "christmas": {
+      "title": "Build your Christmas box",
+      "editTitle": "Edit your Christmas box",
+      "boxTitle": "Christmas box",
+      "products": {
+        "body": "Pick as many treats as you like from our Christmas range. You can change the amount of each per box.",
+        "emptyHint": "Opens the whole Christmas range: tick several and add them at once."
+      },
+      "picker": {
+        "title": "Our Christmas range"
+      },
+      "review": {
+        "photoAlt": "Your Christmas box"
+      },
+      "intro": "Five short steps: pick the treats, choose a greeting card, pick the packaging, add logo stickers if you like, and check everything before it goes in the cart."
+    }
   }
 }

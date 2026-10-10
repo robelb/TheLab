@@ -59,11 +59,15 @@ function boxDetails(box: unknown): string | null {
     lines?: { name: string; quantity: number }[]
     packaging?: { name: string } | null
     filling?: { name: string } | null
+    greetingCard?: { name: string } | null
+    stickers?: { name: string } | null
   }
   const parts = [
     ...(b.lines ?? []).map((l) => (l.quantity > 1 ? `${l.quantity}× ${l.name}` : l.name)),
     b.packaging?.name,
     b.filling?.name,
+    b.greetingCard?.name,
+    b.stickers?.name,
   ].filter(Boolean)
   return parts.length ? parts.join(', ') : null
 }

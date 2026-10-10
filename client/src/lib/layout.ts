@@ -3,7 +3,7 @@
  * one back out of untrusted storage.
  *
  * Kept out of `PlacementCanvas` so the drag surface is only about pointers, and
- * so `BuildBoxPage` can validate a layout from localStorage without mounting
+ * so a stored design can have its layout validated without mounting
  * the editor.
  */
 

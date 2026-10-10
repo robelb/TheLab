@@ -7,14 +7,19 @@
  * then loads that company's brand + branded product images through the normal
  * authenticated path. Idempotent: re-running updates the existing demo user.
  *
+ * For staging only: the demo login is off unless `DEMO_LOGIN_ENABLED=true`,
+ * and `pnpm demo:disable` switches the account off again.
+ *
  * Env (optional):
  *   DEMO_USER_EMAIL       default demo@biglittlethings.de
  *   DEMO_COMPANY_DOMAIN   default biglittlethings.de
- *   DEMO_USER_PASSWORD    default a random-ish constant (login is passwordless)
+ *   DEMO_USER_PASSWORD    default random — the demo login needs none, and a
+ *                         known default would open the account to anyone
  *
  * Usage: pnpm demo:user
  */
 import { config } from 'dotenv'
+import { randomBytes } from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { eq } from 'drizzle-orm'
@@ -28,7 +33,8 @@ config({ path: path.resolve(__dirname, '../.env') })
 
 const EMAIL = (process.env.DEMO_USER_EMAIL?.trim() || 'demo@biglittlethings.de').toLowerCase()
 const DOMAIN = process.env.DEMO_COMPANY_DOMAIN?.trim() || 'biglittlethings.de'
-const PASSWORD = process.env.DEMO_USER_PASSWORD?.trim() || 'blt-demo-passwordless'
+const PASSWORD =
+  process.env.DEMO_USER_PASSWORD?.trim() || randomBytes(32).toString('base64url')
 
 async function main() {
   const [company] = await db

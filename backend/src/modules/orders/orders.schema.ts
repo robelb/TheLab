@@ -1,4 +1,11 @@
 import { z } from 'zod'
+import {
+  INVOICE_COUNTRIES,
+  SHIPPING_COUNTRIES,
+  normalizeVatId,
+  vatIdLooksValid,
+  vatIdRequired,
+} from '../../lib/shipping.js'
 
 /**
  * What the shop sends when someone asks for a box.
@@ -53,6 +60,16 @@ const boxSchema = z.object({
   greetingCard: greetingCardSchema.nullish(),
   /** Optional logo stickers; skipped boxes have none. */
   stickers: boxLineSchema.nullish(),
+  /**
+   * The logo for the stickers, when the shopper uploaded it with the request.
+   * Absent with stickers means they send it afterwards.
+   */
+  stickerLogo: z
+    .object({
+      url: z.string().trim().url().max(2048),
+      name: z.string().trim().max(200).nullish(),
+    })
+    .nullish(),
   packagingPrompt: z.string().max(4000).nullish(),
   packagingLayout: z.unknown().nullish(),
   designs: z.unknown().nullish(),
@@ -113,7 +130,7 @@ const attributionSchema = z.object({
 
 const optionalText = (max: number) => z.string().trim().max(max).nullish()
 
-/** Who the invoice is made out to. Only Germany is invoiced for now. */
+/** Who the invoice is made out to. The country decides the VAT. */
 const billingSchema = z.object({
   company: shortText,
   name: optionalText(200),
@@ -122,9 +139,24 @@ const billingSchema = z.object({
   zip: z.string().trim().min(1).max(32),
   city: z.string().trim().min(1).max(120),
   country: z.string().trim().toUpperCase().length(2),
-  vatId: optionalText(32),
+  vatId: z
+    .string()
+    .max(32)
+    .transform((v) => normalizeVatId(v) || null)
+    .nullish(),
   poNumber: optionalText(64),
   email: z.string().trim().email().max(320).nullish(),
+})
+
+/**
+ * How the boxes travel. `bulk` sends everything to the delivery address;
+ * `individual` sends each box to its own recipient; `mixed` sends `bulkBoxes`
+ * of them together and the rest one by one. Recipient addresses for
+ * individual boxes are sent after the request.
+ */
+const shippingSchema = z.object({
+  method: z.enum(['bulk', 'individual', 'mixed']).default('bulk'),
+  bulkBoxes: z.number().int().min(1).max(100_000).nullish(),
 })
 
 export const createOrderSchema = z.object({
@@ -151,6 +183,7 @@ export const createOrderSchema = z.object({
       notes: z.string().trim().max(2000).nullish(),
     })
     .nullish(),
+  shipping: shippingSchema.nullish(),
   items: z.array(itemSchema).min(1, 'There is nothing to request').max(100),
   currency: z.string().trim().min(1).max(8).default('EUR'),
   locale: z.enum(['de', 'en']).default('en'),
@@ -248,13 +281,70 @@ export function guestProblems(body: CreateOrderBody): string | null {
   if (!c.firstName?.trim() || !c.lastName?.trim()) return 'First and last name are required'
   if (!c.phone?.trim()) return 'A phone number is required'
   if (!body.billing) return 'A billing address is required'
-  if (body.billing.country !== 'DE') return 'We can only invoice to Germany for now'
   const d = body.delivery
-  if (!d?.sameAsBilling) {
+  // Individually sent boxes have no single delivery address; theirs come later.
+  if (body.shipping?.method !== 'individual' && !d?.sameAsBilling) {
     if (!d?.address?.trim() || !d.zip?.trim() || !d.city?.trim()) {
       return 'A delivery address is required'
     }
   }
   if (!body.privacyAccepted) return 'Please accept the privacy notice'
+  return null
+}
+
+/** How many gift boxes the request holds, counting each box line's quantity. */
+export function boxCount(items: CreateOrderBody['items']): number {
+  return items.reduce((sum, item) => sum + (item.box ? item.quantity : 0), 0)
+}
+
+/**
+ * Where the shipping estimate is for: the delivery address, or the billing
+ * address when it ships there. For individual boxes the delivery country is
+ * where the recipients are.
+ */
+export function destinationCountry(body: CreateOrderBody): string {
+  const d = body.delivery
+  const country =
+    d?.sameAsBilling && body.shipping?.method !== 'individual'
+      ? body.billing?.country
+      : d?.country
+  return (country ?? body.billing?.country ?? 'DE').trim().toUpperCase()
+}
+
+/**
+ * Checks every request has to pass, signed in or not: an invoice country we
+ * make invoices out to, a VAT ID wherever the invoice goes out without VAT,
+ * a shipping choice that fits the boxes, and a destination we ship to.
+ * Returns the first problem, or null.
+ */
+export function checkoutProblems(body: CreateOrderBody): string | null {
+  const billing = body.billing
+  if (billing) {
+    if (!INVOICE_COUNTRIES.includes(billing.country)) {
+      return 'We cannot invoice to that country yet'
+    }
+    if (vatIdRequired(billing.country) && !billing.vatId) {
+      return 'A VAT ID is required for invoices to EU countries outside Germany'
+    }
+    if (billing.vatId && !vatIdLooksValid(billing.country, billing.vatId)) {
+      return 'The VAT ID does not match the billing country'
+    }
+  }
+
+  const method = body.shipping?.method ?? 'bulk'
+  const boxes = boxCount(body.items)
+  if (method === 'individual' && boxes < 1) {
+    return 'Individual shipping is for gift boxes'
+  }
+  if (method === 'mixed') {
+    if (boxes < 2) return 'Mixed shipping needs at least two boxes'
+    const together = body.shipping?.bulkBoxes
+    if (!together || together >= boxes) {
+      return 'Say how many boxes go to the delivery address; the rest are sent individually'
+    }
+  }
+  if (!SHIPPING_COUNTRIES.includes(destinationCountry(body))) {
+    return 'We can only ship within the EU for now'
+  }
   return null
 }

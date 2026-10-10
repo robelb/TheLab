@@ -1,15 +1,25 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileText } from 'lucide-react'
+import { FileText, Mail, Package, Truck, Users } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DatePicker } from '@/components/ui/date-picker'
 import { FieldMessage, FormField } from '@/components/ui/form-field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { ZodForm } from '@/lib/form'
 import type { CheckoutValues } from '@/lib/schemas/checkout'
 import { todayIso } from '@/lib/schemas/common'
+import {
+  countryOptions,
+  INVOICE_COUNTRIES,
+  SHIPPING_COUNTRIES,
+  shippingCost,
+  vatIdPrefix,
+  vatIdRequired,
+  type ShippingMethod,
+} from '@/lib/shipping'
+import { cn } from '@/lib/utils'
+import { formatPrice } from '@/utils/format'
 
 /**
  * The checkout form's sections.
@@ -30,15 +40,20 @@ export interface CheckoutForm {
   line2: string
   zip: string
   city: string
-  /** ISO code. Germany only for now — the only place we invoice to. */
+  /** ISO code of the invoice address. Decides the VAT. */
   country: string
   vatId: string
   poNumber: string
+  shippingMethod: ShippingMethod
+  /** Mixed shipping: how many boxes go to the delivery address. A string while typed. */
+  bulkBoxes: string
   sameAsBilling: boolean
   deliveryStreet: string
   deliveryLine2: string
   deliveryZip: string
   deliveryCity: string
+  /** Where the boxes go — for individual shipping, where the recipients are. */
+  deliveryCountry: string
   neededBy: string
   notes: string
   privacyAccepted: boolean
@@ -64,11 +79,14 @@ export function emptyCheckoutForm(prefill: {
     country: 'DE',
     vatId: '',
     poNumber: '',
+    shippingMethod: 'bulk',
+    bulkBoxes: '',
     sameAsBilling: true,
     deliveryStreet: '',
     deliveryLine2: '',
     deliveryZip: '',
     deliveryCity: '',
+    deliveryCountry: 'DE',
     neededBy: '',
     notes: '',
     privacyAccepted: false,
@@ -124,6 +142,40 @@ function Field(props: {
         placeholder={props.placeholder}
         aria-required={props.optional ? undefined : true}
       />
+    </FormField>
+  )
+}
+
+/** A country picker, as a native select so it works with typing and autofill. */
+function CountrySelect(props: {
+  f: CheckoutFormState
+  name: 'country' | 'deliveryCountry'
+  label: string
+  codes: readonly string[]
+  autoComplete?: string
+  hint?: ReactNode
+}) {
+  const { t, i18n } = useTranslation()
+  const field = props.f.register(props.name)
+  return (
+    <FormField
+      id={field.id}
+      label={props.label}
+      error={props.f.errors[props.name]}
+      hint={props.hint}
+      optionalLabel={t('checkout.optional')}
+    >
+      <select
+        {...field}
+        autoComplete={props.autoComplete}
+        className="flex h-10 w-full rounded-brand border border-input bg-background/50 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive"
+      >
+        {countryOptions(props.codes, i18n.language).map((c) => (
+          <option key={c.code} value={c.code}>
+            {c.name}
+          </option>
+        ))}
+      </select>
     </FormField>
   )
 }
@@ -217,31 +269,46 @@ export function BillingSection({ f, disabled }: SectionProps) {
           name="zip"
           label={t('checkout.zip')}
           autoComplete="billing postal-code"
-          inputMode="numeric"
-          maxLength={5}
-          placeholder="10115"
+          inputMode={f.values.country === 'DE' ? 'numeric' : 'text'}
+          maxLength={f.values.country === 'DE' ? 5 : 10}
+          placeholder={f.values.country === 'DE' ? '10115' : undefined}
         />
         <Field f={f} name="city" label={t('checkout.city')} autoComplete="billing address-level2" />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="country">{t('checkout.country')}</Label>
-        <Input id="country" value={t('checkout.germany')} readOnly disabled />
-        <p className="text-xs text-muted-foreground">{t('checkout.germanyOnly')}</p>
-      </div>
+      {/* The invoice country decides the VAT: German VAT at home, none for
+          other countries — inside the EU only on the buyer's VAT ID. */}
+      <CountrySelect
+        f={f}
+        name="country"
+        label={t('checkout.country')}
+        codes={INVOICE_COUNTRIES}
+        autoComplete="billing country"
+        hint={
+          f.values.country === 'DE'
+            ? t('checkout.countryHintDe')
+            : vatIdRequired(f.values.country)
+              ? t('checkout.countryHintEu')
+              : t('checkout.countryHintNonEu')
+        }
+      />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
           f={f}
           name="vatId"
           label={t('checkout.vatId')}
-          placeholder="DE123456789"
-          hint={t('checkout.vatIdHint')}
-          optional
+          placeholder={`${vatIdPrefix(f.values.country)}123456789`}
+          hint={
+            vatIdRequired(f.values.country)
+              ? t('checkout.vatIdRequiredHint')
+              : t('checkout.vatIdHint')
+          }
+          optional={!vatIdRequired(f.values.country)}
         />
         <Field
           f={f}
           name="poNumber"
           label={t('checkout.poNumber')}
-          hint={t('checkout.poNumberHint')}
+          hint={t('checkout.poNumberLater')}
           optional
         />
       </div>
@@ -249,50 +316,194 @@ export function BillingSection({ f, disabled }: SectionProps) {
   )
 }
 
-export function DeliverySection({ f, disabled }: SectionProps) {
+/**
+ * How the boxes travel: all to one address, one box per recipient, or some of
+ * each. Recipient addresses are never typed in here — someone ordering for a
+ * hundred people sends the list afterwards — so individual shipping asks only
+ * where the recipients are, for the estimate.
+ */
+export function DeliverySection({
+  f,
+  disabled,
+  boxes,
+  currency,
+}: SectionProps & { boxes: number; currency: string }) {
   const { t } = useTranslation()
   const notes = f.register('notes')
   const neededBy = f.register('neededBy')
+  const bulkBoxes = f.register('bulkBoxes')
+  const method = f.values.shippingMethod
+  const destination =
+    f.values.sameAsBilling && method !== 'individual'
+      ? f.values.country
+      : f.values.deliveryCountry
+  const together = Number(f.values.bulkBoxes) || 1
+
+  const methods: {
+    value: ShippingMethod
+    icon: typeof Truck
+    title: string
+    body: string
+    available: boolean
+  }[] = [
+    {
+      value: 'bulk',
+      icon: Package,
+      title: t('checkout.shipBulk'),
+      body: t('checkout.shipBulkBody'),
+      available: true,
+    },
+    {
+      value: 'individual',
+      icon: Users,
+      title: t('checkout.shipIndividual'),
+      body: t('checkout.shipIndividualBody'),
+      available: boxes >= 1,
+    },
+    {
+      value: 'mixed',
+      icon: Truck,
+      title: t('checkout.shipMixed'),
+      body: t('checkout.shipMixedBody'),
+      available: boxes >= 2,
+    },
+  ]
+
   return (
     <Section title={t('checkout.delivery')} disabled={disabled}>
-      <label className="flex items-center gap-2.5 text-sm">
-        <Checkbox {...f.registerCheckbox('sameAsBilling')} />
-        {t('checkout.sameAsBilling')}
-      </label>
-      {!f.values.sameAsBilling && (
-        <div className="space-y-4 rounded-brand border border-border/40 p-4">
-          <Field
-            f={f}
-            name="deliveryStreet"
-            label={t('checkout.street')}
-            autoComplete="shipping address-line1"
-            placeholder={t('checkout.streetPlaceholder')}
-          />
-          <Field
-            f={f}
-            name="deliveryLine2"
-            label={t('checkout.line2')}
-            autoComplete="shipping address-line2"
-            optional
-          />
-          <div className="grid gap-4 sm:grid-cols-[140px_1fr]">
-            <Field
-              f={f}
-              name="deliveryZip"
-              label={t('checkout.zip')}
-              autoComplete="shipping postal-code"
-              inputMode="numeric"
-              maxLength={5}
-              placeholder="10115"
-            />
-            <Field
-              f={f}
-              name="deliveryCity"
-              label={t('checkout.city')}
-              autoComplete="shipping address-level2"
-            />
+      {boxes > 0 && (
+        <div role="radiogroup" aria-label={t('checkout.shippingMethod')} className="grid gap-3 sm:grid-cols-3">
+          {methods
+            .filter((m) => m.available)
+            .map((m) => {
+              const selected = method === m.value
+              const estimate = shippingCost({
+                method: m.value,
+                country: destination,
+                boxes,
+                bulkBoxes: m.value === 'mixed' ? together : null,
+              })
+              const Icon = m.icon
+              return (
+                <button
+                  key={m.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => f.set('shippingMethod', m.value)}
+                  className={cn(
+                    'flex flex-col gap-1.5 rounded-brand border p-3 text-left transition-colors',
+                    selected
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                      : 'border-border/60 hover:border-border',
+                  )}
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <Icon className="size-4 text-primary" />
+                    {m.title}
+                  </span>
+                  <span className="text-xs text-foreground/70">{m.body}</span>
+                  {estimate !== null && (
+                    <span className="mt-auto pt-1 text-xs font-medium tabular-nums">
+                      {t('checkout.shipFrom', { price: formatPrice(estimate, currency) })}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+        </div>
+      )}
+
+      {method === 'mixed' && (
+        <div className="grid gap-4 sm:grid-cols-[200px_1fr] sm:items-end">
+          <FormField
+            id={bulkBoxes.id}
+            label={t('checkout.bulkBoxes')}
+            error={f.errors.bulkBoxes}
+            hint={t('checkout.bulkBoxesHint', { total: boxes })}
+          >
+            <Input {...bulkBoxes} type="number" inputMode="numeric" min={1} max={boxes - 1} />
+          </FormField>
+          <p className="pb-2 text-sm text-foreground/70">
+            {t('checkout.individualRest', {
+              count: Math.max(0, boxes - (Number(f.values.bulkBoxes) || 0)),
+            })}
+          </p>
+        </div>
+      )}
+
+      {method !== 'bulk' && (
+        <div className="flex gap-3 rounded-brand border border-primary/40 bg-primary/5 p-4">
+          <Mail className="mt-0.5 size-5 shrink-0 text-primary" />
+          <div className="space-y-1 text-sm">
+            <p className="font-medium">{t('checkout.addressesLater')}</p>
+            <p className="text-foreground/70">{t('checkout.addressesLaterBody')}</p>
           </div>
         </div>
+      )}
+
+      {method === 'individual' ? (
+        <CountrySelect
+          f={f}
+          name="deliveryCountry"
+          label={t('checkout.recipientsCountry')}
+          codes={SHIPPING_COUNTRIES}
+          hint={t('checkout.recipientsCountryHint')}
+        />
+      ) : (
+        <>
+          {method === 'mixed' && (
+            <p className="text-sm font-medium">{t('checkout.bulkAddress')}</p>
+          )}
+          <label className="flex items-center gap-2.5 text-sm">
+            <Checkbox {...f.registerCheckbox('sameAsBilling')} />
+            {t('checkout.sameAsBilling')}
+          </label>
+          <FieldMessage id={f.idOf('sameAsBilling')} error={f.errors.sameAsBilling} />
+          {!f.values.sameAsBilling && (
+            <div className="space-y-4 rounded-brand border border-border/40 p-4">
+              <Field
+                f={f}
+                name="deliveryStreet"
+                label={t('checkout.street')}
+                autoComplete="shipping address-line1"
+                placeholder={t('checkout.streetPlaceholder')}
+              />
+              <Field
+                f={f}
+                name="deliveryLine2"
+                label={t('checkout.line2')}
+                autoComplete="shipping address-line2"
+                optional
+              />
+              <div className="grid gap-4 sm:grid-cols-[140px_1fr]">
+                <Field
+                  f={f}
+                  name="deliveryZip"
+                  label={t('checkout.zip')}
+                  autoComplete="shipping postal-code"
+                  inputMode={f.values.deliveryCountry === 'DE' ? 'numeric' : 'text'}
+                  maxLength={f.values.deliveryCountry === 'DE' ? 5 : 10}
+                  placeholder={f.values.deliveryCountry === 'DE' ? '10115' : undefined}
+                />
+                <Field
+                  f={f}
+                  name="deliveryCity"
+                  label={t('checkout.city')}
+                  autoComplete="shipping address-level2"
+                />
+              </div>
+              <CountrySelect
+                f={f}
+                name="deliveryCountry"
+                label={t('checkout.country')}
+                codes={SHIPPING_COUNTRIES}
+                autoComplete="shipping country"
+                hint={t('checkout.shipEuOnly')}
+              />
+            </div>
+          )}
+        </>
       )}
       {/* The first thing a quote has to answer, and the thing people forget
           to mention until it is too late to make. */}
