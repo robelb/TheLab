@@ -22,6 +22,7 @@
     "import:endeavour": "tsx scripts/import-endeavour.ts",
     "sync:endeavour": "tsx scripts/sync-endeavour.ts",
     "sync:endeavour:fetch": "tsx scripts/sync-endeavour.ts --fetch-only",
+    "sync:labels": "tsx scripts/sync-labels.ts",
     "audit:prompts": "tsx scripts/audit-prompts.ts",
     "embed": "tsx scripts/generate-embeddings.ts",
     "colors": "tsx scripts/generate-colors.ts",

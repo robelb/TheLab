@@ -262,20 +262,10 @@
     "password": "Password",
     "signingIn": "Signing in…",
     "signIn": "Sign in",
-    "newHere": "New here?",
-    "createAccountLink": "Create your company account",
-    "createTitle": "Create your account",
-    "createIntro": "Sign up with your work email. The first person from a company sets up its brand — teammates who join later share it automatically.",
-    "fullName": "Full name",
-    "namePlaceholder": "Ada Lovelace",
-    "passwordPlaceholder": "At least 8 characters",
-    "settingUp": "Setting up your brand…",
-    "createAccount": "Create account",
-    "brandNote": "If you're the first from your company, we apply your brand theme right away; your product mockups with your logo then generate in the background and appear when ready.",
-    "haveAccount": "Already have an account?",
     "signInFailed": "Could not sign you in",
-    "createFailed": "Could not create your account",
-    "workEmailHint": "We use its domain to set up your company's brand."
+    "inviteOnly": "Need an account? Ask your company admin, or contact big little things.",
+    "or": "or",
+    "continueAsGuest": "Continue to the shop as a guest"
   },
   "buildBox": {
     "boxBadge": "Box",
@@ -495,8 +485,6 @@
     "vatId": "A German VAT ID is DE followed by 9 digits. Example: DE123456789",
     "neededByPast": "Please choose today or a later date.",
     "passwordRequired": "Please enter your password.",
-    "passwordShort": "Your password needs at least 8 characters.",
-    "workEmail": "Please use your work email. We set up your company's brand from its domain, so personal addresses like {{domain}} can't be used.",
     "zipForeign": "Please enter a valid postcode.",
     "invoiceCountry": "We can't invoice to this country yet.",
     "vatIdRequired": "Please enter your VAT ID — without it we can't invoice without VAT.",
@@ -523,7 +511,8 @@
     },
     "labels": {
       "vegan": "Vegan",
-      "organic": "Organic"
+      "organic": "Organic",
+      "title": "Diet and sourcing"
     },
     "products": {
       "title": "What goes in the box?",

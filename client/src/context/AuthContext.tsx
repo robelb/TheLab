@@ -11,7 +11,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { usePostHog } from '@posthog/react'
 import { toast } from 'sonner'
-import { fetchMe, loginRequest, signupRequest } from '@/api/auth'
+import { fetchMe, loginRequest } from '@/api/auth'
 import { clearToken, getToken, setToken } from '@/lib/auth-token'
 import { TOKEN_EXPIRED_EVENT } from '@/lib/api-client'
 import { getDefaultPreset } from '@/config/brands'
@@ -48,7 +48,6 @@ interface AuthContextValue {
   /** Cache-bust key for branded product images. */
   brandGeneration: string | null
   login: (email: string, password: string) => Promise<void>
-  signup: (name: string, email: string, password: string) => Promise<void>
   logout: () => void
   can: (capability: Capability, ctx?: CapabilityContext) => boolean
 }
@@ -200,16 +199,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyBundle, queryClient],
   )
 
-  const signup = useCallback(
-    async (name: string, email: string, password: string) => {
-      const result = await signupRequest({ name, email, password })
-      setToken(result.token)
-      applyBundle(result)
-      queryClient.invalidateQueries({ queryKey: ['products'] })
-    },
-    [applyBundle, queryClient],
-  )
-
   /**
    * A stored token that the API has just rejected.
    *
@@ -275,7 +264,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       domain: company?.domain ?? null,
       brandGeneration: company?.brandGeneration ?? null,
       login,
-      signup,
       logout,
       can,
     }),
@@ -284,7 +272,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       company,
       isLoading,
       login,
-      signup,
       logout,
       can,
     ],

@@ -11,15 +11,11 @@ import {
   type User,
 } from '../../db/schema/index.js'
 import { resolveLlmConfig } from '../../extractor/llmConfig.js'
-import {
-  emailDomainOf,
-  isConsumerEmailDomain,
-  normalizeEmail,
-} from '../../lib/email.js'
+import { normalizeEmail } from '../../lib/email.js'
 import { signAuthToken } from '../../lib/jwt.js'
-import { hashPassword, verifyPassword } from '../../lib/password.js'
-import { ROLES, type AuthUser, type Role } from '../../lib/roles.js'
-import type { LoginBody, SignupBody } from './auth.schema.js'
+import { verifyPassword } from '../../lib/password.js'
+import type { AuthUser, Role } from '../../lib/roles.js'
+import type { LoginBody } from './auth.schema.js'
 
 /** Error carrying an HTTP status so the router can respond appropriately. */
 export class AuthError extends Error {
@@ -102,15 +98,6 @@ export function toPublicCompany(company: Company): PublicCompany {
 
 export function principalOf(user: User): AuthUser {
   return { id: user.id, role: user.role as Role, companyId: user.companyId }
-}
-
-async function findCompanyByDomain(domain: string): Promise<Company | null> {
-  const [row] = await db
-    .select()
-    .from(companies)
-    .where(eq(companies.domain, domain))
-    .limit(1)
-  return row ?? null
 }
 
 export async function buildAuthBundle(user: User): Promise<AuthBundle> {
@@ -218,79 +205,6 @@ export async function provisionCompanyBrand(
 
 export interface AuthResult extends AuthBundle {
   token: string
-}
-
-export async function signup(body: SignupBody): Promise<AuthResult> {
-  const email = normalizeEmail(body.email)
-  const domain = emailDomainOf(email)
-  if (!domain) throw new AuthError('A valid email is required.', 400)
-  if (isConsumerEmailDomain(domain)) {
-    throw new AuthError(
-      'Please sign up with your work email — free email providers are not supported.',
-      403,
-    )
-  }
-
-  const [existing] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1)
-  if (existing) {
-    throw new AuthError('An account with this email already exists.', 409)
-  }
-
-  const passwordHash = await hashPassword(body.password)
-
-  // Find or create the company for this email domain.
-  let company = await findCompanyByDomain(domain)
-  let role: Role = ROLES.MEMBER
-  let createdCompany = false
-
-  if (!company) {
-    try {
-      const [row] = await db
-        .insert(companies)
-        .values({ name: domain, domain, brandStatus: 'pending' })
-        .returning()
-      company = row
-      role = ROLES.COMPANY_OWNER
-      createdCompany = true
-    } catch {
-      // A concurrent signup likely created it first — fall back to joining.
-      company = await findCompanyByDomain(domain)
-      if (!company) {
-        throw new AuthError('Could not create the company.', 500)
-      }
-    }
-  }
-
-  const [user] = await db
-    .insert(users)
-    .values({
-      name: body.name,
-      email,
-      passwordHash,
-      role,
-      companyId: company.id,
-      emailDomain: domain,
-    })
-    .returning()
-
-  if (createdCompany) {
-    await db
-      .update(companies)
-      .set({ ownerUserId: user.id })
-      .where(eq(companies.id, company.id))
-    // Extract-once: only the first user of a new domain triggers this. AWAIT it
-    // so the theme (colors/fonts/logo) is ready when signup returns and the shop
-    // is themed immediately. The slow featured-product image generation runs in
-    // the background inside — the client polls `imagesStatus` for that part.
-    await provisionCompanyBrand(company.id, domain)
-  }
-
-  const token = signAuthToken(principalOf(user))
-  return { token, ...(await buildAuthBundle(user)) }
 }
 
 export async function login(body: LoginBody): Promise<AuthResult> {

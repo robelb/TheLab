@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { aiLimit } from '../../lib/rateLimit.js'
 import { routeParam } from '../../lib/routeParam.js'
 import {
   optionalAuth,
@@ -48,7 +49,7 @@ export const productsRouter = Router()
 // company's branded product images. Guests get the default catalog images.
 productsRouter.use(optionalAuth)
 
-productsRouter.post('/search/image', async (req, res) => {
+productsRouter.post('/search/image', aiLimit, async (req, res) => {
   const parsed = imageSearchSchema.safeParse(req.body)
 
   if (!parsed.success) {
@@ -284,14 +285,14 @@ productsRouter.post('/:id/photoshoot', requireAuth, catalogueAdmin, async (req, 
 
 // Print a shopper's design onto a gift box. Registered before `/:id` routes so
 // the literal segment isn't captured as an id.
-productsRouter.post('/:id/customize-box', async (req, res) => {
+productsRouter.post('/:id/customize-box', aiLimit, async (req, res) => {
   const parsed = customizeBoxSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
   }
 
   try {
-    const result = await customizeBox(req.params.id, parsed.data)
+    const result = await customizeBox(routeParam(req, 'id'), parsed.data)
     res.json(result)
   } catch (err) {
     const message =
@@ -310,14 +311,14 @@ productsRouter.post('/:id/customize-box', async (req, res) => {
 // Apply a design to any product — what the full-screen design editor calls.
 // `/:id/customize-box` stays as the box-only path it always was; this one also
 // takes mugs, notebooks and the rest, and picks the right brief per category.
-productsRouter.post('/:id/customize', async (req, res) => {
+productsRouter.post('/:id/customize', aiLimit, async (req, res) => {
   const parsed = customizeProductSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
   }
 
   try {
-    res.json(await customizeProduct(req.params.id, parsed.data))
+    res.json(await customizeProduct(routeParam(req, 'id'), parsed.data))
   } catch (err) {
     const message =
       err instanceof Error ? err.message : 'Failed to apply the design'

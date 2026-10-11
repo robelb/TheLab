@@ -42,6 +42,7 @@ import {
   type ProductLabel,
 } from '../src/db/schema/index.js'
 import { normalizeGraduatedPrices } from '../src/lib/pricing.js'
+import { labelsFromTags, loadSheetLabels, mergeLabels } from './lib/product-labels.js'
 import {
   FILLING_SLUG,
   GREETING_CARDS_SLUG,
@@ -86,13 +87,6 @@ const SHEET_CATEGORIES: Record<string, { slug: string; name: string }> = {
 }
 const STICKERS_CATEGORY = { slug: STICKERS_SLUG, name: 'Logo stickers' }
 const FILLING_CATEGORY = { slug: FILLING_SLUG, name: 'Filling materials' }
-
-/** JTL tag names (lowercased) that become a badge in the shop. */
-const LABEL_TAGS: Record<string, ProductLabel> = {
-  vegan: 'vegan',
-  organic: 'organic',
-  bio: 'organic',
-}
 
 interface Picture {
   number: number
@@ -221,13 +215,14 @@ function categoryFor(entry: Entry): { slug: string; name: string } {
   return SHEET_CATEGORIES['Snacks & Treats']
 }
 
+/**
+ * Diet and sourcing badges: the JTL tags, plus the "Snacks 2026" sheet's
+ * Properties for this JFSKU — see scripts/lib/product-labels.ts.
+ */
+const sheetLabels = loadSheetLabels()
+
 function labelsFor(p: SourceProduct): ProductLabel[] {
-  const labels = new Set<ProductLabel>()
-  for (const t of p.productTags) {
-    const label = LABEL_TAGS[t.productCategoryTag.name.toLowerCase().trim()]
-    if (label) labels.add(label)
-  }
-  return [...labels].sort()
+  return mergeLabels(labelsFromTags(p.productTags), sheetLabels.bySku.get(p.jfsku))
 }
 
 function tagsFor(p: SourceProduct): string[] {

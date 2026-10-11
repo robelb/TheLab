@@ -14,6 +14,7 @@ import { QuantityStepper } from '@/components/QuantityStepper'
 import { ProductCard } from '@/components/ProductCard'
 import { ProductCardSkeleton } from '@/components/ProductCardSkeleton'
 import { ProductDetailSkeleton } from '@/components/ProductDetailSkeleton'
+import { ProductLabels } from '@/components/ProductLabels'
 import { formatPrice } from '@/utils/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -226,6 +227,7 @@ export function ProductPage() {
             {product.name}
           </h1>
           <p className="text-lg text-muted-foreground">{product.tagline}</p>
+          <ProductLabels labels={product.labels} size="md" />
           <p className="text-2xl font-bold text-primary">
             {formatPrice(product.price, product.currency)}
           </p>

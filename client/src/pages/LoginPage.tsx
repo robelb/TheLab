@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { AxiosError } from 'axios'
 import { useAuth } from '@/context/AuthContext'
+import { useFunnel } from '@/context/FunnelContext'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -15,13 +16,15 @@ import { Input } from '@/components/ui/input'
 import { FormAlert, FormField } from '@/components/ui/form-field'
 import { useZodForm } from '@/lib/form'
 import { makeLoginSchema } from '@/lib/schemas/auth'
-import { Loader2, Sparkles } from 'lucide-react'
+import { ArrowLeft, Loader2, Sparkles } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
 
 export function LoginPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const { login, isAuthenticated } = useAuth()
+  const { shopHome } = useFunnel()
 
   /**
    * Back to whatever asked for a sign-in, not to the shop.
@@ -140,12 +143,26 @@ export function LoginPage() {
             </Button>
           </form>
 
+          {/* Accounts are by invitation; shoppers order as guests. */}
           <p className="text-center text-sm text-muted-foreground">
-            {t('auth.newHere')}{' '}
-            <Link to="/signup" className="font-medium text-primary hover:underline">
-              {t('auth.createAccountLink')}
-            </Link>
+            {t('auth.inviteOnly')}
           </p>
+
+          <div className="relative">
+            <Separator />
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+              {t('auth.or')}
+            </span>
+          </div>
+
+          {/* Nobody needs an account to shop: back to the shop — or the
+              campaign page they came in through — as a guest. */}
+          <Button asChild variant="outline" className="w-full">
+            <Link to={shopHome}>
+              <ArrowLeft className="size-4" />
+              {t('auth.continueAsGuest')}
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     </div>

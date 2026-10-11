@@ -262,20 +262,10 @@
     "password": "Passwort",
     "signingIn": "Anmeldung läuft…",
     "signIn": "Anmelden",
-    "newHere": "Neu hier?",
-    "createAccountLink": "Firmenkonto anlegen",
-    "createTitle": "Konto anlegen",
-    "createIntro": "Registrieren Sie sich mit Ihrer geschäftlichen E-Mail. Die erste Person aus einem Unternehmen legt dessen Marke an — später hinzukommende Kolleginnen und Kollegen übernehmen sie automatisch.",
-    "fullName": "Vollständiger Name",
-    "namePlaceholder": "Ada Lovelace",
-    "passwordPlaceholder": "Mindestens 8 Zeichen",
-    "settingUp": "Ihre Marke wird eingerichtet…",
-    "createAccount": "Konto anlegen",
-    "brandNote": "Wenn Sie die erste Person aus Ihrem Unternehmen sind, übernehmen wir Ihr Markendesign sofort; Ihre Produktbilder mit Ihrem Logo entstehen im Hintergrund und erscheinen, sobald sie fertig sind.",
-    "haveAccount": "Sie haben bereits ein Konto?",
     "signInFailed": "Anmeldung nicht möglich",
-    "createFailed": "Konto konnte nicht angelegt werden",
-    "workEmailHint": "Über die Domain richten wir die Marke Ihrer Firma ein."
+    "inviteOnly": "Sie brauchen ein Konto? Fragen Sie Ihre Firmen-Administration oder wenden Sie sich an big little things.",
+    "or": "oder",
+    "continueAsGuest": "Als Gast weiter zum Shop"
   },
   "buildBox": {
     "boxBadge": "Box",
@@ -495,8 +485,6 @@
     "vatId": "Eine deutsche USt-IdNr. besteht aus DE und 9 Ziffern. Beispiel: DE123456789",
     "neededByPast": "Bitte wählen Sie heute oder ein späteres Datum.",
     "passwordRequired": "Bitte geben Sie Ihr Passwort ein.",
-    "passwordShort": "Ihr Passwort braucht mindestens 8 Zeichen.",
-    "workEmail": "Bitte nutzen Sie Ihre geschäftliche E-Mail. Wir richten die Marke Ihrer Firma anhand der Domain ein, private Adressen wie {{domain}} gehen daher nicht.",
     "zipForeign": "Bitte geben Sie eine gültige Postleitzahl ein.",
     "invoiceCountry": "In dieses Land können wir noch keine Rechnung stellen.",
     "vatIdRequired": "Bitte geben Sie Ihre USt-IdNr. an – ohne sie können wir nicht ohne MwSt. berechnen.",
@@ -523,7 +511,8 @@
     },
     "labels": {
       "vegan": "Vegan",
-      "organic": "Bio"
+      "organic": "Bio",
+      "title": "Ernährung und Herkunft"
     },
     "products": {
       "title": "Was kommt in die Box?",

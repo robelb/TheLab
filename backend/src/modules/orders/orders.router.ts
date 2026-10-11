@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { orderLimit } from '../../lib/rateLimit.js'
 import { routeParam } from '../../lib/routeParam.js'
 import type { ZodError } from 'zod'
 import type { Request, Response } from 'express'
@@ -51,43 +52,6 @@ export const ordersRouter = Router()
 ordersRouter.use(optionalAuth)
 
 /**
- * Crude per-IP throttle for the one anonymous write in the API.
- *
- * In memory, so it resets on deploy and does not span instances — which is
- * fine for what it is for: stopping a script hammering the endpoint, not
- * stopping a determined attacker. Anything stronger belongs at the edge.
- */
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
-const RATE_LIMIT_MAX = 10
-const recentByIp = new Map<string, number[]>()
-
-function rateLimited(req: Request): boolean {
-  // A signed-in user is already accountable.
-  if (req.authUser) return false
-  const ip = req.ip ?? 'unknown'
-  const now = Date.now()
-  const seen = (recentByIp.get(ip) ?? []).filter(
-    (t) => now - t < RATE_LIMIT_WINDOW_MS,
-  )
-  if (seen.length >= RATE_LIMIT_MAX) {
-    recentByIp.set(ip, seen)
-    return true
-  }
-  seen.push(now)
-  recentByIp.set(ip, seen)
-
-  // Keep the map from growing without bound on a long-lived process.
-  if (recentByIp.size > 5000) {
-    for (const [key, times] of recentByIp) {
-      if (times.every((t) => now - t >= RATE_LIMIT_WINDOW_MS)) {
-        recentByIp.delete(key)
-      }
-    }
-  }
-  return false
-}
-
-/**
  * Which company's requests this caller may touch.
  *
  * `null` means a global administrator, who sees every company's. Anyone else
@@ -104,6 +68,13 @@ function scopeFor(req: {
 }
 
 const NO_COMPANY = 'A company account is needed to work with requests.'
+
+/**
+ * Requests carry customers' names, emails, phone numbers and addresses, so
+ * reading or changing them is for a company's owners and for big little
+ * things' admins — not for every member of the company.
+ */
+const companyAdmin = requireCapability('manage_company')
 
 /** Known refusals keep their status; anything else is a 500. */
 function fail(res: Response, err: unknown, fallback: string, what: string) {
@@ -138,13 +109,8 @@ function filtersFrom(req: Request): OrderFilters {
   }
 }
 
-ordersRouter.post('/', async (req, res) => {
-  if (rateLimited(req)) {
-    return res
-      .status(429)
-      .json({ error: 'Too many requests from here. Try again later.' })
-  }
-
+// Throttled per visitor (per account when signed in): the one anonymous write.
+ordersRouter.post('/', orderLimit, async (req, res) => {
   const parsed = createOrderSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
@@ -179,7 +145,7 @@ ordersRouter.post('/', async (req, res) => {
   }
 })
 
-ordersRouter.get('/', requireAuth, async (req, res) => {
+ordersRouter.get('/', requireAuth, companyAdmin, async (req, res) => {
   const scope = scopeFor(req)
   if (!scope) return res.status(403).json({ error: NO_COMPANY })
 
@@ -192,7 +158,7 @@ ordersRouter.get('/', requireAuth, async (req, res) => {
   }
 })
 
-ordersRouter.get('/:id', requireAuth, async (req, res) => {
+ordersRouter.get('/:id', requireAuth, companyAdmin, async (req, res) => {
   const scope = scopeFor(req)
   if (!scope) return res.status(403).json({ error: NO_COMPANY })
 
@@ -209,7 +175,7 @@ ordersRouter.get('/:id', requireAuth, async (req, res) => {
   }
 })
 
-ordersRouter.patch('/:id', requireAuth, async (req, res) => {
+ordersRouter.patch('/:id', requireAuth, companyAdmin, async (req, res) => {
   const scope = scopeFor(req)
   if (!scope) return res.status(403).json({ error: NO_COMPANY })
 

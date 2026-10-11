@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { extractLimit } from '../../lib/rateLimit.js'
 import { analyzeWithCustomization } from '../../customizer/analyzeWithCustomization.js'
 import { logExtractFailure } from '../../extractor/logExtractFailure.js'
 import {
@@ -9,7 +10,7 @@ import { domainInputSchema } from './extract.schema.js'
 
 export const extractRouter = Router()
 
-extractRouter.post('/', async (req, res) => {
+extractRouter.post('/', extractLimit, async (req, res) => {
   const parsed = domainInputSchema.safeParse(req.body)
 
   if (!parsed.success) {

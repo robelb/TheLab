@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { BrandProvider } from '@/context/BrandContext'
 import { AuthProvider } from '@/context/AuthContext'
 import { CartProvider } from '@/context/CartContext'
@@ -34,7 +34,6 @@ import { FeaturedProductsPage } from '@/pages/admin/FeaturedProductsPage'
 import { CollectionDetailPage as AdminCollectionDetailPage } from '@/pages/admin/CollectionDetailPage'
 import { SystemInstructionsPage } from '@/pages/admin/SystemInstructionsPage'
 import { LoginPage } from '@/pages/LoginPage'
-import { SignupPage } from '@/pages/SignupPage'
 import { SharePage } from '@/pages/SharePage'
 import { Toaster } from '@/components/ui/sonner'
 import { queryClient } from '@/lib/query-client'
@@ -51,7 +50,8 @@ export default function App() {
               <AttributionCapture />
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
-                <Route path="/signup" element={<SignupPage />} />
+                {/* Accounts are by invitation; old sign-up links land on sign-in. */}
+                <Route path="/signup" element={<Navigate to="/login" replace />} />
                 {/* Public branded viewer for shared configurations (no auth). */}
                 <Route path="/share/:slug" element={<SharePage />} />
                 {/* The design editor owns the whole viewport, so it sits

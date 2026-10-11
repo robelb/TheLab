@@ -1,0 +1,155 @@
+﻿Issue,Sheet row,JFSKU,Product,Sheet value,Shop value,Note
+Price differs,5,VZ9N01GYWJQ,"Vollmilchkugel 5,3g",1.16,0.49,Shop price comes from Endeavour/JTL
+Price differs,13,VZ9N01ATCBX,Bio Hazelnut Butter Bar 30g,1.84,1.38,Shop price comes from Endeavour/JTL
+Price differs,18,VZ9N01AQH2V,Bio Immun Shot 60ml,1.92,2.62,Shop price comes from Endeavour/JTL
+Price differs,25,VZ9N01MXUF9,Raumspray Lavendel 30ml,18.98,7.52,Shop price comes from Endeavour/JTL
+Price differs,39,VZ9N01QW3SC,Bio Energy Ball Peanut 30g,2.28,1.84,Shop price comes from Endeavour/JTL
+Price differs,75,VZ9N017JAP3,Bio Dunkle Nougat Schokolade 80g,3.52,3.26,Shop price comes from Endeavour/JTL
+Price differs,81,VZ9N01334T4,Knalle - Winterapfel Haselnuss 40g,3.61,3.74,Shop price comes from Endeavour/JTL
+Price differs,86,VZ9N018MPPJ,Naturseife Lavendel 80g,3.99,4.99,Shop price comes from Endeavour/JTL
+Price differs,96,VZ9N01HWG61,Frohe Weihnachten Schokolade 70g,4.73,4.54,Shop price comes from Endeavour/JTL
+Price differs,107,VZ9N01TEMMR,Bio Berliner Stadthonig 180g,5.61,5.88,Shop price comes from Endeavour/JTL
+Price differs,116,VZ9N01JHGR3,Bio Honig Orange Ingwer 180g,5.61,5.87,Shop price comes from Endeavour/JTL
+Price differs,119,VZ9N01DQY8J,Honig Pistazie 175g,5.61,5.88,Shop price comes from Endeavour/JTL
+Price differs,124,VZ9N01S9NTA,Hanseatensalz 140g,6.18,5.36,Shop price comes from Endeavour/JTL
+Price differs,126,VZ9N013KRRL,Weihnachtliche Kerze Ancient,6.37,3.34,Shop price comes from Endeavour/JTL
+Price differs,128,VZ9N01FW4YM,Bio Fettuccine Pasta 250g,6.84,6.65,Shop price comes from Endeavour/JTL
+Price differs,76,VZ9N01KTEFW,Tannenbaum Wunderkerze 12g,3.31,3.32,Sheet row has no JFSKU; matched by exact name
+Same JFSKU on several rows,3,VZ9N01BADAJ,Lakrids by Bülow Salt & Caramel,,,Only one product can own a JFSKU
+Same JFSKU on several rows,4,VZ9N01BADAJ,Lakrids by Bülow Himbeere,,,Only one product can own a JFSKU
+Same JFSKU on several rows,11,VZ9N01RTJE8,Bio Kookie Cat Cookie,,,Only one product can own a JFSKU
+Same JFSKU on several rows,12,VZ9N01RTJE8,Bio Christmas cookie,,,Only one product can own a JFSKU
+Same JFSKU on several rows,31,VZ9N0162UUV,Rosmarin Nussmix,,,Only one product can own a JFSKU
+Same JFSKU on several rows,37,VZ9N0162UUV,Rosmarin Nussmix,,,Only one product can own a JFSKU
+Same JFSKU on several rows,43,VZ9N01SXKW6,Bio Fruchtkugeln Pistazienfüllung,,,Only one product can own a JFSKU
+Same JFSKU on several rows,46,VZ9N01SXKW6,Bio Fruchtkugeln Pistazienfüllung,,,Only one product can own a JFSKU
+Same JFSKU on several rows,73,VZ9N011FENM,Weihnachtsmarmelade Apfelstrudel Marzipan,,,Only one product can own a JFSKU
+Same JFSKU on several rows,88,VZ9N011FENM,Weihnachtsmarmelade Apfelstrudel Marzipan,,,Only one product can own a JFSKU
+Same JFSKU on several rows,77,VZ9N01KU69S,Bio Nussmischung mit Trüffel,,,Only one product can own a JFSKU
+Same JFSKU on several rows,78,VZ9N01KU69S,Bio Nussmischung mit Trüffel,,,Only one product can own a JFSKU
+Same JFSKU on several rows,151,VZ9N01KU69S,Bio Nussmischung mit Trüffel,,,Only one product can own a JFSKU
+Same JFSKU on several rows,110,VZ9N01X6F2K,Bio Jute-Tee Pur,,,Only one product can own a JFSKU
+Same JFSKU on several rows,121,VZ9N01X6F2K,Bio Jute-Tee Pur,,,Only one product can own a JFSKU
+Same JFSKU on several rows,150,VZ9N01X6F2K,Bio Jute-Tee Pur,,,Only one product can own a JFSKU
+Same JFSKU on several rows,111,VZ9N013K4TT,Apfel Chips Jonathan,,,Only one product can own a JFSKU
+Same JFSKU on several rows,149,VZ9N013K4TT,Apfel Chips,,,Only one product can own a JFSKU
+Name differs,3,VZ9N01BADAJ,Bülow - Lakrids Salt and Caramel 12g,Lakrids by Bülow Salt & Caramel 12g,Bülow - Lakrids Salt and Caramel 12g,May point at the wrong JFSKU
+Name differs,4,VZ9N01BADAJ,Bülow - Lakrids Salt and Caramel 12g,Lakrids by Bülow Himbeere 12g,Bülow - Lakrids Salt and Caramel 12g,May point at the wrong JFSKU
+Name differs,6,VZ9N014575G,Bio Waffel mit Kakao-Haselnuss Creme 30g,Bio Waffel Kakao-Haselnuss Creme 30g,Bio Waffel mit Kakao-Haselnuss Creme 30g,
+Name differs,9,VZ9N01N1X8X,Heimatgut - Bio Popcorn Zimt 30g,Bio Popcorn Zimt 30g,Heimatgut - Bio Popcorn Zimt 30g,May point at the wrong JFSKU
+Name differs,12,VZ9N01RTJE8,Bio Kookie Cat Cookie 50g,Bio Christmas cookie 50g,Bio Kookie Cat Cookie 50g,May point at the wrong JFSKU
+Name differs,18,VZ9N01AQH2V,Bio Immun Shot 60ml,Bio Ingwer Immun Shot 60ml,Bio Immun Shot 60ml,May point at the wrong JFSKU
+Name differs,81,VZ9N01334T4,Knalle - Winterapfel Haselnuss 40g,Bio Kandierte Walnuss Popcorn 40g,Knalle - Winterapfel Haselnuss 40g,May point at the wrong JFSKU
+Name differs,87,VZ9N019D762,Heimatgut - Bio Popcorn Zimt 90g,Bio Popcorn Zimt,Heimatgut - Bio Popcorn Zimt 90g,May point at the wrong JFSKU
+Name differs,103,VZ9N01A1AU5,Bio Kandierte Walnuss Ahornsirup Popcorn 100g,Bio Kandierte Walnuss Ahornsirup Popcorn,Bio Kandierte Walnuss Ahornsirup Popcorn 100g,
+JFSKU missing in sheet,36,VZ9N01QEK3X,Mandel mit Zartbitterschokolade 30g,,VZ9N01QEK3X,Same name as this shop product: fill in this JFSKU
+JFSKU missing in sheet,52,VZ9N017AKL2,Bio Choc Delights Peanut Caramel 40g,,VZ9N017AKL2,Same name as this shop product: fill in this JFSKU
+JFSKU missing in sheet,61,VZ9N013BR6G,Bio Churros Zimt 65g,,VZ9N013BR6G,Same name as this shop product: fill in this JFSKU
+JFSKU missing in sheet,68,VZ9N01BVVY2,Bio White Delights Pistazie 40g,,VZ9N01BVVY2,Same name as this shop product: fill in this JFSKU
+JFSKU missing in sheet,69,VZ9N01UAM7E,Peanut Butter Bites 40g,,VZ9N01UAM7E,Same name as this shop product: fill in this JFSKU
+JFSKU missing in sheet,76,VZ9N01KTEFW,Tannenbaum Wunderkerze 12g,,VZ9N01KTEFW,Same name as this shop product: fill in this JFSKU
+JFSKU missing in sheet,83,VZ9N01KD7RJ,Glühwein Gelee 250g,,VZ9N01KD7RJ,Same name as this shop product: fill in this JFSKU
+JFSKU missing in sheet,90,VZ9N015MXV1,Blueberry Jam 110g,,VZ9N015MXV1,Same name as this shop product: fill in this JFSKU
+JFSKU missing in sheet,94,VZ9N01P1CP1,Kandissticks 3er Set,,VZ9N01P1CP1,Same name as this shop product: fill in this JFSKU
+JFSKU missing in sheet,102,VZ9N01AC6YB,Pistazien Black Chili Orange 50g,,VZ9N01AC6YB,Same name as this shop product: fill in this JFSKU
+JFSKU missing in sheet,123,VZ9N01WJTH2,Truffle bites | Nocciola 55g,,VZ9N01WJTH2,Same name as this shop product: fill in this JFSKU
+JFSKU missing in sheet,133,VZ9N01WQGGJ,Bio Schokolade Lebkuchen 75g,,VZ9N01WQGGJ,Same name as this shop product: fill in this JFSKU
+JFSKU missing in sheet,134,VZ9N01A6PSD,Bio Schokolade Pur 73 % 75g,,VZ9N01A6PSD,Same name as this shop product: fill in this JFSKU
+Not in shop (no JFSKU),41,,Energy Balls Heidelbeere Mandelmus 40g,"2,55 €",,No shop product with this name
+Not in shop (no JFSKU),51,,Bio Hülsenreich Choco Knuspies (hell oder dunkel) 100g,"5,32 €",,No shop product with this name
+Not in shop (no JFSKU),53,,Weihnachtswaffeln Spekulatius 150g,"4,47 €",,No shop product with this name
+Not in shop (no JFSKU),54,,Mini Weihnachts-Schoko-Cookies 50g,"2,38 €",,No shop product with this name
+Not in shop (no JFSKU),55,,Winterwaffeln 150g,"4,94 €",,No shop product with this name
+Not in shop (no JFSKU),56,,Weihnachts-Honig mit Jamaika-Rum 50g,"2,28 €",,No shop product with this name
+Not in shop (no JFSKU),57,,Weihnachts-Gebäck: Mandelblätter 75g,"4,35 €",,No shop product with this name
+Not in shop (no JFSKU),58,,Mini Weihnachts-Plätzchen Karamell 60g,"2,38 €",,No shop product with this name
+Not in shop (no JFSKU),59,,Gebäckhäuschen: Winterwaffeln Spekulatius 150g,"5,23 €",,No shop product with this name
+Not in shop (no JFSKU),60,,Weihnachts Milchreis mit Bratapfel 215g,"4,28 €",,No shop product with this name
+Not in shop (no JFSKU),62,,Weihnachts-Honig mit Bratapfel 125g,"3,69 €",,No shop product with this name
+Not in shop (no JFSKU),63,,Weihnachts-Trinkschokolade mit Lebkuchengewürz 150g,"6,65 €",,No shop product with this name
+Not in shop (no JFSKU),64,,Weihnachts-Honig Spekulatius 125g,"3,69 €",,No shop product with this name
+Not in shop (no JFSKU),72,,iChoc Cinnamon Roll 80g,"3,45 €",,No shop product with this name
+Not in shop (no JFSKU),109,,Bio Crunchy Kirchererbsen Paprika 90g,"3,23 €",,No shop product with this name
+Not in shop (no JFSKU),127,,Tannenbaum Haselnüsse Krokant Schokolade 80g,"5,65 €",,No shop product with this name
+Not in shop (no JFSKU),136,,Bio Koka Mate 330ml,"1,98 €",,No shop product with this name
+Not in shop (no JFSKU),141,,Hase Oskar mit Clipschleife 25g,"2,89 €",,No shop product with this name
+Not in shop (no JFSKU),142,,Stehhase 60g,"1,84 €",,No shop product with this name
+Not in shop (no JFSKU),143,,Pasta Hasennudeln Oster-Nudeln 250g,"3,04 €",,No shop product with this name
+Not in shop (no JFSKU),144,,Bio Biscotti di Prato 40g,"2,48 €",,No shop product with this name
+Not in shop (no JFSKU),145,,Bio Ka Rammel 40g,"2,83 €",,No shop product with this name
+Not in shop (no JFSKU),146,,Osterschokolade 80g,"1,82 €",,No shop product with this name
+Not in shop (no JFSKU),147,,Nougat Piemonter Haselnuss Popcorn 100g,"5,3 €",,No shop product with this name
+Not in shop (no JFSKU),148,,Bio Lemon Cheesecake Riegel 40g,"1,74 €",,No shop product with this name
+Not in shop (no JFSKU),154,,Bio Dattelpralinen Christmas Collection 4er Set 45g,"11,95 €",,No shop product with this name
+Not in shop (no JFSKU),155,,Bio Schokidoki Cocoa Mix 75g,,,No shop product with this name
+Not in shop (no JFSKU),156,,Bio Schoko Früchte - Crunchy Raspberries 50g,"4,26 €",,No shop product with this name
+Not in shop (no JFSKU),157,,Bio Apfel mit Zimt Snackpack 16g,"4,26 €",,No shop product with this name
+JFSKU not in shop,14,VZ9N01MVPS3,Bio Popcorn Süß & Salzig,"1,71 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,15,VZ9N01F7984,Bio Popcorn Süß & Salzig,"30g: 1,71 € / 90g: 2,99 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,16,VZ9N01YMVR8,Bio Popcorn Süß,"1,71 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,17,VZ9N01DTSD9,Bio Popcorn Süß,"30g: 1,71 € / 90g: 2,99 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,19,VZ9N018U4C3,Bio Süßkartoffel Chips,"4,22 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,20,VZ9N01665AK,Bio Tortilla Rolls,"3,01 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,21,VZ9N014DWSJ,Bio Fruchtgummi Bären,"2,83 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,38,VZ9N01UWPNT,Honey Mix,"2,26 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,40,VZ9N01LXG7M,Bio Vollmilch Schokolade,"3,26 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,44,VZ9N012S3V6,Karamello Mandello,"3,17 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,45,VZ9N01KWJVN,Bio All In Nuss- und Fruchtmischung,"2,99 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,74,VZ9N01ELX85,Marmelade Erdbeere,"4,28 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,89,VZ9N019C97E,Schokolade I mog di,"4,73 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,93,VZ9N01R4P7M,Popcorn Butterkaramell Vanille,"5,32 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,98,muss existieren (nur Oktoberfest und i mog di vorhanden),Bio Lebkuchen Herz,"4,92 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,111,VZ9N013K4TT,Apfel Chips Jonathan,"2,66 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,149,VZ9N013K4TT,Apfel Chips,"6,19 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,112,VZ9N01FU5ST,Apfel Chips Pink Lady,"5,26 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,113,VZ9N015NC3C,Bio Linsenchips Meersalz,"3,02 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,114,VZ9N01FS2AQ,Bio Crispies Chili Lemon,"2,72 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,115,VZ9N0164RK6 (Kirsche im Namen erwähnen?),Dextro Energy Minis,"1,31 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,117,VZ9N01YSU6C (320 gramm Angabe),Bio Peanut Power to the People,"9,42 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,118,VZ9N01CL965,Bio Fairer Nussmix,"6,23 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,120,VZ9N01MMDZK,Jokolade No 5 Schokolade,"5,03 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,122,VZ9N01MMEZ6,Bio Good Morning Tea,"4,66 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,130,VZ9N01J61PT,"Bio POMP Aperitif 0,0 feinherb","4,14 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,131,VZ9N012L4QR (Bild abweichend),Pomp Grande Cuvée Blanc Sekt,"6,27 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,132,selbes Bild wie Aperitif 125,Pomp Grande Cuvée Rose Sekt,"6,27 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,135,VZ9N012KPM3,Bio Apfelschorle,"1,98 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,137,VZ9N012CVDZ,Bio Eierlikör,"6,65 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,138,VZ9N01WP9B2,Bio Teegetränk,"1,88 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,139,VZ9N01HWS3H (grüne Limo auf Bild),Bio Spritzer Zitrone,"2,09 €",,Not among the products we sync from Endeavour
+JFSKU not in shop,152,VZ9N01UMN8V,Bio Porridge2go Mandel Kokos,"2,71 €",,Not among the products we sync from Endeavour
+Shop product not in sheet,,VZ9N01MLYTC,Lakrids by Bülow Himbeere 12g,,,"In the Christmas shop, no sheet row found"
+Shop product not in sheet,,VZ9N01GS2ML,Bio Zartbitter Schokolade gebrannte Mandel 80g,,,"In the Christmas shop, no sheet row found"
+Shop product not in sheet,,VZ9N01EHX57,"Mäxle Punsch 0,25 - alkoholfrei",,,"In the Christmas shop, no sheet row found"
+Shop product not in sheet,,VZ9N01D93XL,Bio Kandierte Walnuss Ahornsirup Popcorn 40g,,,"In the Christmas shop, no sheet row found"
+Shop product not in sheet,,VZ9N013PU9W,Bio Lebkuchen Herz 70g,,,"In the Christmas shop, no sheet row found"
+Shop product not in sheet,,VZ9N015LSTP,Bio Christmas cookie with spices 50g,,,"In the Christmas shop, no sheet row found"
+Shop product not in sheet,,VZ9N014QXA2,Rettergut - Schokolade - Salted Caramel,,,"In the Christmas shop, no sheet row found"
+Weight differs,18,VZ9N01AQH2V,Bio Immun Shot 60ml,60 g,180 g (JTL),JTL weight may include packaging
+Weight differs,25,VZ9N01MXUF9,Raumspray Lavendel 30ml,30 g,50 g (JTL),JTL weight may include packaging
+Weight differs,26,VZ9N01156PH,Glühwein Piccolo rot 250ml,250 g,1600 g (JTL),JTL weight may include packaging
+Weight differs,27,VZ9N01XWC92,Glühwein Piccolo weiß 250ml,250 g,1600 g (JTL),JTL weight may include packaging
+Weight differs,28,VZ9N01RN7G9,Tonic Water 200ml,200 g,212 g (JTL),JTL weight may include packaging
+Weight differs,29,VZ9N01JG3Z7,Winterschorli Punsch 250ml,250 g,450 g (JTL),JTL weight may include packaging
+Weight differs,32,VZ9N01SDZ3H,Mandel Trüffel Schokolade 30g,30 g,36 g (JTL),JTL weight may include packaging
+Weight differs,33,VZ9N01JJP28,Mandel Zimt & Zucker 30g,30 g,36 g (JTL),JTL weight may include packaging
+Weight differs,42,VZ9N018L9S6,Bio Nussriegel - Rock O Choc 30g,30 g,40 g (JTL),JTL weight may include packaging
+Weight differs,47,VZ9N01AKJBL,Bio Flapjack mit Cranberry 65g,65 g,60 g (JTL),JTL weight may include packaging
+Weight differs,65,VZ9N01PKEWM,Bio AirPops Salted Caramel 55g,55 g,550 g (JTL),JTL weight may include packaging
+Weight differs,67,VZ9N01Y58TQ,Bio AIRPOPS Cinnamon Roll 55g,55 g,550 g (JTL),JTL weight may include packaging
+Weight differs,71,VZ9N01NZHXQ,Berliner Winter 100ml,100 g,230 g (JTL),JTL weight may include packaging
+Weight differs,73,VZ9N011FENM,Weihnachtsmarmelade Apfelstrudel Marzipan 240g,240 g,350 g (JTL),JTL weight may include packaging
+Weight differs,88,VZ9N011FENM,Weihnachtsmarmelade Apfelstrudel Marzipan 240g,240 g,350 g (JTL),JTL weight may include packaging
+Weight differs,79,VZ9N01MGKN3,Weihnachts-Dreierlei 35g,35 g,350 g (JTL),JTL weight may include packaging
+Weight differs,82,VZ9N019KJEU,Trink-Schokolade 45g,45 g,50 g (JTL),JTL weight may include packaging
+Weight differs,92,VZ9N01551TN,Bio Futterknödel 90g,90 g,107 g (JTL),JTL weight may include packaging
+Weight differs,97,VZ9N01H2FVF,Bio Früchtepunsch 330ml,330 g,650 g (JTL),JTL weight may include packaging
+Weight differs,106,VZ9N014VJAA,Bio Christbaumkugel mit Gin 50ml,50 g,60 g (JTL),JTL weight may include packaging
+Weight differs,107,VZ9N01TEMMR,Bio Berliner Stadthonig 180g,180 g,315 g (JTL),JTL weight may include packaging
+Weight differs,110,VZ9N01X6F2K,Bio Jute-Tee Pur 35g,35 g,30 g (JTL),JTL weight may include packaging
+Weight differs,121,VZ9N01X6F2K,Bio Jute-Tee Pur 35g,35 g,30 g (JTL),JTL weight may include packaging
+Weight differs,150,VZ9N01X6F2K,Bio Jute-Tee Pur 35g,35 g,30 g (JTL),JTL weight may include packaging
+Weight differs,116,VZ9N01JHGR3,Bio Honig Orange Ingwer 180g,180 g,315 g (JTL),JTL weight may include packaging
+Weight differs,119,VZ9N01DQY8J,Honig Pistazie 175g,175 g,315 g (JTL),JTL weight may include packaging
+Weight differs,124,VZ9N01S9NTA,Hanseatensalz 140g,140 g,150 g (JTL),JTL weight may include packaging
+Weight differs,125,VZ9N0174A68,Bio Schoko Weihnachtsmandeln 100g,100 g,150 g (JTL),JTL weight may include packaging
+Weight differs,129,VZ9N01ZBUG2,Bio Weihnachtstee 100g,100 g,116 g (JTL),JTL weight may include packaging

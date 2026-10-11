@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Check, Leaf, Loader2, Plus, Search, Sprout } from 'lucide-react'
+import { Check, Loader2, Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import {
   Dialog,
@@ -11,12 +11,13 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ProductImage } from '@/components/ProductImage'
+import { ProductLabels } from '@/components/ProductLabels'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useTaggedProducts } from '@/hooks/use-products'
 import { cn } from '@/lib/utils'
 import { formatPrice } from '@/utils/format'
-import type { Product, ProductLabel } from '@/types/product'
+import type { Product } from '@/types/product'
 
 interface ProductPickerDialogProps {
   open: boolean
@@ -33,11 +34,6 @@ interface ProductPickerDialogProps {
   onAdd: (products: Product[]) => void
   title: string
   description?: string
-}
-
-const LABEL_ICONS: Record<ProductLabel, typeof Leaf> = {
-  vegan: Sprout,
-  organic: Leaf,
 }
 
 /**
@@ -132,9 +128,9 @@ export function ProductPickerDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
           {catalogue.isPending ? (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="aspect-[3/4] rounded-brand" />
+            <div className="grid gap-4 md:grid-cols-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-44 rounded-brand" />
               ))}
             </div>
           ) : products.length === 0 ? (
@@ -148,7 +144,7 @@ export function ProductPickerDialog({
               <p className="mb-3 text-xs text-muted-foreground">
                 {t('stepBuilder.picker.count', { count: total })}
               </p>
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 {products.map((p) => (
                   <PickerCard
                     key={p.id}
@@ -216,6 +212,8 @@ function PickerCard({
 }) {
   const { t } = useTranslation()
   const tiered = (product.graduatedPrices?.length ?? 0) > 0
+  // The short description when there is one, else the start of the long one.
+  const blurb = product.tagline || product.description
 
   return (
     <button
@@ -225,7 +223,7 @@ function PickerCard({
       disabled={inBox}
       onClick={onToggle}
       className={cn(
-        'group relative flex flex-col overflow-hidden rounded-brand border bg-card text-left transition-colors',
+        'group relative flex items-stretch gap-4 overflow-hidden rounded-brand border bg-card p-3 text-left transition-colors sm:gap-5',
         checked
           ? 'border-primary ring-2 ring-primary'
           : 'border-border/40 hover:border-border',
@@ -233,17 +231,17 @@ function PickerCard({
       )}
     >
       {/* A fixed square the photo fills, whatever its own shape — a tall
-          bottle must not stretch the card and push the price out of view. */}
-      <div className="relative aspect-square shrink-0 overflow-hidden bg-muted/10">
+          bottle must not stretch the card. */}
+      <div className="relative aspect-square w-28 shrink-0 self-start overflow-hidden rounded-brand bg-muted/10 sm:w-36">
         <ProductImage
           src={product.image}
           alt={product.name}
-          className="absolute inset-0 h-full w-full object-contain p-3"
+          className="absolute inset-0 h-full w-full object-contain p-2"
         />
         <span
           aria-hidden
           className={cn(
-            'absolute left-2 top-2 flex size-6 items-center justify-center rounded-full border-2 bg-background transition-colors',
+            'absolute left-1.5 top-1.5 flex size-6 items-center justify-center rounded-full border-2 bg-background transition-colors',
             checked || inBox
               ? 'border-primary bg-primary text-primary-foreground'
               : 'border-border',
@@ -251,42 +249,24 @@ function PickerCard({
         >
           {(checked || inBox) && <Check className="size-3.5" />}
         </span>
-        {(product.labels?.length ?? 0) > 0 && (
-          <div className="absolute bottom-2 left-2 flex flex-wrap gap-1">
-            {product.labels!.map((label) => {
-              const Icon = LABEL_ICONS[label]
-              return (
-                <span
-                  key={label}
-                  className="flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[11px] font-medium text-foreground shadow-sm"
-                >
-                  {Icon && <Icon className="size-3 text-primary" />}
-                  {t(`stepBuilder.labels.${label}`)}
-                </span>
-              )
-            })}
-          </div>
-        )}
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-3">
-        <p className="line-clamp-2 text-sm font-medium leading-snug">
-          {product.name}
-        </p>
-        {product.tagline && (
-          <p className="line-clamp-2 text-xs text-muted-foreground">
-            {product.tagline}
-          </p>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 py-1">
+        <p className="line-clamp-2 font-semibold leading-snug">{product.name}</p>
+        {blurb && (
+          <p className="line-clamp-4 text-sm leading-relaxed text-foreground/80">{blurb}</p>
         )}
-        <p className="mt-auto pt-1 text-sm font-semibold">
+        <ProductLabels labels={product.labels} />
+        <p className="mt-auto pt-1 font-semibold tabular-nums">
           {formatPrice(product.price, product.currency)}
           {tiered && (
-            <span className="ml-1.5 text-[11px] font-normal text-primary">
+            <span className="ml-1.5 text-xs font-normal text-primary">
               {t('stepBuilder.picker.volumePricing')}
             </span>
           )}
         </p>
         {inBox && (
-          <p className="text-[11px] text-primary">{t('stepBuilder.picker.inBox')}</p>
+          <p className="text-xs text-primary">{t('stepBuilder.picker.inBox')}</p>
         )}
       </div>
     </button>

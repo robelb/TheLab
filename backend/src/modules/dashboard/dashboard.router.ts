@@ -1,13 +1,13 @@
 import { Router } from 'express'
-import { optionalAuth } from '../../middleware/auth.js'
+import { requireAuth, requireCapability } from '../../middleware/auth.js'
 import { ROLES } from '../../lib/roles.js'
 import { getDashboardStats } from './dashboard.service.js'
 
 export const dashboardRouter = Router()
 
-// Needed to know whose requests to count. The catalogue figures on this page are
-// the shared house catalogue and are the same for everyone.
-dashboardRouter.use(optionalAuth)
+// The dashboard's overview: a company's requests — with customers' names — and
+// the catalogue figures. For company owners and big little things' admins.
+dashboardRouter.use(requireAuth, requireCapability('manage_company'))
 
 dashboardRouter.get('/stats', async (req, res) => {
   try {

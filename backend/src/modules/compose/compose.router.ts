@@ -1,10 +1,11 @@
 import { Router } from 'express'
+import { aiLimit } from '../../lib/rateLimit.js'
 import { composeSchema } from './compose.schema.js'
 import { composeMockup } from './compose.service.js'
 
 export const composeRouter = Router()
 
-composeRouter.post('/', async (req, res) => {
+composeRouter.post('/', aiLimit, async (req, res) => {
   const parsed = composeSchema.safeParse(req.body)
   if (!parsed.success) {
     const { fieldErrors, formErrors } = parsed.error.flatten()

@@ -2,6 +2,7 @@ import cors from 'cors'
 import express from 'express'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { env } from './config/env.js'
 import { authRouter } from './modules/auth/auth.router.js'
 import { campaignsRouter } from './modules/campaigns/campaigns.router.js'
 import { categoriesRouter } from './modules/categories/categories.router.js'
@@ -23,6 +24,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export function createApp() {
   const app = express()
+  app.set('trust proxy', env.TRUST_PROXY_HOPS)
+  app.disable('x-powered-by')
 
   app.use(cors({ origin: true }))
   // Larger limit so base64-encoded image uploads (image search) fit in the body.

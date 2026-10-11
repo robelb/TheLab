@@ -68,6 +68,18 @@ export const env = {
    * most, never on the live shop.
    */
   DEMO_LOGIN_ENABLED: process.env.DEMO_LOGIN_ENABLED?.trim() === 'true',
+  /**
+   * How many proxies sit in front of the API (Render, Cloud Run: 1). Lets
+   * `req.ip` be the visitor's own address, which the rate limits count by;
+   * without it every visitor shares the proxy's. 0 locally, where a client
+   * could otherwise fake its address in X-Forwarded-For.
+   */
+  TRUST_PROXY_HOPS:
+    process.env.TRUST_PROXY_HOPS !== undefined
+      ? Number(process.env.TRUST_PROXY_HOPS) || 0
+      : isProduction
+        ? 1
+        : 0,
   // Consumer email domains that may not create/join a company (comma-separated,
   // extends the built-in list). Signups from these are rejected.
   CONSUMER_EMAIL_DOMAINS: process.env.CONSUMER_EMAIL_DOMAINS?.trim() ?? '',

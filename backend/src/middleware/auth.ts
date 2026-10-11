@@ -28,31 +28,61 @@ function bearerToken(req: Request): string | null {
   return token.trim()
 }
 
-/** Attach `req.authUser` when a valid token is present; never blocks. */
-export function optionalAuth(
+/**
+ * The account a token speaks for, as it is now.
+ *
+ * The token carries a role and a company, but only the ones it was signed
+ * with. Tokens last a week, so trusting those claims means a demotion, a move
+ * to another company or a deactivation does not take effect for a week. The
+ * claim is used to say *who* is asking; the row says what they may do. Null
+ * for an account that was deleted or deactivated since.
+ */
+async function currentPrincipal(id: string): Promise<AuthUser | null> {
+  const [row] = await db
+    .select({
+      id: users.id,
+      role: users.role,
+      companyId: users.companyId,
+      isActive: users.isActive,
+    })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1)
+  if (!row || !row.isActive || !isRole(row.role)) return null
+  return { id: row.id, role: row.role, companyId: row.companyId }
+}
+
+/**
+ * Attach `req.authUser` when a valid token belongs to an active account;
+ * never blocks. The storefront routes use this, and several of them act on
+ * the caller's role or company — so those come from the account, not the
+ * token, exactly as in `requireAuth`. A lookup that fails leaves the visitor
+ * a guest rather than taking the shop down.
+ */
+export async function optionalAuth(
   req: Request,
   _res: Response,
   next: NextFunction,
-): void {
+): Promise<void> {
   const token = bearerToken(req)
-  if (token) {
-    const user = verifyAuthToken(token)
-    if (user) req.authUser = user
+  const claims = token ? verifyAuthToken(token) : null
+  if (claims) {
+    try {
+      const user = await currentPrincipal(claims.id)
+      if (user) req.authUser = user
+    } catch (err) {
+      console.warn(
+        '[auth] could not load the account, continuing as guest:',
+        err instanceof Error ? err.message : err,
+      )
+    }
   }
   next()
 }
 
 /**
- * Require a valid token, and take the caller's role from the database.
- *
- * The token carries a role, but only the one they had when they signed in.
- * Tokens last a week, so trusting that claim means a promotion does not take
- * effect for a week — and, the way that matters, neither does a demotion: an
- * administrator whose access is revoked keeps it until their token expires.
- *
- * So the claim is used to say *who* is asking, and the row is used to say what
- * they may do. That is one indexed lookup on the routes that need an account,
- * which are the dashboard's; the storefront uses `optionalAuth` and is untouched.
+ * Require a valid token for an active account, with its role and company
+ * taken from the database — see `currentPrincipal`. One indexed lookup.
  */
 export async function requireAuth(
   req: Request,
@@ -67,23 +97,13 @@ export async function requireAuth(
   }
 
   try {
-    const [row] = await db
-      .select({
-        id: users.id,
-        role: users.role,
-        companyId: users.companyId,
-      })
-      .from(users)
-      .where(eq(users.id, claims.id))
-      .limit(1)
-
-    // The account was deleted while the token was still valid.
-    if (!row || !isRole(row.role)) {
+    const user = await currentPrincipal(claims.id)
+    // Deleted or deactivated while the token was still valid.
+    if (!user) {
       res.status(401).json({ error: 'Authentication required' })
       return
     }
-
-    req.authUser = { id: row.id, role: row.role, companyId: row.companyId }
+    req.authUser = user
     next()
   } catch (err) {
     console.warn(

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { uploadLimit } from '../../lib/rateLimit.js'
 import multer from 'multer'
 import { z } from 'zod'
 import {
@@ -39,7 +40,7 @@ const logoUpload = multer({
 
 export const uploadsRouter = Router()
 
-uploadsRouter.post('/', async (req, res) => {
+uploadsRouter.post('/', uploadLimit, async (req, res) => {
   const parsed = uploadSchema.safeParse(req.body)
   if (!parsed.success) {
     const message =
@@ -64,7 +65,7 @@ uploadsRouter.post('/', async (req, res) => {
  * A logo for printing — e.g. the box's logo stickers. Multipart (field
  * `logo`), stored byte for byte; returns the stored public URL.
  */
-uploadsRouter.post('/logo', (req, res) => {
+uploadsRouter.post('/logo', uploadLimit, (req, res) => {
   logoUpload.single('logo')(req, res, async (err) => {
     if (err) {
       const message =
@@ -90,7 +91,7 @@ uploadsRouter.post('/logo', (req, res) => {
 })
 
 /** Multipart video upload (field name `video`) — returns the stored public URL. */
-uploadsRouter.post('/video', (req, res) => {
+uploadsRouter.post('/video', uploadLimit, (req, res) => {
   videoUpload.single('video')(req, res, async (err) => {
     if (err) {
       const message = err instanceof Error ? err.message : 'Upload failed'

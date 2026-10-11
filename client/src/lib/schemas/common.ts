@@ -26,44 +26,6 @@ export function todayIso(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-/**
- * Free mail providers the API refuses at signup (`backend/src/lib/email.ts`).
- * Checked here too, so the reason is given before sending rather than after.
- * Keep in sync — the server stays the authority either way.
- */
-const PERSONAL_EMAIL_DOMAINS = new Set([
-  'gmail.com',
-  'googlemail.com',
-  'yahoo.com',
-  'yahoo.co.uk',
-  'ymail.com',
-  'outlook.com',
-  'hotmail.com',
-  'hotmail.co.uk',
-  'live.com',
-  'msn.com',
-  'icloud.com',
-  'me.com',
-  'mac.com',
-  'aol.com',
-  'proton.me',
-  'protonmail.com',
-  'gmx.com',
-  'gmx.de',
-  'gmx.net',
-  'web.de',
-  'mail.com',
-  'yandex.com',
-  'yandex.ru',
-  'zoho.com',
-  't-online.de',
-])
-
-export function personalEmailDomain(email: string): string | null {
-  const domain = email.trim().toLowerCase().split('@')[1]
-  return domain && PERSONAL_EMAIL_DOMAINS.has(domain) ? domain : null
-}
-
 /** Messages a rule needs — in the shopper's language, or plain English. */
 export interface Messages {
   required: string

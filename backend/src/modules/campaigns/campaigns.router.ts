@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { aiLimit } from '../../lib/rateLimit.js'
 import { routeParam } from '../../lib/routeParam.js'
 import type { Request, Response, NextFunction } from 'express'
 import type { ZodError } from 'zod'
@@ -20,6 +21,7 @@ import {
   createCampaign,
   deleteCampaign,
   deleteCampaignVideo,
+  domainForCompany,
   generateCampaign,
   getCampaign,
   listActiveCampaignVideos,
@@ -48,6 +50,49 @@ function guestSessionOf(req: Request): string | null {
   const value = Array.isArray(header) ? header[0] : header
   const trimmed = value?.trim()
   return trimmed && trimmed.length >= 8 && trimmed.length <= 64 ? trimmed : null
+}
+
+/**
+ * Who a new campaign belongs to, decided here rather than taken from the body.
+ *
+ * - A big little things admin may create for any company, or a house preset
+ *   (no domain).
+ * - Anyone else signed in creates for their own company — whatever domain the
+ *   request names, since a domain is the only handle a campaign has on its
+ *   company and naming someone else's would hand them a campaign.
+ * - A guest creates a draft of their own browser session, and needs one; a
+ *   request with neither would otherwise land among the house presets.
+ */
+async function ownerFor(
+  req: Request,
+  requestedDomain: string | null | undefined,
+): Promise<
+  | { domain: string | null; guestSessionId: string | null }
+  | { status: number; error: string }
+> {
+  const user = req.authUser
+  if (user?.role === ROLES.SUPER_ADMIN) {
+    return { domain: requestedDomain ?? null, guestSessionId: null }
+  }
+  if (user) {
+    const domain = await domainForCompany(user.companyId)
+    if (!domain) return { status: 403, error: 'A company account is needed' }
+    return { domain, guestSessionId: null }
+  }
+  const session = guestSessionOf(req)
+  if (!session) return { status: 400, error: 'A session is required' }
+  return { domain: null, guestSessionId: session }
+}
+
+/**
+ * Whether the caller acts for the company a domain names: one of its people,
+ * or a big little things admin.
+ */
+async function actsFor(req: Request, domain: string | null): Promise<boolean> {
+  const user = req.authUser
+  if (!user || !domain) return false
+  if (user.role === ROLES.SUPER_ADMIN) return true
+  return (await domainForCompany(user.companyId)) === domain
 }
 
 /**
@@ -82,9 +127,13 @@ async function canMutateCampaign(
     }
 
     if (owner.ownerKind === 'company') {
-      // Domains are the only handle a campaign has on its company today.
       if (!req.authUser) {
         res.status(401).json({ error: 'Authentication required' })
+        return
+      }
+      // Only that company's own people — not anyone with an account.
+      if (!(await actsFor(req, owner.domain))) {
+        res.status(403).json({ error: 'Forbidden' })
         return
       }
       return next()
@@ -101,19 +150,22 @@ async function canMutateCampaign(
   }
 }
 
-campaignsRouter.post('/generate', async (req, res) => {
+campaignsRouter.post('/generate', aiLimit, async (req, res) => {
   const parsed = generateCampaignSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
   }
 
+  const owner = await ownerFor(req, parsed.data.brand.domain)
+  if ('error' in owner) return res.status(owner.status).json({ error: owner.error })
+
   try {
     const campaign = await generateCampaign(
-      parsed.data.brand,
+      { ...parsed.data.brand, domain: owner.domain },
       parsed.data.bundleSize,
       parsed.data.brief,
       parsed.data.plainUnlessDesigned,
-      guestSessionOf(req),
+      owner.guestSessionId,
       parsed.data.tag,
     )
     res.status(201).json(campaign)
@@ -131,10 +183,14 @@ campaignsRouter.post('/', async (req, res) => {
     return res.status(400).json({ error: firstZodError(parsed.error) })
   }
 
+  const owner = await ownerFor(req, parsed.data.domain)
+  if ('error' in owner) return res.status(owner.status).json({ error: owner.error })
+
   try {
-    const campaign = await createCampaign(parsed.data, {
-      guestSessionId: guestSessionOf(req),
-    })
+    const campaign = await createCampaign(
+      { ...parsed.data, domain: owner.domain },
+      { guestSessionId: owner.guestSessionId },
+    )
     res.status(201).json(campaign)
   } catch (err) {
     const message =
@@ -149,7 +205,15 @@ campaignsRouter.get('/', async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
   }
-  const campaigns = await listCampaigns(parsed.data.domain)
+  // A company's campaigns are its own business; the house presets (no
+  // domain) are what everyone may see.
+  const domain = parsed.data.domain
+  if (domain && !(await actsFor(req, domain))) {
+    return res.status(req.authUser ? 403 : 401).json({
+      error: req.authUser ? 'Forbidden' : 'Authentication required',
+    })
+  }
+  const campaigns = await listCampaigns(domain)
   res.json({ data: campaigns })
 })
 
@@ -204,7 +268,7 @@ campaignsRouter.patch('/:id', canMutateCampaign, async (req, res) => {
 // Manual bundle-image regeneration. Returns immediately with the campaign in
 // its `pending` state — the render runs in the background and the client polls
 // the detail endpoint for the result.
-campaignsRouter.post('/:id/hero-image', canMutateCampaign, async (req, res) => {
+campaignsRouter.post('/:id/hero-image', aiLimit, canMutateCampaign, async (req, res) => {
   // Body is optional — `brand` just supplies the logo to render with.
   const parsed = regenerateHeroImageSchema.safeParse(req.body ?? {})
   if (!parsed.success) {

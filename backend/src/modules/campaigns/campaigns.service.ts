@@ -91,7 +91,7 @@ function toPublicVideo(v: CampaignVideo): CampaignVideoPublic {
   return rest
 }
 
-export interface HydratedCampaign extends Campaign {
+export interface HydratedCampaign extends Omit<Campaign, 'guestSessionId'> {
   products: ProductWithCategory[]
   videos: CampaignVideoPublic[]
   /** The hero image no longer matches the bundle (regeneration is available). */
@@ -408,8 +408,21 @@ async function companyIdForDomain(
   return row?.id
 }
 
+/** The domain of a company, which is how a campaign names its owner. */
+export async function domainForCompany(companyId: string | null): Promise<string | null> {
+  if (!companyId) return null
+  const [row] = await db
+    .select({ domain: companies.domain })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1)
+  return row?.domain ?? null
+}
+
 async function hydrate(c: Campaign): Promise<HydratedCampaign> {
-  const row = await reconcileHeroImageStatus(c)
+  // The guest session id is the secret a guest's ownership is checked against;
+  // it never leaves the server.
+  const { guestSessionId: _secret, ...row } = await reconcileHeroImageStatus(c)
   const companyId = await companyIdForDomain(row.domain)
   const [products, videos] = await Promise.all([
     Promise.all(
@@ -443,7 +456,7 @@ function sameBundle(a: string[], b: string[]): boolean {
  * Campaigns created before provenance was tracked have an empty
  * `heroImageProductIds` — unknown, not stale, so we never nag about them.
  */
-function isHeroImageStale(c: Campaign): boolean {
+function isHeroImageStale(c: Pick<Campaign, 'heroImageUrl' | 'heroImageProductIds' | 'productIds'>): boolean {
   if (!c.heroImageUrl || c.heroImageProductIds.length === 0) return false
   return !sameBundle(c.heroImageProductIds, c.productIds)
 }
