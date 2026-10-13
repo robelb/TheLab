@@ -67,6 +67,28 @@ export const aiLimit = rateLimit({
   message: 'You have reached the limit for generated images for now. Please try again later.',
 })
 
+/**
+ * Starting a campaign or a builder box. Cheap by itself, but each one can then
+ * have its own photo made — without this, a script could open boxes faster
+ * than the per-request image limit counts them.
+ */
+export const campaignCreateLimit = rateLimit({
+  name: 'campaign-create',
+  windowMs: HOUR,
+  max: 30,
+  message: 'Too many boxes started from here. Please try again later.',
+})
+
+/** Text search — every query is turned into an embedding, which is paid. */
+export const searchLimit = rateLimit({
+  name: 'search',
+  windowMs: HOUR,
+  // Generous: colleagues in one office share an address, and repeated
+  // queries are cached (services/embedding.ts) so they cost nothing.
+  max: 300,
+  message: 'Too many searches. Please wait a moment and try again.',
+})
+
 /** Fetching and analysing a website — slow, and paid. */
 export const extractLimit = rateLimit({
   name: 'extract',

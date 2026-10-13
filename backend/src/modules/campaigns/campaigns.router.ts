@@ -1,6 +1,6 @@
 import { clientMessage } from '../../lib/clientError.js'
 import { Router } from 'express'
-import { aiLimit } from '../../lib/rateLimit.js'
+import { aiLimit, campaignCreateLimit, searchLimit } from '../../lib/rateLimit.js'
 import { routeParam } from '../../lib/routeParam.js'
 import type { Request, Response, NextFunction } from 'express'
 import type { ZodError } from 'zod'
@@ -151,6 +151,27 @@ async function canMutateCampaign(
   }
 }
 
+/**
+ * Changing a campaign's products starts a new photo, so it counts against the
+ * image limit like asking for one does. Renaming or approving does not.
+ */
+function aiWhenRebundled(req: Request, res: Response, next: NextFunction): void {
+  if (req.body && typeof req.body === 'object' && 'productIds' in req.body) {
+    aiLimit(req, res, next)
+    return
+  }
+  next()
+}
+
+/** A search query is turned into an embedding (paid); listing without one is free. */
+function searchWhenQueried(req: Request, res: Response, next: NextFunction): void {
+  if (typeof req.query.q === 'string' && req.query.q.trim()) {
+    searchLimit(req, res, next)
+    return
+  }
+  next()
+}
+
 campaignsRouter.post('/generate', aiLimit, async (req, res) => {
   const parsed = generateCampaignSchema.safeParse(req.body)
   if (!parsed.success) {
@@ -178,7 +199,7 @@ campaignsRouter.post('/generate', aiLimit, async (req, res) => {
   }
 })
 
-campaignsRouter.post('/', async (req, res) => {
+campaignsRouter.post('/', campaignCreateLimit, async (req, res) => {
   const parsed = createCampaignSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
@@ -221,7 +242,7 @@ campaignsRouter.get('/', async (req, res) => {
 // Storefront feed of active video ads. Must be registered before `/:id` so the
 // literal path isn't captured as an id. Fails open (empty list) — ads are
 // non-critical and must never break the shop.
-campaignsRouter.get('/active', async (req, res) => {
+campaignsRouter.get('/active', searchWhenQueried, async (req, res) => {
   const parsed = listActiveVideosQuerySchema.safeParse(req.query)
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
@@ -246,7 +267,7 @@ campaignsRouter.get('/:id', async (req, res) => {
   res.json(campaign)
 })
 
-campaignsRouter.patch('/:id', canMutateCampaign, async (req, res) => {
+campaignsRouter.patch('/:id', aiWhenRebundled, canMutateCampaign, async (req, res) => {
   const parsed = updateCampaignSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: firstZodError(parsed.error) })
@@ -277,11 +298,12 @@ campaignsRouter.post('/:id/hero-image', aiLimit, canMutateCampaign, async (req, 
   }
 
   try {
-    const { brand, ...supplies } = parsed.data
+    const { brand, productIds, ...supplies } = parsed.data
     const campaign = await regenerateCampaignHeroImage(
       routeParam(req, 'id'),
       brand,
       supplies,
+      productIds,
     )
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign not found' })
@@ -337,7 +359,11 @@ campaignsRouter.patch('/:id/videos/:videoId', canMutateCampaign, async (req, res
     return res.status(400).json({ error: firstZodError(parsed.error) })
   }
   try {
-    const video = await updateCampaignVideo(routeParam(req, 'videoId'), parsed.data)
+    const video = await updateCampaignVideo(
+      routeParam(req, 'id'),
+      routeParam(req, 'videoId'),
+      parsed.data,
+    )
     if (!video) {
       return res.status(404).json({ error: 'Video not found' })
     }
@@ -352,7 +378,7 @@ campaignsRouter.patch('/:id/videos/:videoId', canMutateCampaign, async (req, res
 
 campaignsRouter.delete('/:id/videos/:videoId', canMutateCampaign, async (req, res) => {
   try {
-    const ok = await deleteCampaignVideo(routeParam(req, 'videoId'))
+    const ok = await deleteCampaignVideo(routeParam(req, 'id'), routeParam(req, 'videoId'))
     if (!ok) {
       return res.status(404).json({ error: 'Video not found' })
     }

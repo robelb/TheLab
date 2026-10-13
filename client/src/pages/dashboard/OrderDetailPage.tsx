@@ -12,6 +12,7 @@ import {
   FileText,
   Loader2,
   Mail,
+  Pencil,
   Printer,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -33,6 +34,7 @@ import {
 } from '@/hooks/use-orders'
 import { useAuth } from '@/context/AuthContext'
 import { ConfirmOrderDialog } from '@/components/dashboard/ConfirmOrderDialog'
+import { OrderDetailsDialog } from '@/components/dashboard/OrderDetailsDialog'
 import { OrderEmails } from '@/components/dashboard/OrderEmails'
 import { notifyError, notifySaved } from '@/lib/notify'
 import {
@@ -621,6 +623,20 @@ async function openInvoice(order: Order) {
   }
 }
 
+/**
+ * The status changes the server accepts (orders.service.ts): a company can
+ * only withdraw its request; our team can also mark it quoted, undo that, and
+ * reopen a withdrawn one. Confirming has its own button.
+ */
+const STATUS_MOVES: Record<'admin' | 'company', Partial<Record<OrderStatus, OrderStatus[]>>> = {
+  company: { new: ['cancelled'], quoted: ['cancelled'] },
+  admin: { new: ['quoted', 'cancelled'], quoted: ['new', 'cancelled'], cancelled: ['new'] },
+}
+
+function statusMoves(from: OrderStatus, admin: boolean): OrderStatus[] {
+  return STATUS_MOVES[admin ? 'admin' : 'company'][from] ?? []
+}
+
 export function OrderDetailPage() {
   const { t } = useTranslation()
   const { id = '' } = useParams()
@@ -631,6 +647,7 @@ export function OrderDetailPage() {
   const { can } = useAuth()
   const admin = can('manage_all')
   const [confirming, setConfirming] = useState(false)
+  const [editing, setEditing] = useState(false)
 
   if (isLoading) {
     return (
@@ -762,7 +779,8 @@ export function OrderDetailPage() {
                 <SelectItem
                   key={s}
                   value={s}
-                  disabled={s === 'confirmed' && order.status !== 'confirmed'}
+                  // Only the moves the server allows from here — see STATUS_MOVES.
+                  disabled={s !== order.status && !statusMoves(order.status, admin).includes(s)}
                 >
                   {t(`dashboard.orders.status.${s}`)}
                 </SelectItem>
@@ -771,6 +789,16 @@ export function OrderDetailPage() {
           </Select>
           {admin && !order.invoice && order.status !== 'cancelled' && (
             <>
+              <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+                <Pencil className="size-4" />
+                {t('dashboard.orders.details.button')}
+              </Button>
+              <OrderDetailsDialog
+                key={`details-${order.updatedAt}`}
+                order={order}
+                open={editing}
+                onOpenChange={setEditing}
+              />
               <Button size="sm" onClick={() => setConfirming(true)}>
                 <CheckCircle2 className="size-4" />
                 {t('dashboard.orders.detail.confirmOrder')}

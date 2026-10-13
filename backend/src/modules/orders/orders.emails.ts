@@ -47,6 +47,8 @@ function vatLabel(rate: number, billingCountry: string | null | undefined, de: b
     maximumFractionDigits: 2,
   }).format(rate)
   if (rate > 0) return de ? `zzgl. USt. ${shown} %` : `VAT ${shown} %`
+  // Our exemption wording is for deliveries abroad (see invoicePdf).
+  if (billingCountry === 'DE') return de ? 'USt. 0 %' : 'VAT 0 %'
   const reason = zeroVatReason(billingCountry, de ? 'de' : 'en').short
   return de ? `USt. 0 % (${reason})` : `VAT 0 % (${reason})`
 }

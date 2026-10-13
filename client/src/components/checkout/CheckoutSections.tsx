@@ -326,13 +326,16 @@ export function DeliverySection({
   f,
   disabled,
   boxes,
+  looseItems = false,
   currency,
-}: SectionProps & { boxes: number; currency: string }) {
+}: SectionProps & { boxes: number; looseItems?: boolean; currency: string }) {
   const { t } = useTranslation()
   const notes = f.register('notes')
   const neededBy = f.register('neededBy')
   const bulkBoxes = f.register('bulkBoxes')
-  const method = f.values.shippingMethod
+  // Matches CheckoutPage: a cart with single products cannot go individually.
+  const method =
+    looseItems && f.values.shippingMethod === 'individual' ? 'bulk' : f.values.shippingMethod
   const destination =
     f.values.sameAsBilling && method !== 'individual'
       ? f.values.country
@@ -358,7 +361,8 @@ export function DeliverySection({
       icon: Users,
       title: t('checkout.shipIndividual'),
       body: t('checkout.shipIndividualBody'),
-      available: boxes >= 1,
+      // A single product has no recipient of its own to go to.
+      available: boxes >= 1 && !looseItems,
     },
     {
       value: 'mixed',
@@ -412,6 +416,9 @@ export function DeliverySection({
               )
             })}
         </div>
+      )}
+      {boxes > 0 && looseItems && (
+        <p className="text-xs text-muted-foreground">{t('checkout.shipIndividualLoose')}</p>
       )}
 
       {method === 'mixed' && (

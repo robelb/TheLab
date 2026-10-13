@@ -53,6 +53,54 @@ function publicShopUrl(): string {
 
 export const IS_PRODUCTION = isProduction
 
+/**
+ * The API's own public address, for links to files it serves itself. Locally
+ * the dev server; in production it must be the real https address — it is
+ * also the one origin the fetch guard (`lib/safeFetch.ts`) trusts.
+ */
+function publicApiUrl(): string {
+  const configured = process.env.PUBLIC_API_URL?.trim().replace(/\/+$/, '')
+  if (!isProduction) return configured || 'http://localhost:3001'
+  let url: URL | null = null
+  try {
+    url = configured ? new URL(configured) : null
+  } catch {
+    url = null
+  }
+  if (!url || url.protocol !== 'https:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname)) {
+    throw new Error(
+      "PUBLIC_API_URL must be set to the API's public https address in production " +
+        '(e.g. https://api.biglittlethings.de).',
+    )
+  }
+  return configured!
+}
+
+/**
+ * Where uploaded and generated images go. On a container host the local disk
+ * is wiped on every restart and is not shared between instances, so production
+ * refuses to start without real storage rather than lose customers' logos.
+ */
+function requireStorageInProduction(): void {
+  if (!isProduction) return
+  if (!process.env.SUPABASE_URL?.trim() || !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+    throw new Error(
+      'Image storage is not configured: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. ' +
+        'Without them uploads would go to the container disk and disappear.',
+    )
+  }
+}
+requireStorageInProduction()
+
+/** A number from the environment, or the default when unset or blank. */
+function numberOr(name: string, fallback: number): number {
+  const raw = process.env[name]?.trim()
+  if (!raw) return fallback
+  const value = Number(raw)
+  if (!Number.isFinite(value)) throw new Error(`${name} must be a number, not "${raw}".`)
+  return value
+}
+
 export const env = {
   PORT: Number(process.env.PORT) || 3001,
   DATABASE_URL: process.env.DATABASE_URL ?? '',
@@ -77,7 +125,7 @@ export const env = {
    * survive being looked at closely. Raise to `4K` for print artwork; drop to
    * `1K` if latency or spend matters more than detail.
    */
-  GEMINI_IMAGE_SIZE: process.env.GEMINI_IMAGE_SIZE?.trim() || 'low',
+  GEMINI_IMAGE_SIZE: process.env.GEMINI_IMAGE_SIZE?.trim() || '2K',
   /**
    * Render quality for OpenAI's `images.edit`: `low`, `medium`, `high` or
    * `auto`. This was pinned to `low` in code — the cheapest tier, and a
@@ -85,8 +133,7 @@ export const env = {
    */
   OPENAI_IMAGE_QUALITY: process.env.OPENAI_IMAGE_QUALITY?.trim() || 'high',
 
-  PUBLIC_API_URL:
-    process.env.PUBLIC_API_URL?.trim() || 'http://localhost:3001',
+  PUBLIC_API_URL: publicApiUrl(),
 
   // Auth (JWT bearer tokens).
   JWT_SECRET: jwtSecret(),
@@ -138,11 +185,16 @@ export const env = {
   MAIL_REPLY_TO: process.env.MAIL_REPLY_TO?.trim() ?? '',
   // Internal inbox told about every new request. Comma-separated; blank = none.
   ORDER_NOTIFY_EMAIL: process.env.ORDER_NOTIFY_EMAIL?.trim() ?? '',
+  // Most box/bundle photos per day per server, as a backstop on the AI bill.
+  AI_DAILY_IMAGE_LIMIT: Number(process.env.AI_DAILY_IMAGE_LIMIT) || 500,
+  // Lets Cloud Scheduler drain the email queue — see modules/internal. Blank = off.
+  OUTBOX_FLUSH_TOKEN: process.env.OUTBOX_FLUSH_TOKEN?.trim() ?? '',
   // Where the shop and dashboard live, for links in emails.
   PUBLIC_SHOP_URL: publicShopUrl(),
 
   // Invoicing — see src/config/seller.ts for what each one prints as.
-  VAT_RATE: Number(process.env.VAT_RATE ?? 19),
+  // Blank is not 0 % — that would invoice German customers without VAT.
+  VAT_RATE: numberOr('VAT_RATE', 19),
   PAYMENT_TERM_DAYS: Number(process.env.PAYMENT_TERM_DAYS) || 14,
   INVOICE_NUMBER_PREFIX: process.env.INVOICE_NUMBER_PREFIX?.trim() || 'RE',
   // Our public company details (Impressum) as defaults, so every deploy prints

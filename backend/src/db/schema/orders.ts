@@ -39,7 +39,8 @@ export const orders = pgTable(
       onDelete: 'set null',
     }),
     /** Who sent it. Kept even after they leave the company. Null for guests. */
-    userId: uuid('user_id').references(() => users.id),
+    // The request stays when the account that sent it is deleted.
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
     /** Short, unambiguous, and sayable over the phone — see `makeReference`. */
     reference: text('reference').notNull().unique(),
     /** new → quoted → confirmed, or cancelled at any point. */

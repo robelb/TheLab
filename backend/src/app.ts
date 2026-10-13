@@ -1,5 +1,5 @@
 import cors from 'cors'
-import express from 'express'
+import express, { type NextFunction, type Request, type Response } from 'express'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { env } from './config/env.js'
@@ -20,6 +20,7 @@ import { systemInstructionsRouter } from './modules/system-instructions/system-i
 import { settingsRouter } from './modules/settings/settings.router.js'
 import { uploadsRouter } from './modules/uploads/uploads.router.js'
 import { usersRouter } from './modules/users/users.router.js'
+import { internalRouter } from './modules/internal/internal.router.js'
 import { UPLOADS_DIR, VIDEOS_DIR } from './modules/uploads/uploads.service.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -70,6 +71,33 @@ export function createApp() {
   app.use('/api/share', shareRouter)
   app.use('/api/system-instructions', systemInstructionsRouter)
   app.use('/api/settings', settingsRouter)
+  app.use('/internal', internalRouter)
+
+  // Anything else under the API is a JSON 404, not Express's HTML page.
+  app.use(['/api', '/internal'], (_req: Request, res: Response) => {
+    res.status(404).json({ error: 'Not found' })
+  })
+
+  // The last word on errors a route did not catch itself: a body too large or
+  // not JSON is the caller's mistake (4xx); anything else is ours (500), with
+  // the details in the log rather than in the response.
+  app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) return next(err)
+    const e = err as { status?: number; statusCode?: number; type?: string; message?: string }
+    const status = e.status ?? e.statusCode ?? 500
+    if (status >= 400 && status < 500) {
+      const error =
+        e.type === 'entity.too.large'
+          ? 'The request is too large.'
+          : e.type === 'entity.parse.failed'
+            ? 'The request body is not valid JSON.'
+            : 'Invalid request'
+      res.status(status).json({ error })
+      return
+    }
+    console.error(`[app] ${req.method} ${req.path} failed:`, e.message ?? err)
+    res.status(500).json({ error: 'Something went wrong. Please try again.' })
+  })
 
   return app
 }

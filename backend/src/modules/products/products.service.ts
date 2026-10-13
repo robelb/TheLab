@@ -15,7 +15,7 @@ import {
   sql,
 } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
-import { db, rawSql } from '../../db/index.js'
+import { db, rawSql, atomic } from '../../db/index.js'
 import {
   brandCustomizations,
   categories,
@@ -30,7 +30,7 @@ import {
   PACKAGING_SLUG,
   SUPPLY_CATEGORY_SLUGS,
 } from '../../lib/supplies.js'
-import { embedText } from '../../services/embedding.js'
+import { embedQuery, embedText } from '../../services/embedding.js'
 import { captionImageForSearch } from '../../services/imageCaption.js'
 import { parseSearchQuery } from '../../services/queryParser.js'
 import type {
@@ -81,6 +81,7 @@ const productSelect = {
   tags: products.tags,
   labels: products.labels,
   minQuantity: products.minQuantity,
+  active: products.active,
   createdAt: products.createdAt,
   updatedAt: products.updatedAt,
   categoryName: categories.name,
@@ -105,6 +106,8 @@ function buildNonTextFilters(params: ListProductsParams) {
   const conditions: (SQL | undefined)[] = params.includeSupplies
     ? []
     : [notASupply]
+  // Taken out of sale: gone from the shop, still in the dashboard.
+  if (!params.includeInactive) conditions.push(eq(products.active, true))
 
   if (params.categories?.length) {
     // Match any of the selected categories (by slug or name).
@@ -408,7 +411,7 @@ export async function searchProductsByText(
     kind: 'single',
   }
   // Embedded once — both passes rank against the same query.
-  const embedding = await embedText(query)
+  const embedding = await embedQuery(query)
 
   const best = await semanticSearch(
     query,
@@ -434,10 +437,11 @@ async function semanticSearch(
   /** The query's embedding, when the caller already has it. */
   embedding?: number[],
 ): Promise<ProductWithCategory[]> {
-  const vectorStr = `[${(embedding ?? (await embedText(query))).join(',')}]`
+  const vectorStr = `[${(embedding ?? (await embedQuery(query))).join(',')}]`
 
   const clauses: string[] = ['p.embedding IS NOT NULL']
   if (!params.includeSupplies) clauses.push(NOT_SUPPLY_SQL)
+  if (!params.includeInactive) clauses.push('p.active')
 
   if (params.categories?.length) {
     const list = params.categories
@@ -492,7 +496,7 @@ async function semanticSearch(
       p.price, p.graduated_prices, p.currency, p.stock, p.image, p.images,
       p.customized_image, p.description, p.details, p.is_featured,
       p.is_best_seller, p.dominant_color, p.kind, p.tags, p.labels,
-      p.min_quantity,
+      p.min_quantity, p.active,
       p.created_at, p.updated_at,
       c.name AS category_name, c.slug AS category_slug
     FROM products p
@@ -852,7 +856,7 @@ export async function listSupplies(
     .select(productSelect)
     .from(products)
     .innerJoin(categories, eq(products.categoryId, categories.id))
-    .where(inArray(categories.slug, SUPPLY_CATEGORY_SLUGS))
+    .where(and(inArray(categories.slug, SUPPLY_CATEGORY_SLUGS), eq(products.active, true)))
     .orderBy(asc(categories.slug), asc(products.price), asc(products.name))
 
   return withCustomizations(rows.map(toProductWithCategory), companyId)
@@ -1273,6 +1277,7 @@ export async function createProduct(
         ? { labels: [...new Set(input.labels)], labelsEditedAt: new Date() }
         : {}),
       minQuantity: input.minQuantity ?? 1,
+      active: input.active ?? true,
       ...(embedding
         ? { embedding, embeddingUpdatedAt: new Date() }
         : {}),
@@ -1314,15 +1319,11 @@ async function replaceComponents(
     sortOrder: c.sortOrder ?? i,
   }))
 
-  const remove = db
-    .delete(productComponents)
-    .where(eq(productComponents.bundleId, bundleId))
-
-  if (rows.length === 0) {
-    await remove
-    return
-  }
-  await db.batch([remove, db.insert(productComponents).values(rows)])
+  // Old contents out and new ones in together, or neither.
+  await atomic((q) => [
+    q.delete(productComponents).where(eq(productComponents.bundleId, bundleId)),
+    ...(rows.length ? [q.insert(productComponents).values(rows)] : []),
+  ])
 }
 
 /**
@@ -1362,7 +1363,11 @@ export async function updateProduct(
   const values: Record<string, unknown> = {}
   if (input.name !== undefined) values.name = input.name
   if (input.tagline !== undefined) values.tagline = input.tagline
-  if (input.price !== undefined) values.price = String(input.price)
+  if (input.price !== undefined) {
+    values.price = String(input.price)
+    // Set by hand: the resync keeps it (and stops its volume tiers overriding it).
+    values.priceEditedAt = new Date()
+  }
   if (input.currency !== undefined) values.currency = input.currency
   if (input.stock !== undefined) values.stock = input.stock
   if (input.categoryId !== undefined) values.categoryId = input.categoryId
@@ -1379,7 +1384,12 @@ export async function updateProduct(
   if (input.sku !== undefined) values.sku = input.sku
   if (input.variantId !== undefined) values.variantId = input.variantId
   if (input.kind !== undefined) values.kind = input.kind
-  if (input.tags !== undefined) values.tags = normalizeTags(input.tags)
+  if (input.tags !== undefined) {
+    values.tags = normalizeTags(input.tags)
+    // Chosen by hand: the resync keeps this collection membership.
+    values.tagsEditedAt = new Date()
+  }
+  if (input.active !== undefined) values.active = input.active
   if (input.labels !== undefined) {
     values.labels = [...new Set(input.labels)]
     // From now on the resync keeps these rather than its own.
@@ -1462,7 +1472,7 @@ export async function getRelatedProducts(
       p.price, p.graduated_prices, p.currency, p.stock, p.image, p.images,
       p.customized_image, p.description, p.details, p.is_featured,
       p.is_best_seller, p.dominant_color, p.kind, p.tags, p.labels,
-      p.min_quantity,
+      p.min_quantity, p.active,
       p.created_at, p.updated_at,
       c.name AS category_name, c.slug AS category_slug
     FROM products p
@@ -1472,6 +1482,7 @@ export async function getRelatedProducts(
     ) ref
     WHERE p.id != ${productId}::uuid
       AND ${rawSql.unsafe(NOT_SUPPLY_SQL)}
+      AND p.active
       AND p.embedding IS NOT NULL
       AND ref.embedding IS NOT NULL
       AND (${tagged}::jsonb IS NULL OR p.tags @> ${tagged}::jsonb)

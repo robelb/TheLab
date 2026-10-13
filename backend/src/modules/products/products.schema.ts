@@ -40,8 +40,10 @@ export const productsQuerySchema = z
           .filter((s) => s && s !== 'all')
         return list.length > 0 ? list : undefined
       }),
+    // Turned into an embedding (paid), so kept to a sensible search length.
     q: z
       .string()
+      .max(200, 'The search is too long.')
       .optional()
       .transform((v) => {
         const trimmed = v?.trim()
@@ -246,6 +248,8 @@ export const createProductSchema = z.object({
   tags: productTagsField.optional(),
   labels: productLabelsField.optional(),
   minQuantity: minQuantityField.optional(),
+  /** For sale; off keeps it out of the shop and checkout. */
+  active: z.boolean().optional(),
   /** The parts list, when this product is a pre-configured box. */
   components: z.array(productComponentSchema).max(50).optional(),
 })
@@ -272,6 +276,8 @@ export const updateProductSchema = z
     tags: productTagsField.optional(),
     labels: productLabelsField.optional(),
     minQuantity: minQuantityField.optional(),
+    /** For sale. Off takes it out of the shop and checkout; the dashboard keeps it. */
+    active: z.boolean().optional(),
     components: z.array(productComponentSchema).max(50).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {

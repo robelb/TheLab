@@ -29,6 +29,34 @@ export async function embedText(text: string): Promise<number[]> {
   return values
 }
 
+/**
+ * A shopper's search text as an embedding, remembered for a while.
+ *
+ * Every search — and every further page of the same search — used to be a
+ * paid call. The same few queries come up again and again, so the last few
+ * hundred are kept in memory for an hour.
+ */
+const QUERY_CACHE_SIZE = 500
+const QUERY_CACHE_MS = 60 * 60_000
+const queryCache = new Map<string, { at: number; values: number[] }>()
+
+export async function embedQuery(text: string): Promise<number[]> {
+  const key = text.trim().toLowerCase()
+  const hit = queryCache.get(key)
+  if (hit && Date.now() - hit.at < QUERY_CACHE_MS) {
+    // Re-inserted so the map's order stays least-recently-used first.
+    queryCache.delete(key)
+    queryCache.set(key, hit)
+    return hit.values
+  }
+  const values = await embedText(text)
+  queryCache.set(key, { at: Date.now(), values })
+  if (queryCache.size > QUERY_CACHE_SIZE) {
+    queryCache.delete(queryCache.keys().next().value!)
+  }
+  return values
+}
+
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   const ai = getClient()
   const response = await ai.models.embedContent({

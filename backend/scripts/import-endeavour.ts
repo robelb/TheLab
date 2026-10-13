@@ -31,7 +31,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, notInArray, sql } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
 import {
   categories,
@@ -48,6 +48,7 @@ import {
   GREETING_CARDS_SLUG,
   PACKAGING_SLUG,
   STICKERS_SLUG,
+  SUPPLY_CATEGORY_SLUGS,
 } from '../src/lib/supplies.js'
 import { embedText } from '../src/services/embedding.js'
 import { uploadToSupabase } from '../src/services/supabaseStorage.js'
@@ -363,25 +364,76 @@ async function ensureCategory(cat: { slug: string; name: string }): Promise<stri
   return id
 }
 
-async function upsertProduct(values: typeof products.$inferInsert): Promise<string> {
+/**
+ * Why the resync itself has a product out of sale, kept in `source_data` so a
+ * later resync can tell its own hold from a decision someone made by hand:
+ * - `removed` — no longer in Endeavour (or no longer in the id list);
+ * - `no_price` — a shop product with no price, which would otherwise sell free.
+ */
+type SyncHold = 'removed' | 'no_price' | null
+
+/**
+ * Write one product, keeping what our team decided by hand.
+ *
+ * The source is the truth for what a product IS — name, text, pictures, its
+ * own tags and labels. What the shop DOES with it is ours, and survives:
+ * - a price (and so its tiers) set in the dashboard (`price_edited_at`);
+ * - tags changed by hand, i.e. collection membership (`tags_edited_at`);
+ * - labels set by hand (`labels_edited_at`);
+ * - featured and stock, which are only ever set when the row is created;
+ * - a product taken out of sale by hand stays out of sale.
+ * A source price of 0 never replaces a real price already in the shop.
+ */
+async function upsertProduct(
+  values: typeof products.$inferInsert,
+  opts: { shopItem: boolean },
+): Promise<{ id: string; price: number; hold: SyncHold }> {
   const [existing] = await db
-    .select({ id: products.id, labelsEditedAt: products.labelsEditedAt })
+    .select({
+      id: products.id,
+      price: products.price,
+      active: products.active,
+      labelsEditedAt: products.labelsEditedAt,
+      priceEditedAt: products.priceEditedAt,
+      tagsEditedAt: products.tagsEditedAt,
+      sourceData: products.sourceData,
+    })
     .from(products)
     .where(eq(products.sku, values.sku))
     .limit(1)
-  if (dryRun) return existing?.id ?? `dry-run:${values.sku}`
+
+  const sourcePrice = Number(values.price)
+  const keepPrice =
+    existing && (existing.priceEditedAt || (sourcePrice === 0 && Number(existing.price) > 0))
+  const price = keepPrice ? Number(existing!.price) : sourcePrice
+  const hold: SyncHold = opts.shopItem && price === 0 ? 'no_price' : null
+  // Out of sale by hand (no hold of ours on record) stays out of sale.
+  const heldByHand = existing && !existing.active && !existing.sourceData?.syncHold
+  const active = heldByHand ? false : hold === null
+  const sourceData = { ...(values.sourceData ?? {}), syncHold: hold }
+
+  if (dryRun) return { id: existing?.id ?? `dry-run:${values.sku}`, price, hold }
   if (existing) {
-    // Labels someone set by hand in the dashboard win over the source's.
-    const { labels, ...rest } = values
-    const update = existing.labelsEditedAt ? rest : { ...rest, labels }
-    await db.update(products).set(update).where(eq(products.id, existing.id))
-    return existing.id
+    const { labels, tags, graduatedPrices, isFeatured: _featured, stock: _stock, ...rest } = values
+    await db
+      .update(products)
+      .set({
+        ...rest,
+        price: String(price),
+        sourceData,
+        active,
+        ...(keepPrice ? {} : { graduatedPrices }),
+        ...(existing.tagsEditedAt ? {} : { tags }),
+        ...(existing.labelsEditedAt ? {} : { labels }),
+      })
+      .where(eq(products.id, existing.id))
+    return { id: existing.id, price, hold }
   }
   const [created] = await db
     .insert(products)
-    .values(values)
+    .values({ ...values, sourceData, active })
     .returning({ id: products.id })
-  return created.id
+  return { id: created.id, price, hold }
 }
 
 async function importProduct(
@@ -398,19 +450,26 @@ async function importProduct(
   const description = plainText(p.descriptionDe) || plainText(p.description)
   const graduatedPrices = normalizeGraduatedPrices(p.graduatedPrices)
   // Boxes often come with no unit price and only a volume table; the table's
-  // first tier is then the price for the smallest order.
-  const price = round2(p.netRetailPrice.amount || graduatedPrices[0]?.price || 0)
+  // first tier is then the price for the smallest order — and where that tier
+  // starts above 1, it is also the smallest order there is a price for.
+  const firstTier = graduatedPrices[0]
+  const sourcePrice = round2(p.netRetailPrice.amount || firstTier?.price || 0)
+  const minQuantity = Math.max(
+    1,
+    p.minimumOrderQuantity || 1,
+    !p.netRetailPrice.amount && firstTier ? firstTier.minQty : 1,
+  )
   const embedding = await tryEmbed(
     [p.name, entry.sheet?.name_en, description.slice(0, 1500)].filter(Boolean).join('. '),
   )
 
-  const id = await upsertProduct({
+  const { id, price, hold } = await upsertProduct({
     sourceId: p.id,
     variantId: null,
     sku: p.jfsku,
     name: p.name,
     tagline: taglineFrom(description),
-    price: String(price),
+    price: String(sourcePrice),
     graduatedPrices,
     currency: p.netRetailPrice.currency || 'EUR',
     stock: SHOP_STOCK,
@@ -423,7 +482,7 @@ async function importProduct(
     kind: 'single',
     tags: tagsFor(p),
     labels: labelsFor(p),
-    minQuantity: Math.max(1, p.minimumOrderQuantity || 1),
+    minQuantity,
     sourceData: {
       provider: 'endeavour',
       sheet: entry.sheet,
@@ -434,8 +493,8 @@ async function importProduct(
     sourceSyncedAt: syncedAt,
     ...(embedding ? { embedding, embeddingUpdatedAt: new Date() } : {}),
     ...extra,
-  })
-  return { id, category, price, tiers: graduatedPrices.length }
+  }, { shopItem: !SUPPLY_CATEGORY_SLUGS.includes(category.slug) })
+  return { id, category, price, hold, tiers: graduatedPrices.length }
 }
 
 export interface Snapshot {
@@ -474,21 +533,32 @@ export async function importSnapshot(
     { id: string; categorySlug: string; price: number; name: string }
   >()
   const unpriced: string[] = []
+  const heldBack: string[] = []
+  // One product that fails (a picture that will not download, say) is
+  // reported at the end instead of stopping the import halfway through.
+  const failed: string[] = []
   let tiered = 0
   for (const entry of singles) {
-    const { id, category, price, tiers } = await importProduct(entry, syncedAt)
-    byJfsku.set(entry.product.jfsku, {
-      id,
-      categorySlug: category.slug,
-      price,
-      name: entry.product.name,
-    })
-    if (price === 0) unpriced.push(entry.product.name)
-    if (tiers > 0) tiered++
-    console.log(
-      `  single  ${entry.product.name} — €${price.toFixed(2)} [${category.slug}]` +
-        (tiers > 0 ? ` (${tiers} volume tiers)` : ''),
-    )
+    try {
+      const { id, category, price, hold, tiers } = await importProduct(entry, syncedAt)
+      byJfsku.set(entry.product.jfsku, {
+        id,
+        categorySlug: category.slug,
+        price,
+        name: entry.product.name,
+      })
+      if (price === 0) unpriced.push(entry.product.name)
+      if (hold) heldBack.push(entry.product.name)
+      if (tiers > 0) tiered++
+      console.log(
+        `  single  ${entry.product.name} — €${price.toFixed(2)} [${category.slug}]` +
+          (tiers > 0 ? ` (${tiers} volume tiers)` : '') +
+          (hold ? '  ⚠ not for sale: no price' : ''),
+      )
+    } catch (err) {
+      failed.push(`${entry.product.name}: ${err instanceof Error ? err.message : err}`)
+      console.log(`  ✗ single  ${entry.product.name} — ${err instanceof Error ? err.message : err}`)
+    }
   }
 
   // ── Boxes, last ─────────────────────────────────────────────────────────
@@ -498,24 +568,41 @@ export async function importSnapshot(
     const bom = entry.product.specifications.billOfMaterialsComponents ?? []
     const missing = bom.filter((c) => !byJfsku.has(c.jfsku))
     if (missing.length > 0) {
-      throw new Error(
-        `${entry.product.name}: parts not in the snapshot — ` +
+      // Left as it was rather than rewritten without the parts it is sold with.
+      failed.push(
+        `${entry.product.name}: parts not imported — ` +
           missing.map((c) => `${c.name} (${c.jfsku})`).join(', '),
       )
+      console.log(`  ✗ bundle  ${entry.product.name} — parts missing, left unchanged`)
+      continue
+    }
+    if (bom.length === 0) {
+      failed.push(`${entry.product.name}: Endeavour lists no contents for this box`)
+      console.log(`  ✗ bundle  ${entry.product.name} — no contents, left unchanged`)
+      continue
     }
 
     const roleOf = (c: BomComponent) => roleFor(byJfsku.get(c.jfsku)!.categorySlug)
     const itemCount = bom.filter((c) => roleOf(c) === 'item').length
-    const { id, price, tiers } = await importProduct(entry, syncedAt, {
-      kind: 'bundle',
-      tagline: `${itemCount} Produkte, weihnachtlich verpackt`,
-      details: [
-        ...bom.map((c) => `${c.quantity}× ${c.name}`),
-        `Artikelnummer: ${entry.product.merchantSku}`,
-      ],
-    })
+    let imported: Awaited<ReturnType<typeof importProduct>>
+    try {
+      imported = await importProduct(entry, syncedAt, {
+        kind: 'bundle',
+        tagline: `${itemCount} Produkte, weihnachtlich verpackt`,
+        details: [
+          ...bom.map((c) => `${c.quantity}× ${c.name}`),
+          `Artikelnummer: ${entry.product.merchantSku}`,
+        ],
+      })
+    } catch (err) {
+      failed.push(`${entry.product.name}: ${err instanceof Error ? err.message : err}`)
+      console.log(`  ✗ bundle  ${entry.product.name} — ${err instanceof Error ? err.message : err}`)
+      continue
+    }
+    const { id, price, hold, tiers } = imported
     boxIds.set(entry.product.name, id)
     if (price === 0) unpriced.push(entry.product.name)
+    if (hold) heldBack.push(entry.product.name)
     if (tiers > 0) tiered++
 
     // One row per part: the table holds a part once, so repeats add up.
@@ -551,24 +638,75 @@ export async function importSnapshot(
   }
 
   // ── Landing page ────────────────────────────────────────────────────────
+  // Set up once. After that the boxes the page leads with are marketing's
+  // choice in the dashboard, and a resync leaves them alone.
   const featured = FEATURED_NAMES.map((n) => boxIds.get(n)).filter(
     (id): id is string => Boolean(id),
   )
-  if (!dryRun && featured.length > 0) {
-    await db
-      .update(products)
-      .set({ isFeatured: true })
-      .where(inArray(products.id, featured))
-    await db
-      .update(collections)
-      .set({ featuredBundleIds: featured })
-      .where(eq(collections.slug, COLLECTION_SLUG))
+  const [landing] = await db
+    .select({ featuredBundleIds: collections.featuredBundleIds })
+    .from(collections)
+    .where(eq(collections.slug, COLLECTION_SLUG))
+    .limit(1)
+  if (landing && !(landing.featuredBundleIds ?? []).length && featured.length > 0) {
+    if (!dryRun) {
+      await db
+        .update(products)
+        .set({ isFeatured: true })
+        .where(inArray(products.id, featured))
+      await db
+        .update(collections)
+        .set({ featuredBundleIds: featured })
+        .where(eq(collections.slug, COLLECTION_SLUG))
+    }
+    console.log(`\n/c/${COLLECTION_SLUG} now features: ${FEATURED_NAMES.join(', ')}`)
+  } else {
+    console.log(`\n/c/${COLLECTION_SLUG}: featured boxes left as set in the dashboard`)
   }
-  console.log(`\n/c/${COLLECTION_SLUG} features: ${FEATURED_NAMES.join(', ')}`)
+
+  // ── Gone from Endeavour ─────────────────────────────────────────────────
+  // Not deleted — orders and designs point at them — but taken out of sale.
+  // A failed import of a product is not "gone", so it is never retired here.
+  const present = entries.map((e) => e.product.jfsku)
+  const gone = await db
+    .select({ id: products.id, name: products.name })
+    .from(products)
+    .where(
+      and(
+        sql`${products.sourceData}->>'provider' = 'endeavour'`,
+        notInArray(products.sku, present),
+        eq(products.active, true),
+      ),
+    )
+  if (gone.length > 0) {
+    if (!dryRun) {
+      await db
+        .update(products)
+        .set({
+          active: false,
+          sourceData: sql`coalesce(${products.sourceData}, '{}'::jsonb) || '{"syncHold":"removed"}'::jsonb`,
+        })
+        .where(inArray(products.id, gone.map((g) => g.id)))
+    }
+    console.log(
+      `\n${gone.length} products are no longer in Endeavour and were taken out of sale: ` +
+        gone.map((g) => g.name).join(', '),
+    )
+  }
 
   console.log(`\n${tiered} of ${entries.length} products have graduated prices.`)
   if (unpriced.length > 0) {
     console.log(`\n${unpriced.length} products have no price in JTL (€0): ${unpriced.join(', ')}`)
+  }
+  if (heldBack.length > 0) {
+    console.log(
+      `\n${heldBack.length} shop products are NOT FOR SALE until they have a price ` +
+        `(set one in Endeavour, or in the dashboard): ${heldBack.join(', ')}`,
+    )
+  }
+  if (failed.length > 0) {
+    console.log(`\n${failed.length} could not be imported and were left as they were:`)
+    for (const line of failed) console.log(`  - ${line}`)
   }
   if (dryRun) console.log('\nDry run — nothing was written.')
 }

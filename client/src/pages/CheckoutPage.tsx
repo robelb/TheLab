@@ -60,6 +60,9 @@ export function CheckoutPage() {
 
   // Gift boxes, counting each box line's quantity: what shipping is per.
   const boxes = items.reduce((sum, i) => sum + (i.box ? i.quantity : 0), 0)
+  // Single products travel with a bulk shipment, so they rule out sending
+  // every box on its own (the server refuses that combination too).
+  const looseItems = items.some((i) => !i.box)
 
   // Rebuilt when the language or the box count changes, so the messages and
   // the mixed-shipping limit follow them.
@@ -83,7 +86,8 @@ export function CheckoutPage() {
   const [sent, setSent] = useState<{ reference: string; email: string } | null>(null)
 
   const v = f.values
-  const method = boxes > 0 ? v.shippingMethod : 'bulk'
+  const method =
+    boxes === 0 || (looseItems && v.shippingMethod === 'individual') ? 'bulk' : v.shippingMethod
   const destination =
     v.sameAsBilling && method !== 'individual' ? v.country : v.deliveryCountry
   // Null outside the countries we ship to; the form says so where it matters.
@@ -327,7 +331,13 @@ export function CheckoutPage() {
         <form className="space-y-8" onSubmit={f.handleSubmit(submit)} noValidate>
           <ContactSection f={f} disabled={pending} />
           <BillingSection f={f} disabled={pending} />
-          <DeliverySection f={f} disabled={pending} boxes={boxes} currency={currency} />
+          <DeliverySection
+            f={f}
+            disabled={pending}
+            boxes={boxes}
+            looseItems={looseItems}
+            currency={currency}
+          />
           <PaymentSection disabled={pending} />
 
           <PrivacyConsent f={f} disabled={pending} />

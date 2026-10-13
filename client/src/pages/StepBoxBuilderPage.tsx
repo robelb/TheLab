@@ -86,6 +86,9 @@ const AI_BOX_SIZE = 6
  * pick the products from a short brief. Where it is not (Christmas), none of
  * that appears.
  */
+/** Most products the box photo shows; matches the server's campaign cap. */
+const PHOTO_MAX_PRODUCTS = 12
+
 export function StepBoxBuilderPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -473,7 +476,11 @@ export function StepBoxBuilderPage() {
       if (design) productImages[id] = design.image
     }
     const boxDesign = canDesign && draft.packagingId ? draft.designs[draft.packagingId] : undefined
+    // The photo is a preview: the image model takes about fourteen pictures,
+    // so a very full box is photographed with its first dozen products.
+    const photoIds = draft.productIds.slice(0, PHOTO_MAX_PRODUCTS)
     const supplyIds = {
+      productIds: photoIds,
       ...(draft.packagingId ? { packagingId: draft.packagingId } : {}),
       ...(draft.fillingId ? { fillingId: draft.fillingId } : {}),
       ...(boxDesign ? { packagingImageUrl: boxDesign.image } : {}),
@@ -486,7 +493,7 @@ export function StepBoxBuilderPage() {
         const created = await create.mutateAsync({
           title,
           domain,
-          productIds: draft.productIds,
+          productIds: photoIds,
         })
         id = created.id
         update({ campaignId: id })

@@ -103,6 +103,16 @@ export const products = pgTable(
      * catalogue resync keeps the hand-picked labels rather than its own.
      */
     labelsEditedAt: timestamp('labels_edited_at', { withTimezone: true }),
+    /**
+     * For sale. False for a product Endeavour no longer has, or one that
+     * arrived without a price: kept for the orders and designs that point at
+     * it, hidden from the shop and refused by checkout.
+     */
+    active: boolean('active').notNull().default(true),
+    /** When someone set the price by hand; the resync then keeps it (and the tiers). */
+    priceEditedAt: timestamp('price_edited_at', { withTimezone: true }),
+    /** When someone changed the tags by hand; the resync then keeps them. */
+    tagsEditedAt: timestamp('tags_edited_at', { withTimezone: true }),
     /** Smallest order the supplier accepts. 1 unless someone says otherwise. */
     minQuantity: integer('min_quantity').notNull().default(1),
     /**

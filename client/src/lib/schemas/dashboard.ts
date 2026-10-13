@@ -131,6 +131,7 @@ export function makeProductSchema(t: TFunction) {
     description: optionalT(5000),
     details: optionalT(5000),
     isFeatured: z.boolean(),
+    active: z.boolean(),
     sku: optionalT(64),
     tags: z.string().refine((value) => {
       const tags = value.split(',').map((tag) => tag.trim()).filter(Boolean)

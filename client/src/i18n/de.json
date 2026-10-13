@@ -70,7 +70,12 @@
     "designReady": "Ihr Design ist fertig. Wenn Sie das in den Warenkorb legen, geht es mit Ihrem Motiv{{brief}} mit.",
     "andYourBrief": " und Ihrer Vorgabe „{{prompt}}“",
     "details": "Details",
-    "youMightAlsoLike": "Das könnte Ihnen auch gefallen"
+    "youMightAlsoLike": "Das könnte Ihnen auch gefallen",
+    "cardMessage": {
+      "toggle": "Text für die Grußkarte hinzufügen",
+      "written": "Ihr Text für die Grußkarte",
+      "hint": "Wir drucken ihn auf die Karte in der Box. Sie können ihn uns auch später schicken."
+    }
   },
   "cart": {
     "quantity": "Menge",
@@ -188,7 +193,8 @@
       "mixed": "Gemischt"
     },
     "vatZeroEu": "innergemeinschaftliche Lieferung",
-    "vatZeroNonEu": "Ausfuhrlieferung"
+    "vatZeroNonEu": "Ausfuhrlieferung",
+    "shipIndividualLoose": "Einzelne Produkte in Ihrem Warenkorb werden im Sammelversand verschickt, daher ist Einzelversand für alle Boxen nicht möglich. Wählen Sie „Gemischt“, um einige Boxen einzeln zu versenden."
   },
   "status": {
     "new": "Neu",
@@ -870,7 +876,10 @@
           "invoiceQueued": "Rechnung {{number}} ist in der Warteschlange; kein Mail-Anbieter konfiguriert.",
           "invoiceAlreadyIssued": "Rechnung {{number}} wurde bereits ausgestellt.",
           "failed": "Die Bestellung konnte nicht bestätigt werden"
-        }
+        },
+        "vatRate": "USt. %",
+        "vatRateUsual": "Üblich für {{country}}: {{rate}} %",
+        "vatRateInvalid": "Bitte einen Satz von 0 bis 100 eingeben."
       },
       "detail": {
         "placement": {
@@ -1052,6 +1061,35 @@
           "accepted": "Akzeptiert am {{date}}",
           "notRecorded": "Nicht erfasst"
         }
+      },
+      "details": {
+        "button": "Details bearbeiten",
+        "title": "{{reference}} bearbeiten",
+        "description": "Ergänzen Sie, was der Kunde nach der Anfrage geschickt hat. Die Rechnung wird beim Bestätigen aus diesen Angaben erstellt.",
+        "invoice": "Rechnungsangaben",
+        "poNumber": "Bestellnummer (PO)",
+        "vatId": "USt-IdNr.",
+        "company": "Firma",
+        "name": "Ansprechpartner",
+        "street": "Straße und Hausnummer",
+        "line2": "Adresszusatz",
+        "zip": "PLZ",
+        "city": "Ort",
+        "country": "Land",
+        "email": "Rechnungs-E-Mail",
+        "optional": "(optional)",
+        "recipients": "Empfängeradressen",
+        "addressesReceived": "Die Empfängeradressen sind eingegangen",
+        "stickerLogo": "Sticker-Logo",
+        "noLogo": "Noch kein Logo",
+        "uploadLogo": "Logo hochladen",
+        "replaceLogo": "Ersetzen",
+        "removeLogo": "Logo entfernen",
+        "uploadFailed": "Das Logo konnte nicht hochgeladen werden.",
+        "cancel": "Abbrechen",
+        "save": "Speichern",
+        "saved": "{{reference}} aktualisiert",
+        "failed": "Die Änderungen konnten nicht gespeichert werden."
       }
     },
     "products": {
@@ -1085,7 +1123,8 @@
         "delete": "Löschen",
         "deleting": "Wird gelöscht…",
         "deletedToast": "{{name}} gelöscht",
-        "deleteFailed": "{{name}} konnte nicht gelöscht werden"
+        "deleteFailed": "{{name}} konnte nicht gelöscht werden",
+        "badgeNotForSale": "Nicht im Verkauf"
       },
       "detail": {
         "notFound": "Produkt nicht gefunden",
@@ -1164,7 +1203,8 @@
         "addedToast": "{{name}} hinzugefügt",
         "bundleToast_one": "Vorkonfigurierte Box · {{count}} Produkt enthalten",
         "bundleToast_other": "Vorkonfigurierte Box · {{count}} Produkte enthalten",
-        "saveFailed": "Etwas ist schiefgelaufen"
+        "saveFailed": "Etwas ist schiefgelaufen",
+        "forSale": "Im Verkauf"
       },
       "validation": {
         "nameRequired": "Bitte geben Sie dem Produkt einen Namen.",

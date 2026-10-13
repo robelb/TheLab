@@ -49,13 +49,15 @@ function parseArgs(argv: string[]) {
   let concurrency = DEFAULT_CONCURRENCY
   const dryRun = argv.includes('--dry')
   const fetchOnly = argv.includes('--fetch-only')
+  // Confirms that many products really did leave Endeavour — see the 404 guard.
+  const allowRemovals = argv.includes('--allow-removals')
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--token' && argv[i + 1]) token = argv[++i]
     else if (argv[i] === '--concurrency' && argv[i + 1]) {
       concurrency = Math.max(1, parseInt(argv[++i], 10) || DEFAULT_CONCURRENCY)
     }
   }
-  return { token, concurrency, dryRun, fetchOnly }
+  return { token, concurrency, dryRun, fetchOnly, allowRemovals }
 }
 
 function resolveAuthHeader(cliToken?: string): string {
@@ -123,7 +125,7 @@ async function mapPool<T, R>(
 }
 
 async function main() {
-  const { token, concurrency, dryRun, fetchOnly } = parseArgs(process.argv.slice(2))
+  const { token, concurrency, dryRun, fetchOnly, allowRemovals } = parseArgs(process.argv.slice(2))
   const authHeader = resolveAuthHeader(token)
 
   const listed = JSON.parse(readFileSync(ID_LIST, 'utf-8')) as ListedProduct[]
@@ -147,6 +149,7 @@ async function main() {
   let done = 0
   const kept: string[] = []
   const lost: string[] = []
+  const gone: string[] = []
   let rejected = false
   const items = await mapPool(ids, concurrency, async (listedProduct) => {
     const result = await fetchProduct(listedProduct.id, authHeader)
@@ -157,8 +160,14 @@ async function main() {
       return { sheet: listedProduct.sheet, product: result.product }
     }
     if (/^HTTP 40[13]\b/.test(result.error)) rejected = true
-    const fallback = previous.get(listedProduct.id)
     console.log(`  ✗ [${done}/${ids.length}] ${label} — ${result.error}`)
+    // Endeavour says the product no longer exists: not a hiccup to paper over
+    // with last time's copy. Left out, the import takes it out of sale.
+    if (/^HTTP 404\b/.test(result.error)) {
+      gone.push(label)
+      return null
+    }
+    const fallback = previous.get(listedProduct.id)
     if (fallback) {
       kept.push(label)
       return { sheet: listedProduct.sheet, product: fallback }
@@ -177,6 +186,20 @@ async function main() {
     process.exit(1)
   }
 
+  // Products Endeavour no longer has are taken out of sale by the import. A
+  // large share answering 404 is far more likely an API or id-list problem
+  // than a real clear-out, so it needs saying twice.
+  if (gone.length > 0) {
+    console.warn(`\n${gone.length} products no longer exist in Endeavour and will be taken out of sale: ${gone.join(', ')}`)
+    if (gone.length > ids.length / 4 && !allowRemovals) {
+      console.error(
+        `\nThat is more than a quarter of the list — check the API and the id list. ` +
+          'If it is right, run again with --allow-removals. Nothing was saved or imported.',
+      )
+      process.exit(1)
+    }
+  }
+
   if (lost.length > 0) {
     console.error(
       `\n${lost.length} products could not be fetched and have no previous entry:\n  ` +
@@ -189,10 +212,10 @@ async function main() {
   const snapshot: Snapshot & { source: string } = {
     source: 'endeavour-product-ids.json + GET /api/products/:id (Endeavour)',
     fetchedAt: new Date().toISOString().slice(0, 10),
-    items: items as unknown as Entry[],
+    items: items.filter(Boolean) as unknown as Entry[],
   }
 
-  const all = items as { product: FetchedProduct }[]
+  const all = items.filter(Boolean) as { product: FetchedProduct }[]
   const tiered = all.filter(
     (e) => Array.isArray(e.product.graduatedPrices) && e.product.graduatedPrices.length > 0,
   ).length

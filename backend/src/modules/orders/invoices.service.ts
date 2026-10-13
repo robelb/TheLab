@@ -31,7 +31,10 @@ import { sellerDetails } from '../../config/seller.js'
  * `issueInvoice`, which checks for an existing invoice first).
  */
 export async function nextInvoiceNumber(at: Date = new Date()): Promise<string> {
-  const series = `${env.INVOICE_NUMBER_PREFIX}-${at.getFullYear()}`
+  // The year in Germany, not on the server's clock (UTC on a container): an
+  // invoice issued at 00:30 on 1 January belongs to the new year's series.
+  const year = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric' }).format(at)
+  const series = `${env.INVOICE_NUMBER_PREFIX}-${year}`
   const [row] = await db
     .insert(invoiceCounters)
     .values({ series, last: 1 })

@@ -13,6 +13,7 @@ import { ROLES } from '../../lib/roles.js'
 import {
   confirmOrderSchema,
   createOrderSchema,
+  orderDetailsSchema,
   checkoutProblems,
   guestProblems,
   ORDER_STATUSES,
@@ -29,6 +30,7 @@ import {
   OrderError,
   resendOrderEmail,
   updateOrder,
+  updateOrderDetails,
   type OrderFilters,
 } from './orders.service.js'
 import { getInvoiceByOrder } from './invoices.service.js'
@@ -196,6 +198,7 @@ ordersRouter.patch('/:id', requireAuth, companyAdmin, async (req, res) => {
       orderId: routeParam(req, 'id'),
       status: parsed.data.status,
       paymentStatus: parsed.data.paymentStatus,
+      asAdmin: req.authUser?.role === ROLES.SUPER_ADMIN,
     })
     if (!order) return res.status(404).json({ error: 'Request not found' })
     res.json(order)
@@ -227,6 +230,33 @@ ordersRouter.post(
       res.json(order)
     } catch (err) {
       fail(res, err, 'Could not confirm the order', 'confirm')
+    }
+  },
+)
+
+/**
+ * Fill in what the customer sends after the request — a PO number, a
+ * corrected invoice address, "the addresses have arrived", the sticker logo.
+ * Super admins only, and only until the order is confirmed.
+ */
+ordersRouter.patch(
+  '/:id/details',
+  requireAuth,
+  requireCapability('manage_all'),
+  async (req, res) => {
+    const parsed = orderDetailsSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return res.status(400).json({ error: firstZodError(parsed.error) })
+    }
+    try {
+      const order = await updateOrderDetails({
+        orderId: routeParam(req, 'id'),
+        body: parsed.data,
+      })
+      if (!order) return res.status(404).json({ error: 'Request not found' })
+      res.json(order)
+    } catch (err) {
+      fail(res, err, 'Could not update the request', 'details')
     }
   },
 )

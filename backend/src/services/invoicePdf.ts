@@ -129,12 +129,19 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Buffer> {
       Number(n),
     )
   // 23.02.2026 in both languages, as on our invoices.
-  const date = (d: Date | string) =>
-    new Intl.DateTimeFormat('de-DE', {
+  // German dates on a German invoice, in German time. Something that is not a
+  // date (an old request's free-text delivery wish) is printed as written
+  // rather than failing the whole invoice.
+  const date = (d: Date | string) => {
+    const value = typeof d === 'string' ? new Date(d) : d
+    if (Number.isNaN(value.getTime())) return String(d)
+    return new Intl.DateTimeFormat('de-DE', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
-    }).format(typeof d === 'string' ? new Date(d) : d)
+      timeZone: 'Europe/Berlin',
+    }).format(value)
+  }
   const rateNumber = new Intl.NumberFormat(intl, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -376,8 +383,10 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Buffer> {
   y += 4
   hr(y, RULE, 1)
 
-  // An invoice without VAT has to say why.
-  if (Number(invoice.vatRate) === 0) {
+  // An invoice without VAT has to say why. The reasons we print are for
+  // deliveries abroad; a German buyer set to 0 % by hand gets no ready-made
+  // wording, rather than a false one.
+  if (Number(invoice.vatRate) === 0 && buyer.country !== 'DE') {
     y += 10
     body().text(zeroVatReason(buyer.country, locale).note, left, y, {
       width: right - left,

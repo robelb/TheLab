@@ -5,7 +5,7 @@
  * only be seen or changed by the company that sent it.
  */
 
-import { and, desc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, ne, sql, type SQL } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import {
   collections,
@@ -29,11 +29,14 @@ import type { SendOutcome } from '../../services/outbox.js'
 import { trackPaymentChange, trackStatusChange } from './orders.analytics.js'
 import type { BundleComponent } from '../../types/product.js'
 import {
+  billingProblems,
   boxCount,
   destinationCountry,
   type ConfirmOrderBody,
   type CreateOrderBody,
+  type OrderDetailsBody,
   type OrderStatus,
+  todayInBerlin,
 } from './orders.schema.js'
 import {
   getInvoiceByOrder,
@@ -123,29 +126,114 @@ interface BundleFacts {
 /** Product id → its volume tiers, for the products that have any. */
 type TierTable = Map<string, GraduatedPrice[]>
 
+/** What the catalogue says about a product the order mentions. */
+interface CatalogueRow {
+  /** For sale; a product taken out of sale is refused unless it is part of its own box. */
+  active: boolean
+  price: number
+  currency: string
+  minQuantity: number
+  tiers: GraduatedPrice[]
+}
+
+/** Product id → its catalogue row: the only prices an order is charged at. */
+type Catalogue = Map<string, CatalogueRow>
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
- * The graduated prices of every product the order mentions — loose lines, box
- * contents, and the boxes themselves.
+ * Every catalogue product the order mentions — loose lines, box contents, and
+ * the boxes themselves — with its price, currency, minimum and volume tiers.
+ *
+ * Prices used to come from the request, with only the tiers looked up here:
+ * a request claiming €0.01 for a bottle was stored, mailed back to the
+ * customer and pre-filled in the confirm dialog at that price. The browser
+ * now only says WHAT is wanted; what it costs is decided here.
  */
-async function loadTiers(items: Item[]): Promise<TierTable> {
+async function loadCatalogue(items: Item[]): Promise<Catalogue> {
   const ids = new Set<string>()
   for (const item of items) {
-    ids.add(item.productId)
+    // A box line's own id is the builder's, not a catalogue row: it is priced
+    // from its parts (or its bundle) below.
+    if (!item.box) ids.add(item.productId)
     if (item.box?.bundleId) ids.add(item.box.bundleId)
     if (item.box) for (const part of boxParts(item.box)) ids.add(part.productId)
   }
-  // Design lines and the like carry ids that are not catalogue rows.
   const lookup = [...ids].filter((id) => UUID.test(id))
-  if (lookup.length === 0) return new Map()
+  const rows = lookup.length
+    ? await db
+        .select({
+          id: products.id,
+          active: products.active,
+          price: products.price,
+          currency: products.currency,
+          minQuantity: products.minQuantity,
+          tiers: products.graduatedPrices,
+        })
+        .from(products)
+        .where(inArray(products.id, lookup))
+    : []
+  const catalogue: Catalogue = new Map(
+    rows.map((r) => [
+      r.id,
+      {
+        active: r.active,
+        price: Number(r.price),
+        currency: r.currency || 'EUR',
+        minQuantity: r.minQuantity ?? 1,
+        tiers: r.tiers ?? [],
+      },
+    ]),
+  )
+  // Anything we cannot price is refused rather than charged at a number the
+  // request made up — a product since removed, or an id that was never ours.
+  const unknown = [...ids].filter((id) => !catalogue.has(id) && !isBundleOnly(items, id))
+  if (unknown.length) {
+    throw new OrderError(
+      'A product in your request is no longer available. Please remove it from the cart and send the request again.',
+      409,
+      'unknown_product',
+    )
+  }
+  return catalogue
+}
 
-  const rows = await db
-    .select({ id: products.id, tiers: products.graduatedPrices })
-    .from(products)
-    .where(inArray(products.id, lookup))
+/**
+ * A `bundleId` that is no longer in the catalogue only costs the box its set
+ * price — it is then priced by its parts — so it is not a reason to refuse.
+ */
+function isBundleOnly(items: Item[], id: string): boolean {
+  return items.some((item) => item.box?.bundleId === id) &&
+    !items.some((item) => (!item.box && item.productId === id) ||
+      (item.box && boxParts(item.box).some((part) => part.productId === id)))
+}
+
+/**
+ * Refuse anything taken out of sale. A part inside the box it belongs to is
+ * the one exception: a ready-made box can hold parts that are not sold on
+ * their own, and opening it in the builder must not make it unorderable.
+ */
+function refuseOutOfSale(items: Item[], catalogue: Catalogue, bundles: BundleFacts): void {
+  for (const item of items) {
+    const ids = item.box ? boxParts(item.box).map((p) => p.productId) : [item.productId]
+    const ownParts = new Set(
+      (item.box?.bundleId ? bundles.components.get(item.box.bundleId) ?? [] : []).map(
+        (c) => c.product.id,
+      ),
+    )
+    if (ids.some((id) => catalogue.get(id)?.active === false && !ownParts.has(id))) {
+      throw new OrderError(
+        'A product in your request is no longer available. Please remove it from the cart and send the request again.',
+        409,
+        'unavailable_product',
+      )
+    }
+  }
+}
+
+function tiersOf(catalogue: Catalogue): TierTable {
   return new Map(
-    rows.filter((r) => r.tiers?.length).map((r) => [r.id, r.tiers]),
+    [...catalogue].filter(([, row]) => row.tiers.length).map(([id, row]) => [id, row.tiers]),
   )
 }
 
@@ -204,6 +292,7 @@ function lineTotal(
   item: Item,
   bundles: BundleFacts,
   tiers: TierTable,
+  catalogue: Catalogue,
 ): {
   total: number
   pricingMode?: PricingMode
@@ -212,11 +301,19 @@ function lineTotal(
   fulfilment?: number
 } {
   if (!item.box) {
+    const base = catalogue.get(item.productId)!
+    if (item.quantity < base.minQuantity) {
+      throw new OrderError(
+        `${item.name} can only be ordered from ${base.minQuantity} pieces.`,
+        400,
+        'below_minimum',
+      )
+    }
     const table = tiers.get(item.productId)
-    const unit = unitPriceFor(item.unitPrice, table, item.quantity)
+    const unit = unitPriceFor(base.price, table, item.quantity)
     return {
       total: unit * item.quantity,
-      ...(table && unit !== item.unitPrice ? { tierPrice: unit } : {}),
+      ...(table && unit !== base.price ? { tierPrice: unit } : {}),
     }
   }
 
@@ -243,7 +340,7 @@ function lineTotal(
     (sum, line) =>
       sum +
       unitPriceFor(
-        line.price,
+        catalogue.get(line.productId)!.price,
         tiers.get(line.productId),
         line.quantity * item.quantity,
       ) *
@@ -254,6 +351,22 @@ function lineTotal(
     total: boxPrice * item.quantity,
     pricingMode: 'parts',
     fulfilment: packing * item.quantity,
+  }
+}
+
+/** A box with every part's price and currency taken from the catalogue. */
+function withCataloguePrices(box: Box, catalogue: Catalogue): Box {
+  const priced = <T extends { productId: string; price: number }>(line: T): T => {
+    const row = catalogue.get(line.productId)!
+    return { ...line, price: row.price, currency: row.currency }
+  }
+  return {
+    ...box,
+    lines: box.lines.map(priced),
+    packaging: box.packaging ? priced(box.packaging) : box.packaging,
+    filling: box.filling ? priced(box.filling) : box.filling,
+    greetingCard: box.greetingCard ? priced(box.greetingCard) : box.greetingCard,
+    stickers: box.stickers ? priced(box.stickers) : box.stickers,
   }
 }
 
@@ -268,10 +381,12 @@ export interface PricedOrder {
 }
 
 export async function priceOrder(body: CreateOrderBody): Promise<PricedOrder> {
-  const [bundles, tiers] = await Promise.all([
+  const [bundles, catalogue] = await Promise.all([
     loadBundles(body.items),
-    loadTiers(body.items),
+    loadCatalogue(body.items),
   ])
+  refuseOutOfSale(body.items, catalogue, bundles)
+  const tiers = tiersOf(catalogue)
 
   let running = 0
   let fulfilment = 0
@@ -280,6 +395,7 @@ export async function priceOrder(body: CreateOrderBody): Promise<PricedOrder> {
       item,
       bundles,
       tiers,
+      catalogue,
     )
     running += total
     fulfilment += packing ?? 0
@@ -288,6 +404,10 @@ export async function priceOrder(body: CreateOrderBody): Promise<PricedOrder> {
     const unitPrice = money(total / item.quantity)
     return {
       ...item,
+      // What the request said a part cost is replaced by what it does, so the
+      // stored box — and the breakdown the team reads from it — is ours.
+      ...(item.box ? { box: withCataloguePrices(item.box, catalogue) } : {}),
+      currency: item.box ? 'EUR' : catalogue.get(item.productId)!.currency,
       unitPrice,
       ...(pricingMode ? { pricingMode } : {}),
       ...(tierPrice !== undefined ? { tierPrice } : {}),
@@ -539,12 +659,18 @@ export async function createOrder(params: {
     .returning()
 
   const dto = toDto(row)
-  // Queued, never awaited: the shopper is waiting on this response, and
-  // neither the marketing endpoint nor Resend is ours to depend on.
-  void enqueueLeadEvent('order.created', leadPayload(dto, 'order.created'))
+  // The queue rows are written before the shopper hears "sent" — a row is a
+  // promise the email will go out, and one written after the response could
+  // be lost to a database hiccup or a host that stops the process once it has
+  // answered. Only the SENDING happens later, off this request; nothing here
+  // waits on the mail provider or the marketing endpoint. `enqueue` never
+  // throws, so a queue failure cannot fail the order.
   trackStatusChange(dto, null)
-  void enqueueEmail('email.order_received', { orderId: dto.id })
-  void enqueueEmail('email.order_notify', { orderId: dto.id })
+  await Promise.all([
+    enqueueLeadEvent('order.created', leadPayload(dto, 'order.created')),
+    enqueueEmail('email.order_received', { orderId: dto.id }),
+    enqueueEmail('email.order_notify', { orderId: dto.id }),
+  ])
   return dto
 }
 
@@ -642,6 +768,8 @@ export async function listOrders(params: {
 }
 
 async function loadRow(companyId: string | null, orderId: string): Promise<Row | null> {
+  // Not an id we could have issued: "not found", not a database error.
+  if (!UUID.test(orderId)) return null
   const [row] = await db.select().from(orders).where(scopeWhere(companyId, orderId))
   return row ?? null
 }
@@ -663,11 +791,30 @@ export async function getOrder(params: {
  * is `confirmOrder`'s job. Cancelling an invoiced order is refused — the
  * invoice stands until a credit note cancels it.
  */
+/**
+ * Which status changes are allowed, by who is asking. Confirming has its own
+ * path (`confirmOrder`); everything after an invoice needs a credit note.
+ *
+ * A company can only withdraw its own request. Our team can also mark it
+ * quoted, take that back, and reopen a withdrawn one.
+ */
+const COMPANY_MOVES: Partial<Record<OrderStatus, OrderStatus[]>> = {
+  new: ['cancelled'],
+  quoted: ['cancelled'],
+}
+const ADMIN_MOVES: Partial<Record<OrderStatus, OrderStatus[]>> = {
+  new: ['quoted', 'cancelled'],
+  quoted: ['new', 'cancelled'],
+  cancelled: ['new'],
+}
+
 export async function updateOrder(params: {
   companyId: string | null
   orderId: string
   status?: OrderStatus
   paymentStatus?: PaymentStatus
+  /** Our own team (super admin) rather than the company that sent it. */
+  asAdmin?: boolean
 }): Promise<OrderDto | null> {
   // Read first so the event can say what it moved from — `quoted → confirmed`
   // is the signal the ads side scores a lead on, and a bare "confirmed" with no
@@ -699,17 +846,45 @@ export async function updateOrder(params: {
       'not_invoiced',
     )
   }
+  const moving = params.status !== undefined && params.status !== previous.status
+  if (moving) {
+    const allowed = (params.asAdmin ? ADMIN_MOVES : COMPANY_MOVES)[previous.status] ?? []
+    if (!allowed.includes(params.status!)) {
+      throw new OrderError(
+        `A ${previous.status} request cannot be marked ${params.status}.`,
+        409,
+        'transition',
+      )
+    }
+  }
 
   const [row] = await db
     .update(orders)
     .set({
-      ...(params.status ? { status: params.status } : {}),
+      ...(moving ? { status: params.status } : {}),
       ...(params.paymentStatus ? { paymentStatus: params.paymentStatus } : {}),
       updatedAt: new Date(),
     })
-    .where(scopeWhere(params.companyId, params.orderId))
+    // Only from the state it was read in, and never once it is confirmed: a
+    // withdrawal racing a confirmation must not leave a cancelled order with
+    // an invoice, or a confirmed one the customer withdrew.
+    .where(
+      moving
+        ? and(
+            scopeWhere(params.companyId, params.orderId),
+            eq(orders.status, previous.status),
+            isNull(orders.confirmedAt),
+          )
+        : scopeWhere(params.companyId, params.orderId),
+    )
     .returning()
-  if (!row) return null
+  if (!row) {
+    throw new OrderError(
+      'This request changed in the meantime. Reload it and try again.',
+      409,
+      'changed',
+    )
+  }
 
   const dto = toDto(row, previous.invoice)
   if (previous.status !== dto.status) {
@@ -734,8 +909,7 @@ function parseDueDate(value: string): Date {
   if (Number.isNaN(due.getTime()) || due.toISOString().slice(0, 10) !== value) {
     throw new OrderError('The due date is not a valid date.', 400, 'due_date')
   }
-  const today = new Date().toISOString().slice(0, 10)
-  if (value < today) {
+  if (value < todayInBerlin()) {
     throw new OrderError('The due date cannot be in the past.', 400, 'due_date')
   }
   if (due.getTime() - Date.now() > 365 * 86_400_000) {
@@ -784,6 +958,9 @@ export async function confirmOrder(params: {
       'no_billing',
     )
   }
+  // Entered here or at checkout, the same rules decide the VAT on it.
+  const billingProblem = billingProblems(billing)
+  if (billingProblem) throw new OrderError(billingProblem, 422, 'billing')
   const missing = missingSellerDetails()
   if (missing.length) {
     throw new OrderError(
@@ -804,7 +981,12 @@ export async function confirmOrder(params: {
   )
   const shipping = money(params.body.shipping)
   const net = money(subtotal + shipping)
-  const vatRate = vatRateFor(billing.country, env.VAT_RATE)
+  // The usual rate for the invoice country, unless the confirming admin set
+  // another (rounded to two decimals, as the column stores it).
+  const vatRate =
+    params.body.vatRate !== undefined
+      ? Math.round(params.body.vatRate * 100) / 100
+      : vatRateFor(billing.country, env.VAT_RATE)
   const vat = money((net * vatRate) / 100)
   const gross = money(net + vat)
 
@@ -825,13 +1007,18 @@ export async function confirmOrder(params: {
       confirmedBy: params.confirmedBy,
       updatedAt: new Date(),
     })
-    // Only if nobody confirmed it in the meantime.
-    .where(and(eq(orders.id, row.id), isNull(orders.confirmedAt)))
+    // Only if nobody confirmed — or withdrew — it in the meantime.
+    .where(
+      and(eq(orders.id, row.id), isNull(orders.confirmedAt), ne(orders.status, 'cancelled')),
+    )
     .returning()
 
   // Someone else got there first; theirs is the price that stands.
   const confirmed = updated ?? (await loadRow(null, row.id))
   if (!confirmed) return null
+  if (confirmed.status === 'cancelled') {
+    throw new OrderError('The request was withdrawn while you confirmed it.', 409, 'cancelled')
+  }
 
   // Issued after the price is stored, from the stored row. Should this fail
   // (a crash, the database), confirming again picks up here: the price is
@@ -856,6 +1043,75 @@ export async function confirmOrder(params: {
     }
   }
   return dto
+}
+
+/**
+ * Fill in what the customer promised to send later — a PO number, a corrected
+ * invoice address, the recipient addresses arriving, the sticker logo.
+ *
+ * Only before confirming: the invoice is made out from these, and an issued
+ * invoice is never changed.
+ */
+export async function updateOrderDetails(params: {
+  orderId: string
+  body: OrderDetailsBody
+}): Promise<OrderDto | null> {
+  const row = await loadRow(null, params.orderId)
+  if (!row) return null
+  if (row.confirmedAt || row.status === 'confirmed') {
+    throw new OrderError(
+      'This order is confirmed and its invoice issued; it can no longer be changed.',
+      409,
+      'confirmed',
+    )
+  }
+
+  const set: Partial<typeof orders.$inferInsert> = {}
+  const { billing: patch, addressesLater, stickerLogos } = params.body
+
+  if (patch) {
+    const merged = { ...(row.billing ?? {}), ...patch } as Partial<NonNullable<Row['billing']>>
+    // An emptied optional field is cleared rather than stored as "".
+    for (const key of ['name', 'line2', 'vatId', 'poNumber', 'email'] as const) {
+      if (merged[key] === '') merged[key] = null
+    }
+    if (!merged.company || !merged.street || !merged.zip || !merged.city || !merged.country) {
+      throw new OrderError(
+        'The invoice address needs a company, street, postcode, city and country.',
+        422,
+        'billing',
+      )
+    }
+    const problem = billingProblems({ country: merged.country, vatId: merged.vatId })
+    if (problem) throw new OrderError(problem, 422, 'billing')
+    set.billing = merged as NonNullable<Row['billing']>
+  }
+
+  if (addressesLater !== undefined) set.addressesLater = addressesLater
+
+  if (stickerLogos?.length) {
+    const items = row.items.map((item) => ({ ...item }))
+    for (const { index, logo } of stickerLogos) {
+      // Stored as the request sent it; only the stickers matter here.
+      const box = items[index]?.box as { stickers?: unknown } | null | undefined
+      if (!box?.stickers) {
+        throw new OrderError(`Line ${index + 1} has no logo stickers.`, 422, 'no_stickers')
+      }
+      items[index] = { ...items[index], box: { ...box, stickerLogo: logo } }
+    }
+    set.items = items
+  }
+
+  const [updated] = await db
+    .update(orders)
+    .set({ ...set, updatedAt: new Date() })
+    // Confirmed in the meantime: its invoice already went out as it was.
+    .where(and(eq(orders.id, row.id), isNull(orders.confirmedAt)))
+    .returning()
+  if (!updated) {
+    throw new OrderError('This order was confirmed in the meantime.', 409, 'confirmed')
+  }
+  return toDto(updated)
 }
 
 /** Send a customer email again, e.g. after they say it never arrived. */

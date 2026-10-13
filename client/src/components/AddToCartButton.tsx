@@ -92,7 +92,8 @@ export function AddToCartButton({
     })
   }
 
-  const outOfStock = disabled || product.stock === 0
+  // Taken out of sale reads like sold out to a shopper; checkout refuses it too.
+  const outOfStock = disabled || product.stock === 0 || product.active === false
 
   return (
     <Button

@@ -79,6 +79,8 @@ export interface ProductInput {
   description: string
   details: string[]
   isFeatured: boolean
+  /** For sale; off takes it out of the shop and checkout. */
+  active?: boolean
   sku?: string
   /** `bundle` is a pre-configured box sold at a price of its own. */
   kind?: 'single' | 'bundle'

@@ -259,6 +259,11 @@ export function ProductsAdminPage() {
                             {t('dashboard.products.badgeFeatured')}
                           </Badge>
                         )}
+                        {p.active === false && (
+                          <Badge variant="outline" className="border-destructive/40 text-[10px] text-destructive">
+                            {t('dashboard.products.list.badgeNotForSale')}
+                          </Badge>
+                        )}
                         {/* These never reach the shop — they're only offered
                             when a shopper builds a box. */}
                         {isSupplyCategory(p.categorySlug) && (

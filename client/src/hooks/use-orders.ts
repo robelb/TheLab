@@ -14,6 +14,8 @@ import {
   type OrderFilters,
   type OrderStatus,
   type PaymentStatus,
+  updateOrderDetails,
+  type OrderDetailsBody,
 } from '@/api/orders'
 
 export const orderKeys = {
@@ -70,6 +72,15 @@ export function useSetPaymentStatus() {
   return useMutation({
     mutationFn: (vars: { id: string; paymentStatus: PaymentStatus }) =>
       setPaymentStatus(vars.id, vars.paymentStatus),
+    onSuccess: () => client.invalidateQueries({ queryKey: orderKeys.all }),
+  })
+}
+
+export function useUpdateOrderDetails() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { id: string; body: OrderDetailsBody }) =>
+      updateOrderDetails(vars.id, vars.body),
     onSuccess: () => client.invalidateQueries({ queryKey: orderKeys.all }),
   })
 }

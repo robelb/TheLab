@@ -49,18 +49,29 @@ export const generateCampaignSchema = z.object({
  */
 export const guestSessionIdSchema = z.string().trim().min(8).max(64)
 
+/**
+ * The most products a campaign or box carries. Every one is fetched and sent
+ * to the image model, which takes about fourteen references in all.
+ */
+export const MAX_CAMPAIGN_PRODUCTS = 12
+
+const productIdsField = z
+  .array(z.string().uuid())
+  .max(MAX_CAMPAIGN_PRODUCTS, `At most ${MAX_CAMPAIGN_PRODUCTS} products`)
+  .transform((ids) => [...new Set(ids)])
+
 export const createCampaignSchema = z.object({
   domain: z.string().optional().nullable(),
-  title: z.string().trim().min(1, 'title is required'),
-  description: z.string().optional(),
-  productIds: z.array(z.string().uuid()).optional(),
+  title: z.string().trim().min(1, 'title is required').max(200),
+  description: z.string().max(5000).optional(),
+  productIds: productIdsField.optional(),
 })
 
 export const updateCampaignSchema = z
   .object({
-    title: z.string().trim().min(1).optional(),
-    description: z.string().optional(),
-    productIds: z.array(z.string().uuid()).optional(),
+    title: z.string().trim().min(1).max(200).optional(),
+    description: z.string().max(5000).optional(),
+    productIds: productIdsField.optional(),
     status: z.enum(['draft', 'approved', 'dismissed']).optional(),
     /**
      * Render-time only, never persisted: the caller's live brand, so a bundle
@@ -102,6 +113,12 @@ export const updateCampaignSchema = z
  */
 export const regenerateHeroImageSchema = z.object({
   brand: campaignBrandSchema.optional(),
+  /**
+   * What is in the box now. The builder creates its campaign once, then keeps
+   * asking for photos as the shopper changes the contents — without these the
+   * photo kept showing the products the box started with.
+   */
+  productIds: productIdsField.refine((ids) => ids.length > 0, 'Add a product first').optional(),
   packagingId: z.string().uuid().optional(),
   fillingId: z.string().uuid().optional(),
   /** The shopper's printed-box design, used in place of the catalog photo. */
@@ -128,9 +145,10 @@ export const listCampaignsQuerySchema = z.object({
 
 /** Storefront query: active videos for a domain, optionally ranked by browse context. */
 export const listActiveVideosQuerySchema = z.object({
-  domain: z.string().optional(),
-  category: z.string().optional(),
-  q: z.string().optional(),
+  domain: z.string().max(253).optional(),
+  category: z.string().max(100).optional(),
+  // Turned into an embedding (paid), so kept to a sensible search length.
+  q: z.string().max(200).optional(),
 })
 
 /** Add a video to a campaign (metadata + already-uploaded video URL). */

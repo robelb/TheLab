@@ -1,4 +1,4 @@
-import type { BoxDetails, BoxLine } from '@/types/box'
+import { GREETING_MAX_LENGTH, type BoxDetails, type BoxLine } from '@/types/box'
 import type { BundleComponent, Product } from '@/types/product'
 
 /** Marks a cart line as a client-side built box rather than a catalog product. */
@@ -233,29 +233,45 @@ export function boxPrice(
   return { total: boxSubtotal(lines), pricingMode: 'parts' }
 }
 
-/** A pre-configured box's contents, as box lines the builder and cart use. */
+/**
+ * A pre-configured box's contents, as box lines the builder and cart use.
+ *
+ * The greeting card goes in the card slot, where its message lives and where
+ * the cart, checkout and the team's order page look for it. (The server checks
+ * a box is still "as sold" by its contents, not by slot, so the set price
+ * still applies.)
+ */
 export function bundleToBoxLines(components: BundleComponent[]): {
   lines: BoxLine[]
   packaging: BoxLine | null
   filling: BoxLine | null
+  greetingCard: BoxLine | null
 } {
   const lines: BoxLine[] = []
   let packaging: BoxLine | null = null
   let filling: BoxLine | null = null
+  let greetingCard: BoxLine | null = null
 
   for (const component of components) {
     const line = toBoxLine(component.product, component.quantity)
     if (component.role === 'packaging') packaging = line
     else if (component.role === 'filling') filling = line
+    else if (component.role === 'card' && !greetingCard) greetingCard = line
     else lines.push(line)
   }
-  return { lines, packaging, filling }
+  return { lines, packaging, filling, greetingCard }
 }
 
-/** A bundle is a box, so it enters the cart as one. */
-export function bundleToBoxDetails(bundle: Product): BoxDetails | null {
+/**
+ * A bundle is a box, so it enters the cart as one. `cardMessage` is what the
+ * shopper wrote for its greeting card on the product page, if it has one.
+ */
+export function bundleToBoxDetails(
+  bundle: Product,
+  options: { cardMessage?: string } = {},
+): BoxDetails | null {
   if (bundle.kind !== 'bundle' || !bundle.components?.length) return null
-  const { lines, packaging, filling } = bundleToBoxLines(bundle.components)
+  const { lines, packaging, filling, greetingCard } = bundleToBoxLines(bundle.components)
   return {
     campaignId: null,
     bundleId: bundle.id,
@@ -263,5 +279,13 @@ export function bundleToBoxDetails(bundle: Product): BoxDetails | null {
     lines,
     packaging,
     filling,
+    ...(greetingCard
+      ? {
+          greetingCard: {
+            ...greetingCard,
+            message: (options.cardMessage ?? '').trim().slice(0, GREETING_MAX_LENGTH),
+          },
+        }
+      : {}),
   }
 }

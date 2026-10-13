@@ -111,6 +111,9 @@ export function ConfirmOrderDialog({
     order.items.map((item) => item.unitPrice.toFixed(2)),
   )
   const [shipping, setShipping] = useState(order.shipping.toFixed(2))
+  // German VAT at home, none for other invoice countries — changeable here.
+  const usualVatRate = vatRateFor(order.billing?.country ?? 'DE')
+  const [vatRate, setVatRate] = useState(String(usualVatRate))
   const [dueDate, setDueDate] = useState(() => isoInDays(DEFAULT_PAYMENT_TERM_DAYS))
   // Only asked for when the request came without one (older shop orders).
   const needsBilling = !order.billing
@@ -118,18 +121,23 @@ export function ConfirmOrderDialog({
 
   const parsed = prices.map(parseAmount)
   const parsedShipping = parseAmount(shipping)
+  const parsedVat = parseAmount(vatRate)
+  const vatValid = parsedVat !== null && parsedVat <= 100
   const dueValid = /^\d{4}-\d{2}-\d{2}$/.test(dueDate) && dueDate >= todayIso()
   const emailValid = !billing.email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(billing.email.trim())
   const billingValid =
     !needsBilling ||
     (BILLING_FIELDS.every((field) => !field.required || billing[field.key].trim()) && emailValid)
   const valid =
-    parsed.every((p) => p !== null) && parsedShipping !== null && dueValid && billingValid
+    parsed.every((p) => p !== null) &&
+    parsedShipping !== null &&
+    vatValid &&
+    dueValid &&
+    billingValid
   const termDays = dueValid ? daysUntil(dueDate) : null
-  // Shown so the total can be read before it is sent: German VAT at home,
-  // none for other invoice countries. The server applies its own rate and its
-  // figures are the ones stored; this only previews them.
-  const previewVatRate = vatRateFor(order.billing?.country ?? 'DE')
+  // The rate the invoice will carry; the server recomputes the amounts from it.
+  const previewVatRate = vatValid ? Math.round(parsedVat! * 100) / 100 : usualVatRate
+  const vatChanged = vatValid && previewVatRate !== usualVatRate
 
   const totals = useMemo(() => {
     if (!valid) return null
@@ -156,6 +164,8 @@ export function ConfirmOrderDialog({
             unitPrice: parsed[index] ?? 0,
           })),
           shipping: parsedShipping ?? 0,
+          // Only when changed: otherwise the server applies the usual rate.
+          ...(vatChanged ? { vatRate: previewVatRate } : {}),
           dueDate,
           ...(needsBilling
             ? {
@@ -265,6 +275,30 @@ export function ConfirmOrderDialog({
             <span className="text-right tabular-nums">
               {parsedShipping !== null ? m(parsedShipping) : '—'}
             </span>
+          </div>
+          <div className="grid grid-cols-[1fr_110px_90px] items-center gap-3 text-sm">
+            <div>
+              <Label htmlFor="confirm-vat">{t('dashboard.orders.confirm.vatRate')}</Label>
+              <p
+                className={`text-xs ${vatValid ? (vatChanged ? 'text-amber-700' : 'text-muted-foreground') : 'text-destructive'}`}
+              >
+                {!vatValid
+                  ? t('dashboard.orders.confirm.vatRateInvalid')
+                  : t('dashboard.orders.confirm.vatRateUsual', {
+                      rate: usualVatRate,
+                      country: order.billing?.country ?? 'DE',
+                    })}
+              </p>
+            </div>
+            <Input
+              id="confirm-vat"
+              inputMode="decimal"
+              value={vatRate}
+              onChange={(e) => setVatRate(e.target.value)}
+              className={vatValid ? undefined : 'border-destructive'}
+              aria-invalid={vatValid ? undefined : true}
+            />
+            <span className="text-right tabular-nums">{vatValid ? `${previewVatRate} %` : '—'}</span>
           </div>
         </div>
 

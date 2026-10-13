@@ -18,6 +18,27 @@ import {
 const money = z.number().finite().min(0).max(1_000_000)
 const shortText = z.string().trim().min(1).max(200)
 
+/** Today's date in Germany, `YYYY-MM-DD` — the calendar our customers and invoices use. */
+export function todayInBerlin(now = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' }).format(now)
+}
+
+/**
+ * A calendar date, `YYYY-MM-DD`, that exists.
+ *
+ * Free text used to be accepted here, and it ends up on the invoice: "ASAP" or
+ * "15.12." made the PDF throw on every attempt, for good, because an issued
+ * invoice cannot be changed.
+ */
+const isoDate = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'The date must be a date (YYYY-MM-DD).')
+  .refine((v) => {
+    const d = new Date(`${v}T12:00:00Z`)
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v
+  }, 'That date does not exist.')
+
 /** One product inside a built box, priced as it was when the box was built. */
 const boxLineSchema = z.object({
   productId: z.string().trim().min(1).max(64),
@@ -178,14 +199,17 @@ export const createOrderSchema = z.object({
       line2: z.string().trim().max(300).nullish(),
       city: z.string().trim().max(120).nullish(),
       zip: z.string().trim().max(32).nullish(),
-      country: z.string().trim().max(120).nullish(),
-      neededBy: z.string().trim().max(64).nullish(),
+      country: z.string().trim().toUpperCase().max(120).nullish(),
+      neededBy: isoDate
+        .refine((v) => v >= todayInBerlin(), 'The delivery date cannot be in the past.')
+        .nullish(),
       notes: z.string().trim().max(2000).nullish(),
     })
     .nullish(),
   shipping: shippingSchema.nullish(),
   items: z.array(itemSchema).min(1, 'There is nothing to request').max(100),
-  currency: z.string().trim().min(1).max(8).default('EUR'),
+  /** Everything is priced in euros; anything else would be invoiced wrongly. */
+  currency: z.literal('EUR').default('EUR'),
   locale: z.enum(['de', 'en']).default('en'),
   /**
    * Ignored — kept so an older client's payload still validates. Where a
@@ -244,6 +268,11 @@ export const confirmOrderSchema = z.object({
     .default([]),
   shipping: money,
   /**
+   * The VAT rate in percent, when it is not the usual one for the invoice
+   * country (19 % in Germany, 0 % elsewhere). Left out, the usual one applies.
+   */
+  vatRate: z.number().finite().min(0).max(100).optional(),
+  /**
    * When the invoice is due, `YYYY-MM-DD`. Left out, it is the usual payment
    * term from the invoice date. Checked against today in the service.
    */
@@ -259,6 +288,39 @@ export const confirmOrderSchema = z.object({
   billing: billingSchema.optional(),
 })
 
+/**
+ * What a super admin can fill in after a request arrived, before it is
+ * confirmed: what the customer promised to send later.
+ *
+ * - `billing`: fields of the invoice address to change — a PO number that
+ *   came by email, a corrected VAT ID or address. Merged into what is there.
+ * - `addressesLater`: false once the recipient addresses have arrived.
+ * - `stickerLogos`: the logo for the stickers of a box line, by its position.
+ */
+export const orderDetailsSchema = z
+  .object({
+    billing: billingSchema.partial().optional(),
+    addressesLater: z.boolean().optional(),
+    stickerLogos: z
+      .array(
+        z.object({
+          index: z.number().int().min(0).max(99),
+          logo: z
+            .object({
+              url: z.string().trim().url().max(2048),
+              name: z.string().trim().max(200).nullish(),
+            })
+            .nullable(),
+        }),
+      )
+      .max(100)
+      .optional(),
+  })
+  .refine(
+    (b) => b.billing !== undefined || b.addressesLater !== undefined || b.stickerLogos?.length,
+    'Nothing to change',
+  )
+
 export const resendEmailSchema = z.object({
   template: z.enum(['received', 'confirmed']),
 })
@@ -266,6 +328,7 @@ export const resendEmailSchema = z.object({
 export type CreateOrderBody = z.infer<typeof createOrderSchema>
 export type UpdateOrderBody = z.infer<typeof updateOrderSchema>
 export type ConfirmOrderBody = z.infer<typeof confirmOrderSchema>
+export type OrderDetailsBody = z.infer<typeof orderDetailsSchema>
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
 export type PaymentStatusValue = (typeof PAYMENT_STATUSES)[number]
 
@@ -312,29 +375,47 @@ export function destinationCountry(body: CreateOrderBody): string {
 }
 
 /**
+ * What an invoice address has to satisfy, wherever it was entered — at
+ * checkout, in the confirm dialog, or edited afterwards: a country we invoice
+ * to, and a VAT ID wherever the invoice goes out without VAT.
+ */
+export function billingProblems(billing: {
+  country: string
+  vatId?: string | null
+}): string | null {
+  if (!INVOICE_COUNTRIES.includes(billing.country)) {
+    return 'We cannot invoice to that country yet'
+  }
+  if (vatIdRequired(billing.country) && !billing.vatId) {
+    return 'A VAT ID is required for invoices to EU countries outside Germany'
+  }
+  if (billing.vatId && !vatIdLooksValid(billing.country, billing.vatId)) {
+    return 'The VAT ID does not match the billing country'
+  }
+  return null
+}
+
+/**
  * Checks every request has to pass, signed in or not: an invoice country we
  * make invoices out to, a VAT ID wherever the invoice goes out without VAT,
  * a shipping choice that fits the boxes, and a destination we ship to.
  * Returns the first problem, or null.
  */
 export function checkoutProblems(body: CreateOrderBody): string | null {
-  const billing = body.billing
-  if (billing) {
-    if (!INVOICE_COUNTRIES.includes(billing.country)) {
-      return 'We cannot invoice to that country yet'
-    }
-    if (vatIdRequired(billing.country) && !billing.vatId) {
-      return 'A VAT ID is required for invoices to EU countries outside Germany'
-    }
-    if (billing.vatId && !vatIdLooksValid(billing.country, billing.vatId)) {
-      return 'The VAT ID does not match the billing country'
-    }
+  if (body.billing) {
+    const problem = billingProblems(body.billing)
+    if (problem) return problem
   }
 
   const method = body.shipping?.method ?? 'bulk'
   const boxes = boxCount(body.items)
   if (method === 'individual' && boxes < 1) {
     return 'Individual shipping is for gift boxes'
+  }
+  // Each parcel is one box to one recipient; a loose product has no parcel
+  // and no address to go to. Mixed shipping sends them with the bulk part.
+  if (method === 'individual' && body.items.some((item) => !item.box)) {
+    return 'Single products cannot be sent individually. Choose bulk or mixed shipping.'
   }
   if (method === 'mixed') {
     if (boxes < 2) return 'Mixed shipping needs at least two boxes'

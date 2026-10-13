@@ -62,6 +62,11 @@ export interface Product {
   labels?: ProductLabel[]
   /** Smallest order the supplier accepts. */
   minQuantity?: number
+  /**
+   * For sale. False once taken out of sale (gone from the supplier, or no
+   * price yet): only the dashboard lists it, and checkout refuses it.
+   */
+  active?: boolean
   /** What is inside, on a bundle read one at a time. */
   components?: BundleComponent[]
 }

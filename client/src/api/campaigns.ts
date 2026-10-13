@@ -97,6 +97,11 @@ export async function updateCampaign(
  * default kraft box.
  */
 export interface HeroImageSupplies {
+  /**
+   * What is in the box now. The builder creates its campaign once and keeps
+   * asking for photos as the contents change; the server photographs these.
+   */
+  productIds?: string[]
   packagingId?: string
   fillingId?: string
   /** The shopper's printed-box design, used instead of the catalog photo. */

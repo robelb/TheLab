@@ -171,6 +171,8 @@ export interface OrderFilters {
 export interface ConfirmOrderBody {
   lines: { index: number; unitPrice: number }[]
   shipping: number
+  /** VAT in percent, when not the usual rate for the invoice country. */
+  vatRate?: number
   /** When the invoice is due, `YYYY-MM-DD`; the server's usual term if left out. */
   dueDate?: string
   /** Who to invoice, when the request came without a billing address. */
@@ -205,6 +207,20 @@ export async function setPaymentStatus(
   paymentStatus: PaymentStatus,
 ): Promise<Order> {
   const { data } = await apiClient.patch<Order>(`/orders/${id}`, { paymentStatus })
+  return data
+}
+
+/** What a super admin fills in after the request, before confirming. */
+export interface OrderDetailsBody {
+  billing?: Partial<OrderBilling>
+  /** False once the recipient addresses have arrived. */
+  addressesLater?: boolean
+  /** The sticker logo of a box line, by its position; null removes it. */
+  stickerLogos?: { index: number; logo: { url: string; name?: string | null } | null }[]
+}
+
+export async function updateOrderDetails(id: string, body: OrderDetailsBody): Promise<Order> {
+  const { data } = await apiClient.patch<Order>(`/orders/${id}/details`, body)
   return data
 }
 

@@ -1,6 +1,7 @@
 import { clientMessage } from '../../lib/clientError.js'
-import { Router } from 'express'
-import { aiLimit } from '../../lib/rateLimit.js'
+import { Router, type NextFunction, type Request, type Response } from 'express'
+import { aiLimit, searchLimit } from '../../lib/rateLimit.js'
+import { ROLES } from '../../lib/roles.js'
 import { routeParam } from '../../lib/routeParam.js'
 import {
   optionalAuth,
@@ -80,7 +81,16 @@ productsRouter.post('/search/image', aiLimit, async (req, res) => {
   }
 })
 
-productsRouter.get('/', async (req, res) => {
+/** A search query is turned into an embedding (paid); browsing without one is free. */
+function searchWhenQueried(req: Request, res: Response, next: NextFunction): void {
+  if (typeof req.query.q === 'string' && req.query.q.trim()) {
+    searchLimit(req, res, next)
+    return
+  }
+  next()
+}
+
+productsRouter.get('/', searchWhenQueried, async (req, res) => {
   const parsed = productsQuerySchema.safeParse(req.query)
 
   if (!parsed.success) {
@@ -96,6 +106,9 @@ productsRouter.get('/', async (req, res) => {
   const result = await listProducts({
     ...parsed.data,
     companyId: req.authUser?.companyId ?? undefined,
+    // Our own team sees products taken out of sale in the dashboard list.
+    includeInactive:
+      parsed.data.includeSupplies && req.authUser?.role === ROLES.SUPER_ADMIN,
   })
   res.json(result)
 })

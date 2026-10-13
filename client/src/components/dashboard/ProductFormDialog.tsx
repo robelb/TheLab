@@ -63,6 +63,8 @@ interface FormState {
   description: string
   details: string
   isFeatured: boolean
+  /** For sale. */
+  active: boolean
   sku: string
   /** A pre-configured box, rather than an ordinary catalogue item. */
   isBundle: boolean
@@ -96,6 +98,7 @@ const EMPTY: FormState = {
   description: '',
   details: '',
   isFeatured: false,
+  active: true,
   sku: '',
   isBundle: false,
   tags: '',
@@ -175,6 +178,7 @@ export function ProductFormDialog({
         description: product.description ?? '',
         details: (product.details ?? []).join('\n'),
         isFeatured: Boolean(product.isFeatured),
+        active: product.active !== false,
         sku: product.sku ?? '',
         isBundle: product.kind === 'bundle',
         tags: (product.tags ?? []).join(', '),
@@ -244,6 +248,7 @@ export function ProductFormDialog({
         .map((d) => d.trim())
         .filter(Boolean),
       isFeatured: form.isFeatured,
+      active: form.active,
       sku: form.sku.trim() || undefined,
       kind: form.isBundle ? 'bundle' : 'single',
       tags: form.tags
@@ -469,6 +474,19 @@ export function ProductFormDialog({
                     {t('dashboard.products.form.labelsHint')}
                   </p>
                 </fieldset>
+
+                {/* Off takes it out of the shop, the box builder and checkout;
+                    it stays here, and orders that have it keep it. */}
+                <div className="flex items-center gap-2 self-end pb-2">
+                  <Checkbox
+                    id="active"
+                    checked={form.active}
+                    onCheckedChange={(c) => update('active', c === true)}
+                  />
+                  <Label htmlFor="active" className="font-medium">
+                    {t('dashboard.products.form.forSale')}
+                  </Label>
+                </div>
 
                 <div className="flex items-center gap-2 self-end pb-2">
                   <Checkbox

@@ -4,8 +4,15 @@ import type { GraduatedPrice } from '../db/schema/index.js'
  * The supplier's volume table, in the shape we store.
  *
  * The API sends `{ firstUnit, lastUnit, price }`. A `lastUnit` of 0, or one
- * below `firstUnit`, marks the open-ended top tier. Tiers come back sorted by
- * where they start, with any that cannot be used (no price, no start) dropped.
+ * below `firstUnit`, means "and up". Tiers come back sorted by where they
+ * start, and made to fit together:
+ * - unusable ones (no price, a price of 0, no start) are dropped — a free tier
+ *   is a data error, not a discount;
+ * - two that start at the same quantity (JTL sends 0 and 1 for "from one")
+ *   keep the first;
+ * - an "and up" tier that is not the last, or one that runs into the next,
+ *   ends where the next begins. Left open, the first open tier matched every
+ *   larger quantity and the discounts above it never applied.
  */
 export function normalizeGraduatedPrices(
   tiers: { firstUnit?: number | null; lastUnit?: number | null; price?: number | null }[] | null | undefined,
@@ -28,7 +35,15 @@ export function normalizeGraduatedPrices(
         price: Math.round(t.price! * 100) / 100,
       }
     })
+    .filter((t) => t.price > 0)
     .sort((a, b) => a.minQty - b.minQty)
+    .filter((t, i, all) => i === 0 || t.minQty !== all[i - 1].minQty)
+    .map((t, i, all) => {
+      const next = all[i + 1]
+      if (!next) return t
+      const end = next.minQty - 1
+      return t.maxQty === null || t.maxQty > end ? { ...t, maxQty: end } : t
+    })
 }
 
 /**
@@ -45,9 +60,12 @@ export function unitPriceFor(
   quantity: number,
 ): number {
   if (!tiers?.length) return basePrice
-  const tier = tiers.find(
-    (t) => quantity >= t.minQty && (t.maxQty === null || quantity <= t.maxQty),
-  )
+  // The tier that starts highest among those holding the quantity: for tables
+  // stored before they were made to fit together, an open lower tier would
+  // otherwise shadow the discounts above it.
+  const tier = tiers
+    .filter((t) => quantity >= t.minQty && (t.maxQty === null || quantity <= t.maxQty))
+    .reduce<GraduatedPrice | null>((best, t) => (!best || t.minQty > best.minQty ? t : best), null)
   return tier ? tier.price : basePrice
 }
 

@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { db, rawSql } from '../../db/index.js'
+import { env } from '../../config/env.js'
 import {
   campaignVideos,
   campaigns,
@@ -8,7 +9,7 @@ import {
   type CampaignOwnerKind,
   type CampaignVideo,
 } from '../../db/schema/index.js'
-import { embedText } from '../../services/embedding.js'
+import { embedQuery, embedText } from '../../services/embedding.js'
 import {
   getBrandImageAssetsFromExtraction,
   hasAnyBrandImage,
@@ -590,6 +591,24 @@ async function reconcileHeroImageStatus(c: Campaign): Promise<Campaign> {
 }
 
 /** Render the bundle image for a campaign and record the result. Never throws. */
+/**
+ * A ceiling on box and bundle photos per day, per server — a backstop for the
+ * AI bill if the per-visitor limits are ever got round. Past it, renders fail
+ * with the usual "could not be made" until the next day (UTC).
+ */
+const renderBudget = { day: '', used: 0 }
+
+function takeRenderBudget(): boolean {
+  const today = new Date().toISOString().slice(0, 10)
+  if (renderBudget.day !== today) {
+    renderBudget.day = today
+    renderBudget.used = 0
+  }
+  if (renderBudget.used >= env.AI_DAILY_IMAGE_LIMIT) return false
+  renderBudget.used++
+  return true
+}
+
 async function runHeroImageJob(
   campaignId: string,
   brand?: CampaignBrandInput,
@@ -631,6 +650,13 @@ async function runHeroImageJob(
     }
 
     // The box builder asks for its own photo — see `generateBoxHeroImage`.
+    if (!takeRenderBudget()) {
+      console.error(
+        `[campaigns] daily image limit (${env.AI_DAILY_IMAGE_LIMIT}) reached — box photos paused until tomorrow`,
+      )
+      throw new Error('Daily image limit reached.')
+    }
+
     const url = await withTimeout(
       supplies?.plainUnlessDesigned
         ? generateBoxHeroImage(products, supplies)
@@ -648,7 +674,9 @@ async function runHeroImageJob(
       .set({
         heroImageUrl: url,
         heroImageProductIds: row.productIds,
-        heroImageStatus: 'ready',
+        // The box changed while this one was made: another pass follows, and
+        // this photo is not the box any more — so it is not "ready" yet.
+        heroImageStatus: heroImageReruns.has(campaignId) ? 'pending' : 'ready',
         heroImageError: null,
       })
       .where(eq(campaigns.id, campaignId))
@@ -714,6 +742,7 @@ export async function regenerateCampaignHeroImage(
   id: string,
   brand?: CampaignBrandInput,
   supplies?: KitSupplySelection,
+  productIds?: string[],
 ): Promise<HydratedCampaign | null> {
   const [row] = await db
     .select()
@@ -722,13 +751,15 @@ export async function regenerateCampaignHeroImage(
     .limit(1)
   if (!row) return null
 
-  if (heroImageJobs.has(id)) return hydrate(row)
-
+  // The box as it is now: the render reads the products off the row.
+  const contents = productIds && !sameBundle(productIds, row.productIds) ? { productIds } : {}
   const [pending] = await db
     .update(campaigns)
-    .set({ heroImageStatus: 'pending', heroImageError: null })
+    .set({ ...contents, heroImageStatus: 'pending', heroImageError: null })
     .where(eq(campaigns.id, id))
     .returning()
+  // A render already running is not left to finish with the old box: one more
+  // pass is queued with these supplies, and the photo settles on this box.
   startHeroImageJob(id, brand, supplies)
   return hydrate(pending ?? row)
 }
@@ -777,13 +808,15 @@ export async function generateCampaign(
 
   // The client posts the brand with the logo; fall back to the company's stored
   // extraction (the same source a later regeneration uses).
-  const bundleBrand = products.length
+  const bundleBrand = products.length && !plainUnlessDesigned
     ? await resolveBundleBrand(brand, brand.domain ?? null)
     : undefined
 
   // Best-effort: a campaign without its kit image is still a useful draft, and
-  // the user can regenerate it from the dashboard.
-  const heroImageUrl = products.length
+  // the user can regenerate it from the dashboard. The box builder's "pick for
+  // me" (`plainUnlessDesigned`) makes its own photo of the box on the review
+  // step — rendering one here too was a second paid image nobody saw.
+  const heroImageUrl = products.length && !plainUnlessDesigned
     ? await withTimeout(
         generateKitImage(products, bundleBrand, { plainUnlessDesigned }),
         KIT_IMAGE_TIMEOUT_MS,
@@ -1003,6 +1036,7 @@ export async function addCampaignVideo(
 
 /** Update a video's metadata; re-embeds when the description changes. */
 export async function updateCampaignVideo(
+  campaignId: string,
   videoId: string,
   input: UpdateCampaignVideoBody,
 ): Promise<CampaignVideoPublic | null> {
@@ -1020,15 +1054,20 @@ export async function updateCampaignVideo(
   const [row] = await db
     .update(campaignVideos)
     .set(values)
-    .where(eq(campaignVideos.id, videoId))
+    // The campaign the caller was checked against — never another one's video.
+    .where(and(eq(campaignVideos.id, videoId), eq(campaignVideos.campaignId, campaignId)))
     .returning()
   return row ? toPublicVideo(row) : null
 }
 
-export async function deleteCampaignVideo(videoId: string): Promise<boolean> {
+export async function deleteCampaignVideo(
+  campaignId: string,
+  videoId: string,
+): Promise<boolean> {
   const deleted = await db
     .delete(campaignVideos)
-    .where(eq(campaignVideos.id, videoId))
+    // The campaign the caller was checked against — never another one's video.
+    .where(and(eq(campaignVideos.id, videoId), eq(campaignVideos.campaignId, campaignId)))
     .returning({ id: campaignVideos.id })
   return deleted.length > 0
 }
@@ -1073,7 +1112,7 @@ export async function listActiveCampaignVideos(opts: {
 
   let vectorStr: string | null = null
   if (context) {
-    const embedding = await tryEmbed(context)
+    const embedding = await embedQuery(context).catch(() => null)
     if (embedding) vectorStr = `[${embedding.join(',')}]`
   }
 

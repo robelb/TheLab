@@ -52,6 +52,8 @@ export interface ProductWithCategory {
   minQuantity: number
   /** Present on a `bundle`, when it was read one at a time. */
   components?: BundleComponent[]
+  /** For sale. False once taken out of sale; the dashboard still shows it. */
+  active: boolean
 }
 
 /** Drizzle select result row (camelCase, matches column aliases). */
@@ -83,6 +85,7 @@ export interface ProductRow {
   updatedAt: Date
   categoryName: string
   categorySlug: string
+  active: boolean
 }
 
 /** Raw SQL result row (snake_case, from neon tagged templates). */
@@ -113,6 +116,7 @@ export interface RawProductRow {
   updated_at: Date
   category_name: string
   category_slug: string
+  active: boolean
 }
 
 /** Raw product from normalizedProducts.json (seed data). */
@@ -161,6 +165,8 @@ export interface ListProductsParams {
    * alongside catalog products.
    */
   includeSupplies?: boolean
+  /** Include products taken out of sale. Only the dashboard, for our own team. */
+  includeInactive?: boolean
   /** Occasion/use-case slug, e.g. `christmas`. What a landing page filters by. */
   tag?: string
   /** Narrow to ordinary items or to pre-configured boxes. */
@@ -229,6 +235,7 @@ export function toProductWithCategory(row: ProductRow): ProductWithCategory {
     tags: row.tags ?? [],
     labels: row.labels ?? [],
     minQuantity: row.minQuantity ?? 1,
+    active: row.active ?? true,
   }
 }
 
@@ -257,6 +264,7 @@ export function rawRowToProductRow(row: RawProductRow): ProductRow {
     tags: row.tags ?? [],
     labels: row.labels ?? [],
     minQuantity: row.min_quantity ?? 1,
+    active: row.active ?? true,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     categoryName: row.category_name,

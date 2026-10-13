@@ -39,11 +39,17 @@ export interface OutboxHandler {
 
 /** How many due events one pass will attempt. */
 const BATCH = 20
-/** Gives up after this many tries — roughly two days of backoff. */
-const MAX_ATTEMPTS = 8
+/**
+ * Gives up after this many tries. With the backoff below (30 s doubling, then
+ * every 6 h) that is about two days — long enough to ride out a provider
+ * outage or a weekend with the mail account locked.
+ */
+const MAX_ATTEMPTS = 16
 const BASE_BACKOFF_MS = 30_000
 const MAX_BACKOFF_MS = 6 * 60 * 60 * 1000
 const LOOP_INTERVAL_MS = 30_000
+/** A send that started longer ago than this died with its process. */
+const STUCK_AFTER = "interval '5 minutes'"
 
 const handlers = new Map<OutboxTarget, OutboxHandler>()
 
@@ -74,7 +80,11 @@ export async function enqueue(
       .returning({ id: outboundEvents.id })
     id = row.id
   } catch (err) {
-    console.warn(`[outbox:${target}] could not queue ${kind}:`, errorMessage(err))
+    // Loud on purpose: this is an email or a lead that will never go out.
+    console.error(
+      `[outbox:${target}] could not queue ${kind} ${JSON.stringify(payload)}:`,
+      errorMessage(err),
+    )
     return null
   }
   if (options.flush !== false && handlers.get(target)?.isConfigured()) void flush(target)
@@ -101,7 +111,7 @@ export async function sendNow(target: OutboxTarget, id: string): Promise<SendOut
 
   const claimed = await db
     .update(outboundEvents)
-    .set({ status: 'sending' })
+    .set({ status: 'sending', claimedAt: new Date() })
     .where(and(eq(outboundEvents.id, id), eq(outboundEvents.status, 'pending')))
     .returning()
   if (claimed[0]) return run(handler, claimed[0])
@@ -155,7 +165,7 @@ export async function flush(target: OutboxTarget): Promise<void> {
     for (const event of due) {
       const claimed = await db
         .update(outboundEvents)
-        .set({ status: 'sending' })
+        .set({ status: 'sending', claimedAt: new Date() })
         .where(
           and(
             eq(outboundEvents.id, event.id),
@@ -239,6 +249,8 @@ async function reschedule(
  * nobody is going to finish those, and at-least-once means a possible duplicate
  * is better than a dropped one.
  */
+const timers: NodeJS.Timeout[] = []
+
 export function startOutbox(): void {
   for (const handler of handlers.values()) {
     const { target } = handler
@@ -246,16 +258,46 @@ export function startOutbox(): void {
       console.log(`  Outbox ${target}: disabled (not configured) — events are queued only`)
       continue
     }
-    void recoverStuck(target)
-    const timer = setInterval(() => void flush(target), LOOP_INTERVAL_MS)
+    void recoverAndFlush(target)
+    // Every pass also recovers, so a send that died is picked up again while
+    // this process runs — not only when the next one starts.
+    const timer = setInterval(() => void recoverAndFlush(target), LOOP_INTERVAL_MS)
     timer.unref()
+    timers.push(timer)
     console.log(
       `  Outbox ${target}: running${handler.describe ? ` → ${handler.describe()}` : ''}`,
     )
   }
 }
 
-async function recoverStuck(target: OutboxTarget): Promise<void> {
+/** Stop the timers, for a clean shutdown. Sends already under way finish. */
+export function stopOutbox(): void {
+  for (const timer of timers.splice(0)) clearInterval(timer)
+}
+
+/**
+ * One full pass over every configured target: recover what is stuck, send
+ * what is due, and wait until it is done.
+ *
+ * What a scheduler calls (`POST /internal/outbox/flush`) on a host that only
+ * gives the process CPU while it answers a request — Cloud Run's default —
+ * where the timers above would otherwise barely run.
+ */
+export async function flushAll(): Promise<void> {
+  await Promise.all(
+    [...handlers.values()]
+      .filter((h) => h.isConfigured())
+      .map((h) => recoverAndFlush(h.target)),
+  )
+}
+
+/**
+ * Put back in the queue anything whose send started minutes ago and never
+ * finished — its process died. Judged by when the SEND started, not when the
+ * row was created: a retry hours later is not stuck just because it is old,
+ * and reclaiming it while another instance is sending it means a duplicate.
+ */
+async function recoverAndFlush(target: OutboxTarget): Promise<void> {
   try {
     await db
       .update(outboundEvents)
@@ -264,13 +306,13 @@ async function recoverStuck(target: OutboxTarget): Promise<void> {
         and(
           eq(outboundEvents.target, target),
           eq(outboundEvents.status, 'sending'),
-          sql`${outboundEvents.createdAt} < now() - interval '5 minutes'`,
+          sql`coalesce(${outboundEvents.claimedAt}, ${outboundEvents.createdAt}) < now() - ${sql.raw(STUCK_AFTER)}`,
         ),
       )
   } catch (err) {
     console.warn(`[outbox:${target}] recovery failed:`, errorMessage(err))
   }
-  void flush(target)
+  await flush(target)
 }
 
 export function errorMessage(err: unknown): string {

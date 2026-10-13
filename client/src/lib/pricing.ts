@@ -15,9 +15,11 @@ export function unitPriceFor(
   quantity: number,
 ): number {
   if (!tiers?.length) return basePrice
-  const tier = tiers.find(
-    (t) => quantity >= t.minQty && (t.maxQty === null || quantity <= t.maxQty),
-  )
+  // The tier that starts highest among those holding the quantity — as the
+  // server picks it.
+  const tier = tiers
+    .filter((t) => quantity >= t.minQty && (t.maxQty === null || quantity <= t.maxQty))
+    .reduce<GraduatedPrice | null>((best, t) => (!best || t.minQty > best.minQty ? t : best), null)
   return tier ? tier.price : basePrice
 }
 

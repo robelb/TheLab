@@ -20,7 +20,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ArrowLeft, Palette, Pencil, Trash2 } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { GREETING_MAX_LENGTH } from '@/types/box'
+import { ArrowLeft, ChevronDown, Palette, Pencil, Trash2 } from 'lucide-react'
 import { bundleToBoxDetails } from '@/lib/box'
 import { useFunnel } from '@/context/FunnelContext'
 
@@ -51,6 +53,9 @@ export function ProductPage() {
   const [activeIndex, setActiveIndex] = useState(0)
   const minQuantity = Math.max(1, product?.minQuantity ?? 1)
   const [quantity, setQuantity] = useState(minQuantity)
+  // A ready-made box's greeting card message, written before it goes in the cart.
+  const [cardMessage, setCardMessage] = useState('')
+  const [cardOpen, setCardOpen] = useState(false)
   // Related products link here too, so the page stays mounted across ids:
   // a new product starts again from its own minimum.
   useEffect(() => {
@@ -104,10 +109,13 @@ export function ProductPage() {
 
   const isBundle = product.kind === 'bundle'
   const contents = (product.components ?? []).filter((c) => c.role === 'item')
+  const greetingCard = isBundle
+    ? (product.components ?? []).find((c) => c.role === 'card') ?? null
+    : null
 
   /** A ready-made box enters the cart as a box, so checkout prices it as one. */
   function addBundleToCart() {
-    const box = bundleToBoxDetails(product!)
+    const box = bundleToBoxDetails(product!, { cardMessage })
     if (!box) return
     addItem(product!, quantity, box)
   }
@@ -318,6 +326,56 @@ export function ProductPage() {
                 </Button>
               )}
             </div>
+            {/* The box comes with a greeting card: its message can be written
+                here, before it goes in the cart. Folded away, because it is
+                optional and can also be sent later. */}
+            {greetingCard && (
+              <div className="rounded-brand border border-border/60">
+                <button
+                  type="button"
+                  onClick={() => setCardOpen((open) => !open)}
+                  aria-expanded={cardOpen}
+                  aria-controls="bundle-card-message"
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium"
+                >
+                  <span>
+                    {cardMessage.trim()
+                      ? t('product.cardMessage.written')
+                      : t('product.cardMessage.toggle')}
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      {greetingCard.product.name}
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className={cn('size-4 shrink-0 transition-transform', cardOpen && 'rotate-180')}
+                  />
+                </button>
+                {cardOpen && (
+                  <div id="bundle-card-message" className="space-y-2 border-t border-border/60 px-4 py-3">
+                    <Textarea
+                      rows={5}
+                      maxLength={GREETING_MAX_LENGTH}
+                      value={cardMessage}
+                      onChange={(e) => setCardMessage(e.target.value.slice(0, GREETING_MAX_LENGTH))}
+                      placeholder={t('stepBuilder.card.messagePlaceholder')}
+                      aria-label={t('stepBuilder.card.messageLabel')}
+                    />
+                    <div className="flex justify-between gap-3 text-xs text-muted-foreground">
+                      <span>{t('product.cardMessage.hint')}</span>
+                      <span
+                        className={cn(
+                          'shrink-0 tabular-nums',
+                          cardMessage.length >= GREETING_MAX_LENGTH - 20 && 'text-primary',
+                        )}
+                        aria-live="polite"
+                      >
+                        {cardMessage.length}/{GREETING_MAX_LENGTH}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <QuantityStepper
                 value={quantity}

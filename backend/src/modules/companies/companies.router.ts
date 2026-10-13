@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express'
+import { aiLimit } from '../../lib/rateLimit.js'
 import { requireAuth, requireCapability } from '../../middleware/auth.js'
 import type { Role } from '../../lib/roles.js'
 import { AuthError } from '../auth/auth.service.js'
@@ -144,6 +145,8 @@ companiesRouter.patch(
 
 companiesRouter.post(
   '/:id/re-extract',
+  // Website analysis plus a new photo of every featured product: paid AI.
+  aiLimit,
   requireCapability('manage_company', ownCompany),
   async (req, res) => {
     try {

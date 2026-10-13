@@ -55,6 +55,8 @@ export const outboundEvents = pgTable(
       .notNull()
       .defaultNow(),
     sentAt: timestamp('sent_at', { withTimezone: true }),
+    /** When the current send started; a row stuck in `sending` is recovered by this. */
+    claimedAt: timestamp('claimed_at', { withTimezone: true }),
   },
   (table) => [
     index('outbound_events_due_idx').on(table.status, table.nextAttemptAt),

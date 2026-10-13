@@ -66,7 +66,8 @@ export async function listCollections(
     // rather than left as a gap.
     featuredBundles: (row.featuredBundleIds ?? [])
       .map((id) => byId.get(id))
-      .filter((p): p is ProductWithCategory => Boolean(p)),
+      // A box taken out of sale is not led with, though it stays configured.
+      .filter((p): p is ProductWithCategory => Boolean(p?.active)),
   }))
 }
 
@@ -84,7 +85,8 @@ async function hydrate(
   const byId = new Map(products.map((p) => [p.id, p]))
   const featuredBundles = ids
     .map((id) => byId.get(id))
-    .filter((p): p is ProductWithCategory => Boolean(p))
+    // A box taken out of sale is not led with, though it stays configured.
+    .filter((p): p is ProductWithCategory => Boolean(p?.active))
 
   return { ...row, featuredBundles }
 }
@@ -365,7 +367,9 @@ export async function setCollectionMembership(
   if (add.length > 0) {
     const rows = (await rawSql`
       UPDATE products
-         SET tags = tags || ${JSON.stringify([tag])}::jsonb
+         SET tags = tags || ${JSON.stringify([tag])}::jsonb,
+             -- Chosen by hand: the resync keeps this membership.
+             tags_edited_at = now()
        WHERE id = ANY(${add}::uuid[])
          AND NOT (tags @> ${JSON.stringify([tag])}::jsonb)
       RETURNING id
@@ -380,7 +384,8 @@ export async function setCollectionMembership(
            SELECT COALESCE(jsonb_agg(value), '[]'::jsonb)
              FROM jsonb_array_elements(tags) AS value
             WHERE value <> ${JSON.stringify(tag)}::jsonb
-         )
+         ),
+             tags_edited_at = now()
        WHERE id = ANY(${remove}::uuid[])
          AND tags @> ${JSON.stringify([tag])}::jsonb
       RETURNING id
