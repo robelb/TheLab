@@ -1,3 +1,4 @@
+import { clientMessage } from '../../lib/clientError.js'
 import { Router } from 'express'
 import { aiLimit } from '../../lib/rateLimit.js'
 import { routeParam } from '../../lib/routeParam.js'
@@ -75,7 +76,7 @@ productsRouter.post('/search/image', aiLimit, async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Image search failed'
     console.warn('[search] image search failed:', message)
-    res.status(502).json({ error: message })
+    res.status(502).json({ error: clientMessage(err, 'Image search failed') })
   }
 })
 
@@ -225,7 +226,7 @@ productsRouter.post('/:id/images', async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to save the design'
     console.warn('[products] gallery save failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to save the design', { known: ['Product not found'] }) })
   }
 })
 
@@ -240,7 +241,7 @@ productsRouter.delete('/:id', requireAuth, catalogueAdmin, async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to delete product'
     console.warn('[products] delete failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to delete product') })
   }
 })
 
@@ -279,7 +280,7 @@ productsRouter.post('/:id/photoshoot', requireAuth, catalogueAdmin, async (req, 
       err instanceof Error ? err.message : 'Failed to generate image'
     const status = message === 'Product not found' ? 404 : 502
     console.warn('[products] photoshoot failed:', message)
-    res.status(status).json({ error: message })
+    res.status(status).json({ error: clientMessage(err, 'Failed to generate image', { known: ['Product not found'] }) })
   }
 })
 
@@ -304,7 +305,7 @@ productsRouter.post('/:id/customize-box', aiLimit, async (req, res) => {
           ? 400
           : 502
     console.warn('[products] box customization failed:', message)
-    res.status(status).json({ error: message })
+    res.status(status).json({ error: clientMessage(err, 'Failed to customize the box', { known: ['Product not found', 'Only packaging can be customized'] }) })
   }
 })
 
@@ -324,7 +325,7 @@ productsRouter.post('/:id/customize', aiLimit, async (req, res) => {
       err instanceof Error ? err.message : 'Failed to apply the design'
     const status = message === 'Product not found' ? 404 : 502
     console.warn('[products] customize failed:', message)
-    res.status(status).json({ error: message })
+    res.status(status).json({ error: clientMessage(err, 'Failed to apply the design', { known: ['Product not found'] }) })
   }
 })
 

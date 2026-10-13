@@ -98,6 +98,11 @@ export const products = pgTable(
      * decide which collections a product appears in, and a badge must not.
      */
     labels: jsonb('labels').$type<ProductLabel[]>().notNull().default([]),
+    /**
+     * When someone last set `labels` by hand in the dashboard. Set means the
+     * catalogue resync keeps the hand-picked labels rather than its own.
+     */
+    labelsEditedAt: timestamp('labels_edited_at', { withTimezone: true }),
     /** Smallest order the supplier accepts. 1 unless someone says otherwise. */
     minQuantity: integer('min_quantity').notNull().default(1),
     /**

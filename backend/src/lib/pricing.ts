@@ -50,3 +50,18 @@ export function unitPriceFor(
   )
   return tier ? tier.price : basePrice
 }
+
+/** The fulfilment centre's pick fee: the first item into a box, then each one after. */
+export const PICK_FEE_FIRST = 0.3
+export const PICK_FEE_NEXT = 0.15
+
+/**
+ * What packing one box costs: €0.30 for the first item picked into it and
+ * €0.15 for each one after. Items are what goes into the box — every product
+ * unit, the greeting card, the sticker; not the box itself or its filling.
+ * Part of the box's price; never shown as a line of its own.
+ */
+export function pickFee(picks: number): number {
+  if (picks <= 0) return 0
+  return Math.round((PICK_FEE_FIRST + PICK_FEE_NEXT * (picks - 1)) * 100) / 100
+}

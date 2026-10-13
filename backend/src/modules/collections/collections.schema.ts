@@ -23,7 +23,7 @@ export const createCollectionSchema = z.object({
   title: localizedText,
   subtitle: localizedTextOptional.nullish(),
   tag: z.string().trim().min(1).max(64).toLowerCase(),
-  featuredBundleIds: z.array(z.string().uuid()).max(12).default([]),
+  featuredBundleIds: z.array(z.string().uuid()).max(100).default([]),
   defaultLocale: z.enum(['de', 'en']).default('de'),
   active: z.boolean().default(true),
   /** False for a page that only sells ready-made boxes. */

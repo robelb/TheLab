@@ -1,3 +1,4 @@
+import { clientMessage } from '../../lib/clientError.js'
 import { Router } from 'express'
 import type { ZodError } from 'zod'
 import { requireAuth } from '../../middleware/auth.js'
@@ -67,7 +68,7 @@ designsRouter.get('/products/:productId/design-versions', async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to load saved versions'
     console.warn('[designs] list failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to load saved versions') })
   }
 })
 
@@ -93,7 +94,7 @@ designsRouter.post('/products/:productId/design-versions', async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to save the version'
     console.warn('[designs] create failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to save the version') })
   }
 })
 
@@ -122,7 +123,7 @@ designsRouter.patch('/design-versions/:versionId', async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to rename the version'
     console.warn('[designs] rename failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to rename the version') })
   }
 })
 
@@ -143,6 +144,6 @@ designsRouter.delete('/design-versions/:versionId', async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to delete the version'
     console.warn('[designs] delete failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to delete the version') })
   }
 })

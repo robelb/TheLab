@@ -21,7 +21,7 @@ import {
 import { env } from '../../config/env.js'
 import { missingSellerDetails } from '../../config/seller.js'
 import { getBundleComponents } from '../products/products.service.js'
-import { unitPriceFor } from '../../lib/pricing.js'
+import { pickFee, unitPriceFor } from '../../lib/pricing.js'
 import { shippingCost, vatRateFor } from '../../lib/shipping.js'
 import { enqueueLeadEvent } from '../../services/leadIntake.js'
 import { enqueueEmail, sendEmailNow } from '../../services/mailer.js'
@@ -190,6 +190,16 @@ async function loadBundles(items: Item[]): Promise<BundleFacts> {
  * what that row is for. Change anything and it reverts to being priced by
  * parts, which is what the builder shows the shopper as they change it.
  */
+/** How many items go into one box: product units, the card, the sticker. */
+function picksOf(box: Box): number {
+  const units = (line: { quantity: number } | null | undefined) => line?.quantity ?? 0
+  return (
+    box.lines.reduce((sum, line) => sum + line.quantity, 0) +
+    units(box.greetingCard) +
+    units(box.stickers)
+  )
+}
+
 function lineTotal(
   item: Item,
   bundles: BundleFacts,
@@ -198,6 +208,8 @@ function lineTotal(
   total: number
   pricingMode?: PricingMode
   tierPrice?: number
+  /** The pick fees inside `total`, for every box on the line. */
+  fulfilment?: number
 } {
   if (!item.box) {
     const table = tiers.get(item.productId)
@@ -224,8 +236,10 @@ function lineTotal(
   }
 
   // Each part's tier is chosen by how many of it the whole line needs: units
-  // per box times the number of boxes.
-  const boxPrice = parts.reduce(
+  // per box times the number of boxes. Packing it is part of its price — see
+  // `pickFee`. A ready-made box kept as sold (above) has its own price.
+  const packing = pickFee(picksOf(item.box))
+  const boxPrice = packing + parts.reduce(
     (sum, line) =>
       sum +
       unitPriceFor(
@@ -236,13 +250,19 @@ function lineTotal(
         line.quantity,
     0,
   )
-  return { total: boxPrice * item.quantity, pricingMode: 'parts' }
+  return {
+    total: boxPrice * item.quantity,
+    pricingMode: 'parts',
+    fulfilment: packing * item.quantity,
+  }
 }
 
 export interface PricedOrder {
   subtotal: number
   shipping: number
   total: number
+  /** The pick fees already inside `subtotal` — for the operator, not a line. */
+  fulfilmentFee: number
   /** The items as stored: unchanged, plus how each box line was priced. */
   items: Item[]
 }
@@ -254,9 +274,15 @@ export async function priceOrder(body: CreateOrderBody): Promise<PricedOrder> {
   ])
 
   let running = 0
+  let fulfilment = 0
   const items = body.items.map((item) => {
-    const { total, pricingMode, tierPrice } = lineTotal(item, bundles, tiers)
+    const { total, pricingMode, tierPrice, fulfilment: packing } = lineTotal(
+      item,
+      bundles,
+      tiers,
+    )
     running += total
+    fulfilment += packing ?? 0
     // The stored unit price is the one the server charged, so the lines always
     // add up to the subtotal — and are what the confirm screen starts from.
     const unitPrice = money(total / item.quantity)
@@ -278,7 +304,13 @@ export async function priceOrder(body: CreateOrderBody): Promise<PricedOrder> {
       boxes: boxCount(body.items),
       bulkBoxes: body.shipping?.bulkBoxes,
     }) ?? 0
-  return { subtotal, shipping, total: money(subtotal + shipping), items }
+  return {
+    subtotal,
+    shipping,
+    total: money(subtotal + shipping),
+    fulfilmentFee: money(fulfilment),
+    items,
+  }
 }
 
 /**
@@ -332,6 +364,8 @@ export interface OrderDto {
   vatRate: number | null
   vat: number | null
   totalGross: number | null
+  /** Pick fees already inside the box prices — see the column. */
+  fulfilmentFee: number
   shippingMethod: Row['shippingMethod']
   shippingSplit: Row['shippingSplit']
   /** Recipient addresses for individually sent boxes are still to come. */
@@ -375,6 +409,7 @@ function toDto(row: Row, invoice: InvoiceSummary | null = null): OrderDto {
     vatRate: nullableNumber(row.vatRate),
     vat: nullableNumber(row.vat),
     totalGross: nullableNumber(row.totalGross),
+    fulfilmentFee: Number(row.fulfilmentFee),
     shippingMethod: row.shippingMethod,
     shippingSplit: row.shippingSplit,
     addressesLater: row.addressesLater,
@@ -461,7 +496,7 @@ export async function createOrder(params: {
 }): Promise<OrderDto> {
   const { body } = params
   const collection = await resolveCollection(body.collectionSlug)
-  const { subtotal, shipping, total, items } = await priceOrder(body)
+  const { subtotal, shipping, total, fulfilmentFee, items } = await priceOrder(body)
   const method = body.shipping?.method ?? 'bulk'
   const boxes = boxCount(body.items)
 
@@ -490,6 +525,7 @@ export async function createOrder(params: {
       subtotal: subtotal.toFixed(2),
       shipping: shipping.toFixed(2),
       total: total.toFixed(2),
+      fulfilmentFee: fulfilmentFee.toFixed(2),
       currency: body.currency,
       source: collection ? 'funnel' : 'storefront',
       locale: body.locale,

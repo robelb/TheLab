@@ -12,15 +12,13 @@ export function normalizeDomainInput(input: string): string {
 const domainRegex =
   /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i
 
-const localhostRegex = /^localhost(?::\d{1,5})?$/i
-
 export const domainInputSchema = z.object({
   domain: z
     .string()
     .min(1, 'Domain is required')
     .transform(normalizeDomainInput)
     .refine(
-      (d) => domainRegex.test(d) || localhostRegex.test(d),
+      (d) => domainRegex.test(d),
       'Enter a valid domain (e.g. airbnb.com)',
     ),
 })

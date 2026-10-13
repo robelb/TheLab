@@ -4,6 +4,7 @@ import {
   SkippableBrandImageError,
   type ImageFetchRole,
 } from './normalizeImageForAi.js'
+import { safeFetch } from '../lib/safeFetch.js'
 
 export type { ImageFetchRole } from './normalizeImageForAi.js'
 
@@ -75,12 +76,14 @@ export async function fetchImageOptional(
   role: ImageFetchRole,
   options: FetchImageOptions = {},
 ): Promise<FetchedImage | null> {
-  const res = await fetch(url, {
+  // The URL often comes from a request — a logo link, a product image — so it
+  // is fetched only if it points somewhere public. See lib/safeFetch.ts.
+  const { response: res } = await safeFetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (compatible; TheLabCustomizer/1.0)',
       Accept: 'image/*,*/*;q=0.8',
     },
-    redirect: 'follow',
+    timeoutMs: 60_000,
   })
 
   if (!res.ok) {

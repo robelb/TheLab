@@ -62,6 +62,11 @@ export interface GenerateOptions {
    * free to ignore — and did, returning a square every time.
    */
   aspectRatio?: string
+  /**
+   * Gemini render resolution for this call, overriding `GEMINI_IMAGE_SIZE`.
+   * A preview shown at a few hundred pixels does not need 2K.
+   */
+  imageSize?: '1K' | '2K' | '4K'
 }
 
 /**
@@ -150,12 +155,13 @@ async function generateGemini(
     model: config.model,
     contents: [{ role: 'user', parts }],
     config: {
-      responseModalities: ['TEXT', 'IMAGE'],
+      // Only the picture is used; asking for prose as well only adds time.
+      responseModalities: ['IMAGE'],
       // Both of these were previously left unset, so the API applied its own
       // defaults: 1K, square. The prompt asked for more in words and got
       // neither — resolution and aspect ratio are parameters here, not prose.
       imageConfig: {
-        imageSize: geminiImageSize(),
+        imageSize: options.imageSize ?? geminiImageSize(),
         ...(options.aspectRatio ? { aspectRatio: options.aspectRatio } : {}),
       },
     },

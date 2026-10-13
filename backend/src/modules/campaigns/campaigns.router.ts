@@ -1,3 +1,4 @@
+import { clientMessage } from '../../lib/clientError.js'
 import { Router } from 'express'
 import { aiLimit } from '../../lib/rateLimit.js'
 import { routeParam } from '../../lib/routeParam.js'
@@ -173,7 +174,7 @@ campaignsRouter.post('/generate', aiLimit, async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to generate campaign'
     console.warn('[campaigns] generate failed:', message)
-    res.status(502).json({ error: message })
+    res.status(502).json({ error: clientMessage(err, 'Failed to generate campaign') })
   }
 })
 
@@ -196,7 +197,7 @@ campaignsRouter.post('/', async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to create campaign'
     console.warn('[campaigns] create failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to create campaign') })
   }
 })
 
@@ -261,7 +262,7 @@ campaignsRouter.patch('/:id', canMutateCampaign, async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to update campaign'
     console.warn('[campaigns] update failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to update campaign') })
   }
 })
 
@@ -290,7 +291,7 @@ campaignsRouter.post('/:id/hero-image', aiLimit, canMutateCampaign, async (req, 
     const message =
       err instanceof Error ? err.message : 'Failed to regenerate image'
     console.warn('[campaigns] hero image regenerate failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to regenerate image') })
   }
 })
 
@@ -305,7 +306,7 @@ campaignsRouter.delete('/:id', canMutateCampaign, async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to delete campaign'
     console.warn('[campaigns] delete failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to delete campaign') })
   }
 })
 
@@ -326,7 +327,7 @@ campaignsRouter.post('/:id/videos', canMutateCampaign, async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to add video'
     console.warn('[campaigns] add video failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to add video') })
   }
 })
 
@@ -345,7 +346,7 @@ campaignsRouter.patch('/:id/videos/:videoId', canMutateCampaign, async (req, res
     const message =
       err instanceof Error ? err.message : 'Failed to update video'
     console.warn('[campaigns] update video failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to update video') })
   }
 })
 
@@ -360,6 +361,6 @@ campaignsRouter.delete('/:id/videos/:videoId', canMutateCampaign, async (req, re
     const message =
       err instanceof Error ? err.message : 'Failed to delete video'
     console.warn('[campaigns] delete video failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to delete video') })
   }
 })

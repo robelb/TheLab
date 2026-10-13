@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { usePostHog } from '@posthog/react'
-import { ChevronRight, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useFunnel, useFunnelLink } from '@/context/FunnelContext'
 import { useCart } from '@/context/CartContext'
@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { ProductImage } from '@/components/ProductImage'
+import { QuantityStepper } from '@/components/QuantityStepper'
 
 export function CartPage() {
   const { t } = useTranslation()
@@ -268,29 +269,18 @@ export function CartPage() {
               </div>
 
               <div className="col-span-2 flex items-center justify-between gap-4 sm:col-span-1 sm:flex-col sm:items-end">
-                <div className="flex items-center rounded-brand border border-border">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-none"
-                    aria-label={t('cart.decrease')}
-                    onClick={() => updateQuantity(product.id, quantity - 1)}
-                  >
-                    <Minus className="size-4" />
-                  </Button>
-                  <span className="min-w-8 text-center text-sm">{quantity}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-none"
-                    aria-label={t('cart.increase')}
-                    onClick={() => updateQuantity(product.id, quantity + 1)}
-                  >
-                    <Plus className="size-4" />
-                  </Button>
-                </div>
+                {/* Typed into as well as stepped — an order of 100 boxes is
+                    not 100 clicks. Removing a line is the Remove button. */}
+                <QuantityStepper
+                  value={quantity}
+                  min={product.minQuantity ?? 1}
+                  onChange={(next) =>
+                    updateQuantity(
+                      product.id,
+                      typeof next === 'function' ? next(quantity) : next,
+                    )
+                  }
+                />
                 <div className="flex items-center gap-1 sm:flex-col sm:items-end">
                   {canEditBox && (
                     <Button

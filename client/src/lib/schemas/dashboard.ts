@@ -123,6 +123,7 @@ const productFields = z.object({
     const tags = v.split(',').map((t) => t.trim()).filter(Boolean)
     return tags.length <= 20 && tags.every((t) => t.length <= 64)
   }, 'Up to 20 occasions, each under 64 characters.'),
+  labels: z.array(z.enum(['vegan', 'organic'])),
   minQuantity: numberText(
     'Enter a whole number from 1 upwards.',
     (n) => Number.isInteger(n) && n >= 1 && n <= 100_000,

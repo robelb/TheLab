@@ -23,6 +23,7 @@ async function main() {
       sku: products.sku,
       name: products.name,
       labels: products.labels,
+      labelsEditedAt: products.labelsEditedAt,
       sourceData: products.sourceData,
     })
     .from(products)
@@ -35,6 +36,8 @@ async function main() {
     } | null
     const fromSheet = sheet.bySku.get(row.sku)
     if (fromSheet) matched.add(row.sku)
+    // Set by hand in the dashboard: those win.
+    if (row.labelsEditedAt) continue
     const next: ProductLabel[] = mergeLabels(labelsFromTags(record?.productTags), fromSheet)
     if (next.join(',') === mergeLabels(row.labels).join(',')) continue
     changed++

@@ -179,9 +179,9 @@
     "addressesLater": "You can send the addresses later",
     "addressesLaterBody": "After your request we email you to ask for the recipient list — ideally as an Excel or CSV file. You don't need it to hand now.",
     "recipientsCountry": "Where are the boxes going?",
-    "recipientsCountryHint": "The country most recipients are in — for the shipping estimate. We deliver within the EU.",
+    "recipientsCountryHint": "The country most recipients are in — for the shipping estimate. We deliver to Germany and most EU countries.",
     "bulkAddress": "Address for the bulk shipment",
-    "shipEuOnly": "We currently deliver within the EU.",
+    "shipEuOnly": "We deliver to Germany and most EU countries.",
     "shipMethodShort": {
       "bulk": "Bulk",
       "individual": "Individual",
@@ -490,7 +490,7 @@
     "vatIdRequired": "Please enter your VAT ID — without it we can't invoice without VAT.",
     "vatIdCountry": "The VAT ID must match the invoice country and start with {{prefix}}.",
     "bulkBoxes": "Please enter a number between 1 and {{max}}.",
-    "shipEuOnly": "We currently deliver within the EU only. Please give a delivery address in the EU."
+    "shipEuOnly": "We can't deliver to this country yet. Please give a delivery address in one of the countries listed."
   },
   "stepBuilder": {
     "title": "Build your gift box",
@@ -552,6 +552,9 @@
       "body": "Pick the packaging your box ships in. Every option shown is ready-made and ships as pictured.",
       "pick": "Pick a packaging to continue.",
       "fillingIncluded": "Every box is padded with {{name}}.",
+      "fillingTitle": "Filling material",
+      "fillingBody": "What the box is padded with so everything arrives safely. Pick the one you like.",
+      "fillingPriced": "{{name}}: {{price}} per box, already in the price.",
       "printed": "Printed with: {{prompt}}",
       "printHint": "Want your logo or artwork printed on the box?"
     },
@@ -593,9 +596,22 @@
     },
     "footer": {
       "perBox": "Per box",
+      "noPriceYet": "Add products to see the price",
       "back": "Back",
       "next": "Continue",
       "skip": "Skip"
+    },
+    "price": {
+      "show": "Price details",
+      "hide": "Hide details",
+      "readyMade": "Ready-made box, set price",
+      "packing": "Packing",
+      "perBox": "Per box",
+      "times_one": "× {{count}} box",
+      "times_other": "× {{count}} boxes",
+      "volume_one": "Volume prices for {{count}} box are applied.",
+      "volume_other": "Volume prices for {{count}} boxes are applied.",
+      "note": "Prices excl. VAT. Shipping is worked out at checkout."
     },
     "christmas": {
       "title": "Build your Christmas box",

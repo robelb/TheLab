@@ -1,3 +1,4 @@
+import { clientMessage } from '../../lib/clientError.js'
 import { Router } from 'express'
 import { routeParam } from '../../lib/routeParam.js'
 import { requireAuth, requireCapability } from '../../middleware/auth.js'
@@ -45,7 +46,7 @@ shareRouter.post('/', requireAuth, catalogueAdmin, async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to create share'
     console.warn('[share] create failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to create share') })
   }
 })
 
@@ -67,7 +68,7 @@ shareRouter.post('/:slug/save', requireAuth, catalogueAdmin, async (req, res) =>
     const message = err instanceof Error ? err.message : 'Failed to save share'
     const status = message === 'Share not found' ? 404 : 500
     console.warn('[share] save failed:', message)
-    res.status(status).json({ error: message })
+    res.status(status).json({ error: clientMessage(err, 'Failed to save share', { known: ['Share not found'] }) })
   }
 })
 

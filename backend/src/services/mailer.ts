@@ -314,10 +314,3 @@ registerOutboxHandler({
       ? `SMTP ${env.SMTP_HOST} as ${fromAddress()}`
       : `Resend as ${env.MAIL_FROM}`,
 })
-
-/** The team inbox(es) told about new requests. */
-export function notifyRecipients(): string[] {
-  return env.ORDER_NOTIFY_EMAIL.split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}

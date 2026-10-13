@@ -98,3 +98,4 @@ export {
   systemInstructions,
   type SystemInstruction,
 } from './system-instructions.js'
+export { appSettings, type AppSetting } from './app-settings.js'

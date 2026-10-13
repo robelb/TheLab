@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  ChevronUp,
   Gift,
   Loader2,
   Mail,
@@ -48,7 +49,7 @@ import {
 } from '@/lib/box'
 import { parseDesigns, type ProductDesign } from '@/lib/boxDraft'
 import { apiErrorMessage as errorMessage } from '@/lib/notify'
-import { unitPriceFor } from '@/lib/pricing'
+import { pickFee, unitPriceFor } from '@/lib/pricing'
 import {
   BUILDER_STEPS,
   EMPTY_STEP_DRAFT,
@@ -241,14 +242,18 @@ export function StepBoxBuilderPage() {
   const filling = supplies.filling.find((p) => p.id === draft.fillingId) ?? null
   const sticker = supplies.stickers.find((p) => p.id === draft.stickerId) ?? null
 
-  // Every box is padded with filling. With one on offer there is nothing to
-  // decide, so it is chosen for them; a stale choice falls back the same way.
+  // Every box is padded with filling, so one is always chosen: the cheapest
+  // on offer until they pick another. A stale choice falls back the same way.
   useEffect(() => {
     if (suppliesLoading) return
     setDraft((d) => {
+      const cheapest = supplies.filling.reduce<Product | null>(
+        (best, p) => (!best || p.price < best.price ? p : best),
+        null,
+      )
       const fillingId = supplies.filling.some((p) => p.id === d.fillingId)
         ? d.fillingId
-        : (supplies.filling[0]?.id ?? null)
+        : (cheapest?.id ?? null)
       return fillingId === d.fillingId ? d : { ...d, fillingId }
     })
   }, [supplies.filling, suppliesLoading])
@@ -398,12 +403,41 @@ export function StepBoxBuilderPage() {
         bundle.components,
       ),
   )
+  const pieceCount = products.reduce((sum, p) => sum + quantityOf(p.id), 0)
+  // Packing is part of the box's price, never a line of its own: every product
+  // unit, the card and the sticker are picks — see `pickFee`. The server adds
+  // the same. A ready-made box kept as sold has its own price instead.
+  const packing = pickFee(pieceCount + (card ? 1 : 0) + (sticker ? 1 : 0))
   const perBox =
     bundleIntact && bundle
       ? unitPriceFor(bundle.price, bundle.graduatedPrices, draft.boxes)
-      : productsTotal + suppliesTotal
+      : productsTotal + suppliesTotal + packing
   const orderTotal = perBox * draft.boxes
-  const pieceCount = products.reduce((sum, p) => sum + quantityOf(p.id), 0)
+  // The filling is chosen for them, so an empty box would already show its
+  // price — a figure for nothing they picked. No price until there is a box.
+  const hasPrice = pieceCount > 0 || bundleIntact
+
+  // What the per-box price is made of, for the details under it. Packing is
+  // its own row so the parts add up; a ready-made box is one price.
+  const priceRows: { key: string; label: string; amount: number }[] = bundleIntact
+    ? [{ key: 'bundle', label: t('stepBuilder.price.readyMade'), amount: perBox }]
+    : [
+        {
+          key: 'products',
+          label: `${t('stepBuilder.steps.products')} · ${t('common.item', { count: pieceCount })}`,
+          amount: productsTotal,
+        },
+        ...(card ? [{ key: 'card', label: `${t('stepBuilder.steps.card')} · ${card.name}`, amount: unitFor(card, 1) }] : []),
+        ...(packaging ? [{ key: 'packaging', label: `${t('stepBuilder.steps.packaging')} · ${packaging.name}`, amount: unitFor(packaging, 1) }] : []),
+        ...(filling ? [{ key: 'filling', label: `${t('buildBox.fillingLabel')} · ${filling.name}`, amount: unitFor(filling, 1) }] : []),
+        ...(sticker ? [{ key: 'sticker', label: `${t('stepBuilder.steps.stickers')} · ${sticker.name}`, amount: unitFor(sticker, 1) }] : []),
+        ...(packing > 0 ? [{ key: 'packing', label: t('stepBuilder.price.packing'), amount: packing }] : []),
+      ]
+  const volumeApplied = bundleIntact
+    ? Boolean(bundle && perBox !== bundle.price)
+    : [...products.map((p) => [p, quantityOf(p.id)] as const), ...supplyParts.map((p) => [p, 1] as const)]
+        .some(([p, n]) => unitFor(p, n) !== p.price)
+  const [priceOpen, setPriceOpen] = useState(false)
   const currency = products[0]?.currency ?? packaging?.currency ?? 'EUR'
 
   // ── Box photo ────────────────────────────────────────────────────────────
@@ -469,9 +503,13 @@ export function StepBoxBuilderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, campaignId, domain, title, canDesign])
 
-  // Arriving at the review starts the photo, unless one of this box exists.
+  // The photo needs only the products and the packaging, so it starts as soon
+  // as the packaging is chosen — the stickers step and the review then hide
+  // most of the wait — unless one of this box already exists.
+  const photoReady =
+    draft.step === 'review' || (draft.step === 'stickers' && Boolean(draft.packagingId))
   useEffect(() => {
-    if (draft.step !== 'review' || rendering) return
+    if (!photoReady || rendering) return
     // A saved box's campaign is still loading: wait to see what it already has.
     if (draft.campaignId && !campaign && !campaignError) return
     if (draft.heroKey === heroKey && campaign?.heroImageUrl) return
@@ -479,7 +517,7 @@ export function StepBoxBuilderPage() {
     triedKey.current = heroKey
     void renderBox()
   }, [
-    draft.step,
+    photoReady,
     draft.heroKey,
     draft.campaignId,
     heroKey,
@@ -691,6 +729,7 @@ export function StepBoxBuilderPage() {
             onSelect={(p) => update({ packagingId: p.id })}
             fillings={supplies.filling}
             filling={filling}
+            fillingPrice={filling ? unitFor(filling, 1) : undefined}
             onFilling={(p) => update({ fillingId: p.id })}
             design={packagingDesign}
             onDesign={canDesign && packaging ? () => openDesigner(packaging.id) : undefined}
@@ -757,15 +796,60 @@ export function StepBoxBuilderPage() {
 
       {/* ── Running price and the way on ─────────────────────────────────── */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/40 bg-background/95 backdrop-blur">
+        {priceOpen && hasPrice && (
+          <div
+            id="price-details"
+            className="mx-auto max-h-[50vh] max-w-7xl overflow-y-auto border-b border-border/40 px-4 py-3 sm:px-6 lg:px-8"
+          >
+            <ul className="space-y-1 text-sm sm:max-w-md">
+              {priceRows.map((row) => (
+                <li key={row.key} className="flex justify-between gap-4">
+                  <span className="min-w-0 truncate text-muted-foreground">{row.label}</span>
+                  <span className="shrink-0 tabular-nums">{formatPrice(row.amount, currency)}</span>
+                </li>
+              ))}
+              <li className="flex justify-between gap-4 border-t border-border/40 pt-1 font-medium">
+                <span>{t('stepBuilder.price.perBox')}</span>
+                <span className="tabular-nums">{formatPrice(perBox, currency)}</span>
+              </li>
+              {draft.boxes > 1 && (
+                <li className="flex justify-between gap-4 font-medium">
+                  <span>{t('stepBuilder.price.times', { count: draft.boxes })}</span>
+                  <span className="tabular-nums">{formatPrice(orderTotal, currency)}</span>
+                </li>
+              )}
+            </ul>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {volumeApplied && `${t('stepBuilder.price.volume', { count: draft.boxes })} `}
+              {t('stepBuilder.price.note')}
+            </p>
+          </div>
+        )}
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground">
               {t('stepBuilder.footer.perBox')}
               {pieceCount > 0 && ` · ${t('common.item', { count: pieceCount })}`}
             </p>
-            <p className="font-display text-lg font-semibold tabular-nums">
-              {formatPrice(perBox, currency)}
-            </p>
+            {hasPrice ? (
+              <div className="flex flex-wrap items-baseline gap-x-3">
+                <p className="font-display text-lg font-semibold tabular-nums">
+                  {formatPrice(perBox, currency)}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPriceOpen((o) => !o)}
+                  aria-expanded={priceOpen}
+                  aria-controls="price-details"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline underline-offset-2"
+                >
+                  {priceOpen ? t('stepBuilder.price.hide') : t('stepBuilder.price.show')}
+                  <ChevronUp className={cn('size-3.5 transition-transform', !priceOpen && 'rotate-180')} />
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t('stepBuilder.footer.noPriceYet')}</p>
+            )}
             {draft.bundleId && (
               <p className="text-xs text-primary">
                 {bundleIntact ? t('cart.bundleKept') : t('cart.bundleChanged')}
@@ -1156,6 +1240,7 @@ function PackagingStep({
   onSelect,
   fillings,
   filling,
+  fillingPrice,
   onFilling,
   design,
   onDesign,
@@ -1166,6 +1251,8 @@ function PackagingStep({
   onSelect: (p: Product) => void
   fillings: Product[]
   filling: Product | null
+  /** What the filling costs per box at the current number of boxes. */
+  fillingPrice?: number
   onFilling: (p: Product) => void
   /** The shopper's print on the chosen box, when they made one. */
   design: ProductDesign | null
@@ -1243,22 +1330,34 @@ function PackagingStep({
             onSelect={onSelect}
             size="lg"
           />
-          {fillings.length > 1 && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium">{t('buildBox.filling')}</p>
+          {/* Every box is padded; the first filling is chosen for them and
+              they can swap it for any other on offer. */}
+          {fillings.length > 0 && (
+            <div className="space-y-3 border-t border-border/40 pt-5">
+              <div>
+                <p className="font-medium">{t('stepBuilder.packaging.fillingTitle')}</p>
+                <p className="text-sm text-muted-foreground">
+                  {t('stepBuilder.packaging.fillingBody')}
+                </p>
+              </div>
               <OptionGrid
                 options={fillings}
                 loading={false}
                 selectedId={filling?.id ?? null}
                 onSelect={onFilling}
-                size="lg"
+                size="md"
               />
+              {filling && (
+                <p className="text-xs text-muted-foreground">
+                  {filling.price > 0
+                    ? t('stepBuilder.packaging.fillingPriced', {
+                        name: filling.name,
+                        price: formatPrice(fillingPrice ?? filling.price, filling.currency),
+                      })
+                    : t('stepBuilder.packaging.fillingIncluded', { name: filling.name })}
+                </p>
+              )}
             </div>
-          )}
-          {fillings.length === 1 && filling && (
-            <p className="text-xs text-muted-foreground">
-              {t('stepBuilder.packaging.fillingIncluded', { name: filling.name })}
-            </p>
           )}
         </div>
       </div>

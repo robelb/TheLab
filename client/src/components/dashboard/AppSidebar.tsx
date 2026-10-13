@@ -4,6 +4,7 @@ import {
   Link2,
   LayoutDashboard,
   LogOut,
+  Mail,
   Megaphone,
   Package,
   Palette,
@@ -56,6 +57,7 @@ const adminItems: NavItem[] = [
   { to: '/dashboard/admin/companies', end: false, label: 'All Companies', icon: Building2, capability: 'manage_all' },
   { to: '/dashboard/admin/collections', end: false, label: 'Collections', icon: Link2, capability: 'manage_all' },
   { to: '/dashboard/admin/instructions', end: false, label: 'AI Instructions', icon: ScrollText, capability: 'manage_all' },
+  { to: '/dashboard/admin/notifications', end: false, label: 'Notifications', icon: Mail, capability: 'manage_all' },
 ]
 
 export function AppSidebar() {

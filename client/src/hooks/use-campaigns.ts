@@ -30,7 +30,7 @@ export const campaignsKeys = {
  * Bundle images render in the background (~30-60s), so poll while any campaign
  * in the result is still waiting on one.
  */
-const HERO_IMAGE_POLL_MS = 4000
+const HERO_IMAGE_POLL_MS = 2000
 
 export function useCampaigns(domain?: string | null) {
   return useQuery({

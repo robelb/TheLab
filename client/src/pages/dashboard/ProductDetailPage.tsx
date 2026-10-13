@@ -4,6 +4,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { createShare, shareUrl, type ShareBrand } from '@/api/share'
 import { ProductFormDialog } from '@/components/dashboard/ProductFormDialog'
 import { PhotoshootPanel } from '@/components/dashboard/PhotoshootPanel'
+import { ProductLabels } from '@/components/ProductLabels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -171,6 +172,16 @@ export function ProductDetailPage() {
             <CardContent className="divide-y divide-border/40 py-0">
               <DataRow label="SKU" value={product.sku ?? '—'} />
               <DataRow label="Category" value={product.category} />
+              <DataRow
+                label="Labels"
+                value={
+                  product.labels?.length ? (
+                    <ProductLabels labels={product.labels} className="justify-end" />
+                  ) : (
+                    '—'
+                  )
+                }
+              />
               <DataRow
                 label="Price"
                 value={formatPrice(product.price, product.currency)}

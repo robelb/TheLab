@@ -365,13 +365,16 @@ async function ensureCategory(cat: { slug: string; name: string }): Promise<stri
 
 async function upsertProduct(values: typeof products.$inferInsert): Promise<string> {
   const [existing] = await db
-    .select({ id: products.id })
+    .select({ id: products.id, labelsEditedAt: products.labelsEditedAt })
     .from(products)
     .where(eq(products.sku, values.sku))
     .limit(1)
   if (dryRun) return existing?.id ?? `dry-run:${values.sku}`
   if (existing) {
-    await db.update(products).set(values).where(eq(products.id, existing.id))
+    // Labels someone set by hand in the dashboard win over the source's.
+    const { labels, ...rest } = values
+    const update = existing.labelsEditedAt ? rest : { ...rest, labels }
+    await db.update(products).set(update).where(eq(products.id, existing.id))
     return existing.id
   }
   const [created] = await db

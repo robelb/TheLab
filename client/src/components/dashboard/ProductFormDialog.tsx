@@ -35,7 +35,7 @@ import { apiErrorMessage, notifyError, notifySaved } from '@/lib/notify'
 import { useZodForm, type FormErrors } from '@/lib/form'
 import { productSchema } from '@/lib/schemas/dashboard'
 import type { ProductComponentInput, ProductInput } from '@/types/dashboard'
-import type { Product } from '@/types/product'
+import type { Product, ProductLabel } from '@/types/product'
 
 interface ProductFormDialogProps {
   /** When set, the form edits this product; otherwise it creates a new one. */
@@ -67,9 +67,16 @@ interface FormState {
   isBundle: boolean
   /** Occasion slugs, comma-separated in the field, e.g. `christmas, welcome`. */
   tags: string
+  /** Diet and sourcing badges shown to shoppers. */
+  labels: ProductLabel[]
   minQuantity: string
   contents: BundleContentsValue
 }
+
+const LABEL_OPTIONS: { value: ProductLabel; label: string }[] = [
+  { value: 'vegan', label: 'Vegan' },
+  { value: 'organic', label: 'Bio (organic)' },
+]
 
 const EMPTY_CONTENTS: BundleContentsValue = {
   items: [],
@@ -91,6 +98,7 @@ const EMPTY: FormState = {
   sku: '',
   isBundle: false,
   tags: '',
+  labels: [],
   minQuantity: '1',
   contents: EMPTY_CONTENTS,
 }
@@ -167,6 +175,7 @@ export function ProductFormDialog({
         sku: product.sku ?? '',
         isBundle: product.kind === 'bundle',
         tags: (product.tags ?? []).join(', '),
+        labels: product.labels ?? [],
         minQuantity: String(product.minQuantity ?? 1),
         contents: contentsOf(product),
       })
@@ -237,6 +246,7 @@ export function ProductFormDialog({
         .split(',')
         .map((t) => t.trim().toLowerCase())
         .filter(Boolean),
+      labels: form.labels,
       minQuantity: Math.max(1, Number(form.minQuantity) || 1),
       ...(components ? { components } : {}),
     }
@@ -409,6 +419,37 @@ export function ProductFormDialog({
                 >
                   <Input {...f.register('tags')} placeholder="christmas, welcome" />
                 </FormField>
+
+                {/* Badges shoppers see on the product and in the box builder.
+                    Set here, they stay through a catalogue resync. */}
+                <fieldset className="space-y-2 sm:col-span-2">
+                  <legend className="text-sm font-medium">Labels</legend>
+                  <div className="flex flex-wrap gap-x-6 gap-y-2">
+                    {LABEL_OPTIONS.map(({ value, label }) => (
+                      <div key={value} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`label-${value}`}
+                          checked={form.labels.includes(value)}
+                          onCheckedChange={(c) =>
+                            update(
+                              'labels',
+                              c === true
+                                ? [...form.labels.filter((l) => l !== value), value]
+                                : form.labels.filter((l) => l !== value),
+                            )
+                          }
+                        />
+                        <Label htmlFor={`label-${value}`} className="font-medium">
+                          {label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Shown on the product page and when picking products for a box. Labels set
+                    here are kept when the catalogue is resynced.
+                  </p>
+                </fieldset>
 
                 <div className="flex items-center gap-2 self-end pb-2">
                   <Checkbox

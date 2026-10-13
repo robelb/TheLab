@@ -1,3 +1,5 @@
+import { safeFetch } from "../lib/safeFetch.js";
+
 /** Max characters of cleaned HTML we send to the model. */
 const MAX_HTML_CHARS = 200_000;
 
@@ -31,26 +33,20 @@ export interface FetchedPage {
  * signal (script bodies, comments) so we don't waste tokens.
  */
 export async function fetchHtml(url: string): Promise<FetchedPage> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
-
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      headers: BROWSER_HEADERS,
-      redirect: "follow",
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
+  // The domain is typed by whoever asks for an extraction: fetched only if it
+  // resolves somewhere public, redirects included. See lib/safeFetch.ts.
+  const { response: res, finalUrl } = await safeFetch(url, {
+    headers: BROWSER_HEADERS,
+    timeoutMs: 30_000,
+    maxBytes: 10 * 1024 * 1024,
+  });
 
   if (!res.ok) {
     throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
   }
 
   const raw = await res.text();
-  return { finalUrl: res.url || url, html: cleanHtml(raw) };
+  return { finalUrl, html: cleanHtml(raw) };
 }
 
 /**

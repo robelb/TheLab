@@ -1,3 +1,4 @@
+import { clientMessage } from '../../lib/clientError.js'
 import { Router } from 'express'
 import { requireAuth, requireCapability } from '../../middleware/auth.js'
 import { ROLES } from '../../lib/roles.js'
@@ -20,6 +21,6 @@ dashboardRouter.get('/stats', async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to load dashboard stats'
     console.warn('[dashboard] stats failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to load dashboard stats') })
   }
 })

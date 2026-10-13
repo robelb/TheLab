@@ -128,6 +128,8 @@ export interface Order {
   vatRate?: number | null
   vat?: number | null
   totalGross?: number | null
+  /** Pick fees already inside the box prices — for the operator. */
+  fulfilmentFee?: number
   shippingMethod?: ShippingMethod
   shippingSplit?: { bulkBoxes: number; individualBoxes: number } | null
   /** Recipient addresses for individually sent boxes are still to come. */

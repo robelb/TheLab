@@ -20,3 +20,17 @@ export function unitPriceFor(
   )
   return tier ? tier.price : basePrice
 }
+
+/** Mirrors the server's pick fee — lib/pricing.ts there. Change both together. */
+export const PICK_FEE_FIRST = 0.3
+export const PICK_FEE_NEXT = 0.15
+
+/**
+ * What packing one box costs: €0.30 for the first item into it, €0.15 for
+ * each after — product units, the card, the sticker. Folded into the box's
+ * price; never shown on its own.
+ */
+export function pickFee(picks: number): number {
+  if (picks <= 0) return 0
+  return Math.round((PICK_FEE_FIRST + PICK_FEE_NEXT * (picks - 1)) * 100) / 100
+}

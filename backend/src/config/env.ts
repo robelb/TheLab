@@ -24,6 +24,35 @@ function jwtSecret(): string {
   return secret || 'dev-insecure-secret-change-me'
 }
 
+/**
+ * Where the shop — and its dashboard — is reached, for links in emails.
+ *
+ * Locally it is the Vite dev server unless set. In production it must be set
+ * to the real https address: without it every "Open in dashboard" link would
+ * point at localhost, and the API would only accept calls from there (see
+ * `corsOrigins`), so the server refuses to start instead.
+ */
+function publicShopUrl(): string {
+  const configured = process.env.PUBLIC_SHOP_URL?.trim().replace(/\/+$/, '')
+  if (!isProduction) return configured || 'http://localhost:5173'
+  let url: URL | null = null
+  try {
+    url = configured ? new URL(configured) : null
+  } catch {
+    url = null
+  }
+  const local = url && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname)
+  if (!url || url.protocol !== 'https:' || local) {
+    throw new Error(
+      'PUBLIC_SHOP_URL must be set to the shop\'s public https address in production ' +
+        '(e.g. https://thelab-001.web.app) — email links and CORS are built from it.',
+    )
+  }
+  return configured!
+}
+
+export const IS_PRODUCTION = isProduction
+
 export const env = {
   PORT: Number(process.env.PORT) || 3001,
   DATABASE_URL: process.env.DATABASE_URL ?? '',
@@ -110,8 +139,7 @@ export const env = {
   // Internal inbox told about every new request. Comma-separated; blank = none.
   ORDER_NOTIFY_EMAIL: process.env.ORDER_NOTIFY_EMAIL?.trim() ?? '',
   // Where the shop and dashboard live, for links in emails.
-  PUBLIC_SHOP_URL:
-    process.env.PUBLIC_SHOP_URL?.trim().replace(/\/+$/, '') || 'http://localhost:5173',
+  PUBLIC_SHOP_URL: publicShopUrl(),
 
   // Invoicing — see src/config/seller.ts for what each one prints as.
   VAT_RATE: Number(process.env.VAT_RATE ?? 19),
@@ -150,3 +178,8 @@ export const env = {
   SUPABASE_STORAGE_BUCKET:
     process.env.SUPABASE_STORAGE_BUCKET?.trim() || 'product-images',
 } as const
+
+/** A dashboard page on this environment's shop, e.g. `dashboardUrl('/orders/<id>')`. */
+export function dashboardUrl(path = ''): string {
+  return `${env.PUBLIC_SHOP_URL}/dashboard${path}`
+}

@@ -1,3 +1,4 @@
+import { clientMessage } from '../../lib/clientError.js'
 import { Router } from 'express'
 import { extractLimit } from '../../lib/rateLimit.js'
 import { analyzeWithCustomization } from '../../customizer/analyzeWithCustomization.js'
@@ -36,8 +37,8 @@ extractRouter.post('/', extractLimit, async (req, res) => {
     const result = await analyzeWithCustomization(domain, llm)
     res.json(result)
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Brand extraction failed'
-    res.status(502).json({ error: message })
+    res
+      .status(502)
+      .json({ error: clientMessage(err, 'Brand extraction failed', { log: 'extract' }) })
   }
 })

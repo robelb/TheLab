@@ -1,3 +1,4 @@
+import { clientMessage } from '../../lib/clientError.js'
 import { Router } from 'express'
 import { aiLimit } from '../../lib/rateLimit.js'
 import { composeSchema } from './compose.schema.js'
@@ -22,6 +23,6 @@ composeRouter.post('/', aiLimit, async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to build the mockup'
     console.warn('[compose] failed:', message)
-    res.status(502).json({ error: message })
+    res.status(502).json({ error: clientMessage(err, 'Failed to build the mockup') })
   }
 })

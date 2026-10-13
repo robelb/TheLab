@@ -1,7 +1,9 @@
-import { useState } from 'react'
-import { Inbox } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Inbox, Search, X } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
@@ -22,14 +24,16 @@ import {
 import { useOrders } from '@/hooks/use-orders'
 import { useAllCollections } from '@/hooks/use-collections-admin'
 import { useAuth } from '@/context/AuthContext'
+import type { Order, OrderStatus, PaymentStatus } from '@/api/orders'
 import {
-  ORDER_STATUSES,
-  type Order,
-  type OrderFilters,
-  type OrderStatus,
-  type PaymentStatus,
-} from '@/api/orders'
-import { formatPrice, formatDateTime } from '@/utils/format'
+  matchesSearch,
+  orderSize,
+  orderTodos,
+  SHIPPING_LABEL,
+  type OrderTodo,
+} from '@/lib/orderOps'
+import { cn } from '@/lib/utils'
+import { formatDate, formatDateTime, formatPrice } from '@/utils/format'
 
 /** Quiet until something needs doing — only `new` earns the eye. */
 const STATUS_STYLE: Record<OrderStatus, string> = {
@@ -39,145 +43,112 @@ const STATUS_STYLE: Record<OrderStatus, string> = {
   cancelled: 'border-border/40 text-muted-foreground line-through',
 }
 
-/**
- * Where a request came from, at a glance.
- *
- * Worth its own column now that requests arrive from three different places: a
- * signed-in company, a visitor with no account, and a visitor who came through
- * a paid landing page. The last of those is the one marketing asks about.
- */
-function originOf(order: Order): { label: string; className: string } {
-  if (order.source === 'funnel') {
-    return {
-      label: order.collectionName ?? order.collectionSlug ?? 'Campaign',
-      className: 'border-primary/40 bg-primary/10 text-primary',
-    }
-  }
-  return {
-    label: order.isGuest ? 'Shop · guest' : 'Shop',
-    className: 'border-border/60 text-muted-foreground',
-  }
-}
-
 const PAYMENT_STYLE: Record<PaymentStatus, string> = {
   unpaid: 'border-amber-500/40 bg-amber-500/10 text-amber-700',
   paid: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700',
 }
 
-/** `all`, `storefront`, `funnel`, or `c:<collection id>` — one control, not two. */
-function originFilter(value: string): Pick<OrderFilters, 'source' | 'collectionId'> {
-  if (value === 'storefront' || value === 'funnel') return { source: value }
-  if (value.startsWith('c:')) return { collectionId: value.slice(2) }
-  return {}
+/**
+ * The views the team works from, one click each. "Needs action" is the inbox:
+ * every request with something left to do — see `orderTodos`.
+ */
+const TABS = [
+  { key: 'action', label: 'Needs action', test: (_o: Order, todos: OrderTodo[]) => todos.length > 0 },
+  { key: 'new', label: 'New', test: (o: Order) => o.status === 'new' },
+  { key: 'quoted', label: 'Quoted', test: (o: Order) => o.status === 'quoted' },
+  { key: 'unpaid', label: 'Unpaid', test: (o: Order) => Boolean(o.invoice) && o.paymentStatus !== 'paid' },
+  { key: 'paid', label: 'Paid', test: (o: Order) => o.paymentStatus === 'paid' },
+  { key: 'cancelled', label: 'Cancelled', test: (o: Order) => o.status === 'cancelled' },
+  { key: 'all', label: 'All', test: () => true },
+] as const
+
+type TabKey = (typeof TABS)[number]['key']
+
+function originLabel(order: Order): string {
+  if (order.source === 'funnel') return order.collectionName ?? order.collectionSlug ?? 'Collection'
+  return order.isGuest ? 'Shop · guest' : 'Shop'
 }
 
-function OrderFiltersBar(props: {
-  origin: string
-  setOrigin: (v: string) => void
-  status: string
-  setStatus: (v: string) => void
-  payment: string
-  setPayment: (v: string) => void
-}) {
-  const { data: collections } = useAllCollections()
-  return (
-    <div className="flex flex-wrap gap-2">
-      <Select value={props.origin} onValueChange={props.setOrigin}>
-        <SelectTrigger className="w-[220px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All origins</SelectItem>
-          <SelectItem value="storefront">Shop</SelectItem>
-          <SelectItem value="funnel">Any collection</SelectItem>
-          {collections?.length ? <SelectSeparator /> : null}
-          {collections?.map((c) => (
-            <SelectItem key={c.id} value={`c:${c.id}`}>
-              {c.title.de || c.title.en || c.slug}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={props.status} onValueChange={props.setStatus}>
-        <SelectTrigger className="w-[160px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All statuses</SelectItem>
-          {ORDER_STATUSES.map((s) => (
-            <SelectItem key={s} value={s} className="capitalize">
-              {s}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={props.payment} onValueChange={props.setPayment}>
-        <SelectTrigger className="w-[160px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Any payment</SelectItem>
-          <SelectItem value="unpaid">Unpaid</SelectItem>
-          <SelectItem value="paid">Paid</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  )
+/** `all`, `storefront`, `funnel`, or `c:<collection id>` — one control, not two. */
+function matchesOrigin(order: Order, origin: string): boolean {
+  if (origin === 'all') return true
+  if (origin === 'storefront' || origin === 'funnel') return order.source === origin
+  if (origin.startsWith('c:')) return order.collectionId === origin.slice(2)
+  return true
 }
 
 /**
- * Requests waiting to be priced, and orders waiting to be paid.
+ * Requests and orders, as the operations team works through them.
  *
- * A request becomes an order when a super admin confirms it — that fixes the
- * price and issues the invoice. What the team needs from this page is: who
- * asked, where from, for what, by when, and whether it has been paid.
+ * Everything filters in the browser over the full list — it is short, so
+ * every change is instant — and lives in the URL, so a view can be
+ * bookmarked or sent to a colleague as it is.
  */
 export function OrdersPage() {
   const { can } = useAuth()
   const admin = can('manage_all')
-  const [origin, setOrigin] = useState('all')
-  const [status, setStatus] = useState('all')
-  const [payment, setPayment] = useState('all')
-  const filters: OrderFilters = {
-    ...originFilter(origin),
-    ...(status !== 'all' ? { status: status as OrderStatus } : {}),
-    ...(payment !== 'all' ? { paymentStatus: payment as PaymentStatus } : {}),
-  }
-  const filtered = Object.keys(filters).length > 0
-  const { data: orders, isLoading } = useOrders(filters)
   const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const { data: orders, isLoading } = useOrders({})
+  const { data: collections } = useAllCollections()
 
-  const filterBar = admin ? (
-    <OrderFiltersBar
-      origin={origin}
-      setOrigin={setOrigin}
-      status={status}
-      setStatus={setStatus}
-      payment={payment}
-      setPayment={setPayment}
-    />
-  ) : null
+  const tab = (TABS.some((t) => t.key === params.get('tab')) ? params.get('tab') : 'action') as TabKey
+  const q = params.get('q') ?? ''
+  const origin = params.get('origin') ?? 'all'
+  const shipping = params.get('ship') ?? 'all'
+  const from = params.get('from') ?? ''
+  const to = params.get('to') ?? ''
+  const sort = params.get('sort') === 'due' ? 'due' : 'newest'
+
+  const set = (key: string, value: string, empty = '') =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (!value || value === empty) next.delete(key)
+        else next.set(key, value)
+        return next
+      },
+      { replace: true },
+    )
+
+  const withTodos = useMemo(
+    () => (orders ?? []).map((order) => ({ order, todos: orderTodos(order) })),
+    [orders],
+  )
+
+  // The filters other than the tab, so each tab can show how many it holds.
+  const narrowed = withTodos.filter(({ order }) => {
+    if (!matchesSearch(order, q)) return false
+    if (!matchesOrigin(order, origin)) return false
+    if (shipping !== 'all' && (order.shippingMethod ?? 'bulk') !== shipping) return false
+    const due = order.delivery?.neededBy ?? ''
+    if (from && (!due || due < from)) return false
+    if (to && (!due || due > to)) return false
+    return true
+  })
+  const counts = Object.fromEntries(
+    TABS.map((t) => [t.key, narrowed.filter(({ order, todos }) => t.test(order, todos)).length]),
+  ) as Record<TabKey, number>
+  const active = TABS.find((t) => t.key === tab)!
+  const rows = narrowed
+    .filter(({ order, todos }) => active.test(order, todos))
+    .sort((a, b) => {
+      if (sort === 'due') {
+        const da = a.order.delivery?.neededBy || '9999'
+        const db = b.order.delivery?.neededBy || '9999'
+        if (da !== db) return da < db ? -1 : 1
+      }
+      return b.order.createdAt.localeCompare(a.order.createdAt)
+    })
+
+  const filtering = Boolean(q || origin !== 'all' || shipping !== 'all' || from || to)
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        {filterBar}
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-14 w-full" />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  if (!orders?.length && filtered) {
-    return (
-      <div className="space-y-4">
-        {filterBar}
-        <p className="py-16 text-center text-sm text-muted-foreground">
-          Nothing matches these filters.
-        </p>
+      <div className="space-y-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full" />
+        ))}
       </div>
     )
   }
@@ -197,91 +168,223 @@ export function OrdersPage() {
 
   return (
     <div className="space-y-4">
-      {filterBar}
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Reference</TableHead>
-            <TableHead>From</TableHead>
-            <TableHead>Origin</TableHead>
-            <TableHead>Delivery date</TableHead>
-            <TableHead className="text-right">Total</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Invoice</TableHead>
-            <TableHead className="text-right">Sent</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {orders.map((order) => (
-            <TableRow
-              key={order.id}
-              className="cursor-pointer"
-              onClick={() => navigate(`/dashboard/orders/${order.id}`)}
+      {/* ── Views ──────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-1 border-b border-border/40" role="tablist">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={t.key === tab}
+            onClick={() => set('tab', t.key, 'action')}
+            className={cn(
+              '-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition-colors',
+              t.key === tab
+                ? 'border-primary font-medium text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {t.label}
+            <span
+              className={cn(
+                'rounded-full px-1.5 text-xs tabular-nums',
+                t.key === 'action' && counts.action > 0
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-border text-foreground/70',
+              )}
             >
-              <TableCell className="font-mono text-xs">{order.reference}</TableCell>
-              <TableCell>
-                <span className="block text-sm">{order.contact.name}</span>
-                <span className="block text-xs text-muted-foreground">
-                  {order.billing?.company || order.contact.company || order.contact.email}
-                </span>
-              </TableCell>
-              <TableCell>
-                {(() => {
-                  const origin = originOf(order)
-                  return (
-                    <Badge variant="outline" className={origin.className}>
-                      {origin.label}
+              {counts[t.key]}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── Filters ────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-72">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={q}
+            onChange={(e) => set('q', e.target.value)}
+            placeholder="Reference, name, email, company, PO…"
+            aria-label="Search requests"
+            className="h-9 pl-9"
+          />
+        </div>
+        {admin && (
+          <Select value={origin} onValueChange={(v) => set('origin', v, 'all')}>
+            <SelectTrigger className="h-9 w-[190px]" aria-label="Origin">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All origins</SelectItem>
+              <SelectItem value="storefront">Shop</SelectItem>
+              <SelectItem value="funnel">Any collection</SelectItem>
+              {collections?.length ? <SelectSeparator /> : null}
+              {collections?.map((c) => (
+                <SelectItem key={c.id} value={`c:${c.id}`}>
+                  {c.title.de || c.title.en || c.slug}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        <Select value={shipping} onValueChange={(v) => set('ship', v, 'all')}>
+          <SelectTrigger className="h-9 w-[150px]" aria-label="Shipping">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Any shipping</SelectItem>
+            <SelectItem value="bulk">Bulk</SelectItem>
+            <SelectItem value="individual">Individual</SelectItem>
+            <SelectItem value="mixed">Mixed</SelectItem>
+          </SelectContent>
+        </Select>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          Needed by
+          <Input
+            type="date"
+            value={from}
+            onChange={(e) => set('from', e.target.value)}
+            className="h-9 w-[140px]"
+            aria-label="Delivery date from"
+          />
+          –
+          <Input
+            type="date"
+            value={to}
+            onChange={(e) => set('to', e.target.value)}
+            className="h-9 w-[140px]"
+            aria-label="Delivery date to"
+          />
+        </label>
+        <Select value={sort} onValueChange={(v) => set('sort', v, 'newest')}>
+          <SelectTrigger className="h-9 w-[170px]" aria-label="Sort">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Newest first</SelectItem>
+            <SelectItem value="due">Delivery date first</SelectItem>
+          </SelectContent>
+        </Select>
+        {filtering && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              setParams(tab === 'action' ? {} : { tab }, { replace: true })
+            }
+          >
+            <X className="size-4" />
+            Clear
+          </Button>
+        )}
+      </div>
+
+      {/* ── List ───────────────────────────────────────────────────── */}
+      {rows.length === 0 ? (
+        <p className="py-16 text-center text-sm text-muted-foreground">
+          {tab === 'action' && !filtering
+            ? 'Nothing needs doing right now.'
+            : 'Nothing matches these filters.'}
+        </p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Request</TableHead>
+              <TableHead>Customer</TableHead>
+              <TableHead>Order</TableHead>
+              <TableHead>Delivery</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>To do</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map(({ order, todos }) => (
+              <TableRow
+                key={order.id}
+                className="cursor-pointer align-top"
+                onClick={() => navigate(`/dashboard/orders/${order.id}`)}
+              >
+                <TableCell>
+                  <span className="block font-mono text-xs font-medium">{order.reference}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {formatDateTime(order.createdAt)}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">{originLabel(order)}</span>
+                </TableCell>
+                <TableCell>
+                  <span className="block text-sm">
+                    {order.billing?.company || order.contact.company || order.contact.name}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    {order.contact.name} · {order.contact.email}
+                  </span>
+                </TableCell>
+                <TableCell className="text-sm">{orderSize(order)}</TableCell>
+                <TableCell>
+                  <span className="block text-sm">
+                    {order.delivery?.neededBy ? formatDate(order.delivery.neededBy) : '—'}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    {SHIPPING_LABEL[order.shippingMethod ?? 'bulk']}
+                    {order.delivery?.country ? ` · ${order.delivery.country}` : ''}
+                  </span>
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {order.totalGross != null ? (
+                    <>
+                      {formatPrice(order.totalGross, order.currency)}
+                      <span className="block text-xs text-muted-foreground">gross</span>
+                    </>
+                  ) : (
+                    <>
+                      {formatPrice(order.total, order.currency)}
+                      <span className="block text-xs text-muted-foreground">est. net</span>
+                    </>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-col items-start gap-1">
+                    <Badge variant="outline" className={STATUS_STYLE[order.status]}>
+                      {order.status}
                     </Badge>
-                  )
-                })()}
-              </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {order.delivery?.neededBy || '—'}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {/* Once confirmed, the agreed gross; before, the estimate. */}
-                {order.totalGross != null ? (
-                  <>
-                    {formatPrice(order.totalGross, order.currency)}
-                    <span className="block text-xs text-muted-foreground">gross</span>
-                  </>
-                ) : (
-                  <>
-                    {formatPrice(order.total, order.currency)}
-                    <span className="block text-xs text-muted-foreground">est. net</span>
-                  </>
-                )}
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline" className={STATUS_STYLE[order.status]}>
-                  {order.status}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                {order.invoice ? (
-                  <div className="space-y-1">
-                    <span className="block font-mono text-xs">{order.invoice.number}</span>
-                    {order.paymentStatus && (
-                      <Badge
-                        variant="outline"
-                        className={PAYMENT_STYLE[order.paymentStatus]}
-                      >
+                    {order.invoice && order.paymentStatus && (
+                      <Badge variant="outline" className={PAYMENT_STYLE[order.paymentStatus]}>
                         {order.paymentStatus}
                       </Badge>
                     )}
                   </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
-              </TableCell>
-              <TableCell className="text-right text-xs text-muted-foreground">
-                {formatDateTime(order.createdAt)}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-
+                </TableCell>
+                <TableCell>
+                  <div className="flex max-w-[220px] flex-wrap gap-1">
+                    {todos.map((todo) => (
+                      <span
+                        key={todo.key}
+                        title={todo.detail}
+                        className={cn(
+                          'rounded-full border px-2 py-0.5 text-[11px] font-medium',
+                          todo.urgent
+                            ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                            : 'border-amber-500/40 bg-amber-500/10 text-amber-700',
+                        )}
+                      >
+                        {todo.label}
+                      </span>
+                    ))}
+                    {todos.length === 0 && (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </div>
   )
 }

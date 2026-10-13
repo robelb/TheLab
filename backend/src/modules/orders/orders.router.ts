@@ -1,3 +1,4 @@
+import { clientMessage } from '../../lib/clientError.js'
 import { Router } from 'express'
 import { orderLimit } from '../../lib/rateLimit.js'
 import { routeParam } from '../../lib/routeParam.js'
@@ -81,9 +82,9 @@ function fail(res: Response, err: unknown, fallback: string, what: string) {
   if (err instanceof OrderError) {
     return res.status(err.status).json({ error: err.message, code: err.code })
   }
-  const message = err instanceof Error ? err.message : fallback
-  console.warn(`[orders] ${what} failed:`, message)
-  return res.status(500).json({ error: message })
+  return res
+    .status(500)
+    .json({ error: clientMessage(err, fallback, { log: `orders ${what} failed` }) })
 }
 
 function queryString(req: Request, key: string): string | undefined {
@@ -154,7 +155,7 @@ ordersRouter.get('/', requireAuth, companyAdmin, async (req, res) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Could not load requests'
     console.warn('[orders] list failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Could not load requests') })
   }
 })
 
@@ -171,7 +172,7 @@ ordersRouter.get('/:id', requireAuth, companyAdmin, async (req, res) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Could not load the request'
     console.warn('[orders] get failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Could not load the request') })
   }
 })
 

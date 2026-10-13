@@ -1,5 +1,7 @@
+import { clientMessage } from '../../lib/clientError.js'
 import { Router } from 'express'
 import { uploadLimit } from '../../lib/rateLimit.js'
+import { requireAuth, requireCapability } from '../../middleware/auth.js'
 import multer from 'multer'
 import { z } from 'zod'
 import {
@@ -57,7 +59,7 @@ uploadsRouter.post('/', uploadLimit, async (req, res) => {
     const message =
       err instanceof Error ? err.message : 'Failed to process upload'
     console.warn('[uploads] failed:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({ error: clientMessage(err, 'Failed to process upload') })
   }
 })
 
@@ -85,13 +87,14 @@ uploadsRouter.post('/logo', uploadLimit, (req, res) => {
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to store the logo'
       console.warn('[uploads] logo failed:', message)
-      res.status(500).json({ error: message })
+      res.status(500).json({ error: clientMessage(e, 'Failed to store the logo') })
     }
   })
 })
 
 /** Multipart video upload (field name `video`) — returns the stored public URL. */
-uploadsRouter.post('/video', uploadLimit, (req, res) => {
+// Campaign videos come from the dashboard only.
+uploadsRouter.post('/video', requireAuth, requireCapability('manage_company'), uploadLimit, (req, res) => {
   videoUpload.single('video')(req, res, async (err) => {
     if (err) {
       const message = err instanceof Error ? err.message : 'Upload failed'
@@ -106,7 +109,7 @@ uploadsRouter.post('/video', uploadLimit, (req, res) => {
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Failed to store video'
       console.warn('[uploads] video failed:', message)
-      res.status(500).json({ error: message })
+      res.status(500).json({ error: clientMessage(e, 'Failed to store video') })
     }
   })
 })

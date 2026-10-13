@@ -344,7 +344,7 @@ export function checkoutProblems(body: CreateOrderBody): string | null {
     }
   }
   if (!SHIPPING_COUNTRIES.includes(destinationCountry(body))) {
-    return 'We can only ship within the EU for now'
+    return 'We cannot deliver to that country yet'
   }
   return null
 }

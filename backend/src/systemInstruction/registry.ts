@@ -6,6 +6,7 @@ import {
   KIT_IMAGE_DEFAULT_TEMPLATE,
 } from './campaign.js'
 import { SYSTEM_INSTRUCTION as BRAND_EXTRACTION_INSTRUCTION } from './brandExtraction.js'
+import { BOX_HERO_DEFAULT_TEMPLATE } from './boxHero.js'
 
 export interface InstructionPlaceholder {
   name: string
@@ -67,9 +68,9 @@ export const INSTRUCTION_DEFINITIONS: InstructionDefinition[] = [
   },
   {
     key: 'campaign-kit-image',
-    title: 'Bundle / box image (campaigns & box builder)',
+    title: 'Bundle image (dashboard campaigns)',
     description:
-      'Renders the composite gift-box photo for a campaign bundle or a shopper-built box: all products in one open kraft box, logo on every product.',
+      'Renders the composite gift-box photo for a campaign bundle built in the dashboard: all products in one open kraft box, logo on every product. The shop box builder uses "Box photo (box builder)" instead.',
     placeholders: [
       { name: 'companyName', description: 'The company name, or empty.' },
       { name: 'productCount', description: 'Number of products in the box.' },
@@ -94,6 +95,29 @@ export const INSTRUCTION_DEFINITIONS: InstructionDefinition[] = [
       },
     ],
     defaultTemplate: KIT_IMAGE_DEFAULT_TEMPLATE,
+  },
+  {
+    key: 'box-hero-image',
+    title: 'Box photo (box builder)',
+    description:
+      'Renders the photo on the review step of the shop and collection box builder: the closed gift box standing at the back, the chosen products grouped in front of it, warm studio light. Sent with one photo per product, then the chosen packaging.',
+    placeholders: [
+      { name: 'productCount', description: 'Number of products in the box.' },
+      {
+        name: 'referenceImages',
+        description: 'The list mapping attached images to products (image k = product k; packaging last).',
+      },
+      {
+        name: 'productSet',
+        description: 'The numbered product list, with customer-designed products marked.',
+      },
+      {
+        name: 'packaging',
+        description: 'One line naming the chosen box or bag and how it stands in the shot.',
+      },
+      { name: 'finalCheck', description: 'The closing check, with the product count filled in.' },
+    ],
+    defaultTemplate: BOX_HERO_DEFAULT_TEMPLATE,
   },
   {
     key: 'campaign-copy',

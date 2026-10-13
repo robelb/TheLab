@@ -66,7 +66,7 @@ export function QuantityStepper({
         onChange={(e) => handleType(e.target.value)}
         onFocus={(e) => e.target.select()}
         onBlur={() => setDraft(null)}
-        className="h-9 w-10 bg-transparent text-center text-sm tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-9 w-14 bg-transparent text-center text-sm tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
       <Button
         type="button"

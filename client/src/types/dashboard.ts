@@ -1,4 +1,4 @@
-import type { ComponentRole } from '@/types/product'
+import type { ComponentRole, ProductLabel } from '@/types/product'
 
 export interface Category {
   id: string
@@ -84,6 +84,8 @@ export interface ProductInput {
   kind?: 'single' | 'bundle'
   /** Occasion slugs a landing page can filter by, e.g. `christmas`. */
   tags?: string[]
+  /** Diet and sourcing badges; setting them keeps them through a resync. */
+  labels?: ProductLabel[]
   /** Smallest order the supplier accepts. */
   minQuantity?: number
   /** What a bundle holds. Sent only for a bundle; replaces the list wholesale. */

@@ -88,7 +88,8 @@ export const EMPTY_STEP_DRAFT: StepDraft = {
 export function heroKeyFor(draft: StepDraft): string {
   const ids = [...draft.productIds, draft.packagingId].filter(Boolean) as string[]
   const designs = ids.map((id) => draft.designs[id]?.image ?? '').join(',')
-  return [draft.productIds.join(','), draft.packagingId, draft.fillingId, designs].join('|')
+  // Not the filling: the photo shows the box closed, so it never appears.
+  return [draft.productIds.join(','), draft.packagingId, designs].join('|')
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null)

@@ -1269,6 +1269,9 @@ export async function createProduct(
       isFeatured: input.isFeatured ?? false,
       kind: input.kind ?? 'single',
       tags: normalizeTags(input.tags),
+      ...(input.labels?.length
+        ? { labels: [...new Set(input.labels)], labelsEditedAt: new Date() }
+        : {}),
       minQuantity: input.minQuantity ?? 1,
       ...(embedding
         ? { embedding, embeddingUpdatedAt: new Date() }
@@ -1377,6 +1380,11 @@ export async function updateProduct(
   if (input.variantId !== undefined) values.variantId = input.variantId
   if (input.kind !== undefined) values.kind = input.kind
   if (input.tags !== undefined) values.tags = normalizeTags(input.tags)
+  if (input.labels !== undefined) {
+    values.labels = [...new Set(input.labels)]
+    // From now on the resync keeps these rather than its own.
+    values.labelsEditedAt = new Date()
+  }
   if (input.minQuantity !== undefined) values.minQuantity = input.minQuantity
 
   if (touchesEmbedding) {

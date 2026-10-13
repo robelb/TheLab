@@ -179,9 +179,9 @@
     "addressesLater": "Die Adressen können Sie später schicken",
     "addressesLaterBody": "Nach Ihrer Anfrage bitten wir Sie per E-Mail um die Liste der Empfänger:innen – am besten als Excel- oder CSV-Datei. Sie müssen sie jetzt nicht zur Hand haben.",
     "recipientsCountry": "Wohin gehen die Boxen?",
-    "recipientsCountryHint": "Das Land der meisten Empfänger:innen – für die Versandschätzung. Wir liefern innerhalb der EU.",
+    "recipientsCountryHint": "Das Land der meisten Empfänger:innen – für die Versandschätzung. Wir liefern nach Deutschland und in die meisten EU-Länder.",
     "bulkAddress": "Adresse für den Sammelversand",
-    "shipEuOnly": "Wir liefern derzeit innerhalb der EU.",
+    "shipEuOnly": "Wir liefern nach Deutschland und in die meisten EU-Länder.",
     "shipMethodShort": {
       "bulk": "Sammelversand",
       "individual": "Einzelversand",
@@ -490,7 +490,7 @@
     "vatIdRequired": "Bitte geben Sie Ihre USt-IdNr. an – ohne sie können wir nicht ohne MwSt. berechnen.",
     "vatIdCountry": "Die USt-IdNr. muss zum Rechnungsland passen und mit {{prefix}} beginnen.",
     "bulkBoxes": "Bitte geben Sie eine Zahl zwischen 1 und {{max}} ein.",
-    "shipEuOnly": "Wir liefern derzeit nur innerhalb der EU. Bitte geben Sie eine Lieferadresse in der EU an."
+    "shipEuOnly": "In dieses Land können wir noch nicht liefern. Bitte geben Sie eine Lieferadresse in einem der aufgeführten Länder an."
   },
   "stepBuilder": {
     "title": "Stellen Sie Ihre Geschenkbox zusammen",
@@ -552,6 +552,9 @@
       "body": "Wählen Sie die Verpackung für Ihre Box. Alle gezeigten Verpackungen sind fertig gestaltet und werden wie abgebildet versendet.",
       "pick": "Wählen Sie eine Verpackung, um fortzufahren.",
       "fillingIncluded": "Jede Box wird mit {{name}} gepolstert.",
+      "fillingTitle": "Füllmaterial",
+      "fillingBody": "Damit alles sicher ankommt, wird jede Box gepolstert. Wählen Sie das Füllmaterial, das Ihnen gefällt.",
+      "fillingPriced": "{{name}}: {{price}} pro Box, im Preis enthalten.",
       "printed": "Bedruckt mit: {{prompt}}",
       "printHint": "Möchten Sie die Box mit Ihrem Logo oder Motiv bedrucken?"
     },
@@ -593,9 +596,22 @@
     },
     "footer": {
       "perBox": "Pro Box",
+      "noPriceYet": "Wählen Sie Produkte, um den Preis zu sehen",
       "back": "Zurück",
       "next": "Weiter",
       "skip": "Überspringen"
+    },
+    "price": {
+      "show": "Preisdetails",
+      "hide": "Details ausblenden",
+      "readyMade": "Fertige Box, Festpreis",
+      "packing": "Konfektionierung",
+      "perBox": "Pro Box",
+      "times_one": "× {{count}} Box",
+      "times_other": "× {{count}} Boxen",
+      "volume_one": "Staffelpreise für {{count}} Box sind berücksichtigt.",
+      "volume_other": "Staffelpreise für {{count}} Boxen sind berücksichtigt.",
+      "note": "Preise netto zzgl. MwSt. Der Versand wird an der Kasse berechnet."
     },
     "christmas": {
       "title": "Stellen Sie Ihre Weihnachtsbox zusammen",

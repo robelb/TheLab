@@ -23,7 +23,7 @@ import type { Collection } from '@/api/collections'
 import type { Product } from '@/types/product'
 
 /** The server's cap on headline boxes; past it, saving would be refused. */
-const MAX_FEATURED = 12
+const MAX_FEATURED = 100
 
 const brandTabClass =
   'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm'

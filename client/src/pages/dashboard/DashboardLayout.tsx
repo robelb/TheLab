@@ -26,6 +26,7 @@ const PAGE_TITLES: { match: (path: string) => boolean; title: string }[] = [
   },
   { match: (p) => p.startsWith('/dashboard/admin/collections'), title: 'Collections' },
   { match: (p) => p.startsWith('/dashboard/admin/instructions'), title: 'AI instructions' },
+  { match: (p) => p.startsWith('/dashboard/admin/notifications'), title: 'Notifications' },
 ]
 
 export function DashboardLayout() {

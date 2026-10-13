@@ -39,6 +39,10 @@ import {
   isCompositionOnly,
   buildKitTemplateVars,
 } from '../../systemInstruction/campaign.js'
+import {
+  buildBoxHeroPrompt,
+  buildBoxHeroTemplateVars,
+} from '../../systemInstruction/boxHero.js'
 import { resolveInstruction } from '../system-instructions/system-instructions.service.js'
 import { saveRenderedImage } from '../uploads/uploads.service.js'
 import type { ProductWithCategory } from '../../types/product.js'
@@ -270,6 +274,7 @@ async function generateKitImage(
   if (products.length === 0) {
     throw new Error('Add at least one product to the bundle first.')
   }
+  const startedAt = Date.now()
 
   /**
    * Which photograph of a product the render is built from.
@@ -382,12 +387,106 @@ async function generateKitImage(
     buildKitTemplateVars(kitNames, kitOptions),
   )
   const prompt = override ?? buildCampaignKitImagePrompt(kitNames, kitOptions)
+  const preparedAt = Date.now()
   const buffer = await generateProductPhoto(prompt, images, config, {
     size: '1024x1024',
     // The kit shot is specified as a square flat-lay throughout the brief.
     aspectRatio: '1:1',
   })
-  return saveRenderedImage(buffer.toString('base64'), { prefix: 'campaign' })
+  const renderedAt = Date.now()
+  const url = await saveRenderedImage(buffer.toString('base64'), { prefix: 'campaign' })
+  // Where the time goes: references, the model, storing the result.
+  console.info(
+    `[campaigns] kit image: ${config.provider}/${config.model}, ${images.length} refs, ` +
+      `prompt ${prompt.length} chars — refs ${preparedAt - startedAt} ms, ` +
+      `model ${renderedAt - preparedAt} ms, save ${Date.now() - renderedAt} ms`,
+  )
+  return url
+}
+
+/** References for the box photo are shown small; this keeps the upload lean. */
+const BOX_HERO_REF_EDGE = 768
+
+/**
+ * The photo on the box builder's review step — see `buildBoxHeroPrompt`.
+ *
+ * Its own path rather than a mode of `generateKitImage`, because it differs
+ * in everything that costs time: no brand to look up (nothing is branded for
+ * the shopper), no filling (the box is closed), smaller references, a 1K
+ * render and a brief a third as long. Each product is photographed from the
+ * design the shopper made for it, or else its plain catalogue photo — what
+ * the builder showed them.
+ */
+async function generateBoxHeroImage(
+  products: ProductWithCategory[],
+  supplies: KitSupplySelection,
+): Promise<string> {
+  const config = resolveImageLlmConfig()
+  if (!config) throw new Error(missingImageLlmConfigMessage())
+  if (products.length === 0) {
+    throw new Error('Add at least one product to the box first.')
+  }
+  const startedAt = Date.now()
+  const sourceFor = (p: ProductWithCategory) => supplies.productImages?.[p.id] ?? p.image
+
+  const [fetched, packaging] = await Promise.all([
+    Promise.allSettled(
+      products.map((p) => fetchImage(sourceFor(p), 'product', { maxEdge: BOX_HERO_REF_EDGE })),
+    ),
+    supplies.packagingId
+      ? getProductById(supplies.packagingId)
+          .then(async (box) => {
+            if (!box) return null
+            const image = await fetchImage(supplies.packagingImageUrl ?? box.image, 'product', {
+              maxEdge: BOX_HERO_REF_EDGE,
+            })
+            return { name: box.name, image, designed: Boolean(supplies.packagingImageUrl) }
+          })
+          .catch((err) => {
+            console.warn(
+              '[campaigns] could not load the packaging for the box photo:',
+              err instanceof Error ? err.message : err,
+            )
+            return null
+          })
+      : Promise.resolve(null),
+  ])
+
+  // A product whose photo cannot be fetched is left out, and the brief then
+  // lists only what was actually sent.
+  const usable = products.flatMap((product, i) => {
+    const result = fetched[i]
+    return result.status === 'fulfilled' ? [{ product, image: result.value }] : []
+  })
+  if (usable.length === 0) {
+    throw new Error('None of the product photos could be loaded.')
+  }
+
+  const names = usable.map((e) => e.product.name)
+  const options = {
+    packaging: packaging ? { name: packaging.name, designed: packaging.designed } : null,
+    designed: usable.filter((e) => supplies.productImages?.[e.product.id]).map((e) => e.product.name),
+  }
+  // Products first, in list order; the packaging last — the brief names them by position.
+  const images = usable.map((e) => e.image)
+  if (packaging) images.push(packaging.image)
+
+  const override = await resolveInstruction('box-hero-image', buildBoxHeroTemplateVars(names, options))
+  const prompt = override ?? buildBoxHeroPrompt(names, options)
+  const preparedAt = Date.now()
+  const buffer = await generateProductPhoto(prompt, images, config, {
+    size: '1024x1024',
+    aspectRatio: '1:1',
+    imageSize: '1K',
+  })
+  const renderedAt = Date.now()
+  const url = await saveRenderedImage(buffer.toString('base64'), { prefix: 'campaign' })
+  console.info(
+    `[campaigns] box photo: ${config.provider}/${config.model}, ${images.length} refs, ` +
+      `prompt ${prompt.length} chars — refs ${preparedAt - startedAt} ms, ` +
+      `model ${renderedAt - preparedAt} ms, save ${Date.now() - renderedAt} ms`,
+  )
+  return url
 }
 
 /**
@@ -531,10 +630,13 @@ async function runHeroImageJob(
       return
     }
 
+    // The box builder asks for its own photo — see `generateBoxHeroImage`.
     const url = await withTimeout(
-      resolveBundleBrand(brand, row.domain).then((bundleBrand) =>
-        generateKitImage(products, bundleBrand, supplies),
-      ),
+      supplies?.plainUnlessDesigned
+        ? generateBoxHeroImage(products, supplies)
+        : resolveBundleBrand(brand, row.domain).then((bundleBrand) =>
+            generateKitImage(products, bundleBrand, supplies),
+          ),
       KIT_IMAGE_TIMEOUT_MS,
       'kit image',
     )
@@ -554,10 +656,15 @@ async function runHeroImageJob(
     const message =
       err instanceof Error ? err.message : 'Image generation failed.'
     console.warn('[campaigns] hero image regeneration failed:', message)
-    // The previous `heroImageUrl` is deliberately left untouched.
+    // The previous `heroImageUrl` is deliberately left untouched. The stored
+    // error is shown to whoever opens the campaign — a guest included — so it
+    // says what happened, not the provider's or the image host's own words.
     await db
       .update(campaigns)
-      .set({ heroImageStatus: 'failed', heroImageError: message })
+      .set({
+        heroImageStatus: 'failed',
+        heroImageError: 'The photo could not be made. Please try again.',
+      })
       .where(eq(campaigns.id, campaignId))
       .catch(() => undefined)
   }

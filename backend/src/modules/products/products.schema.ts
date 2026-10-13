@@ -224,6 +224,8 @@ export const productComponentSchema = z.object({
 const productKindField = z.enum(['single', 'bundle'])
 const productTagsField = z.array(z.string().trim().min(1).max(64)).max(20)
 const minQuantityField = z.coerce.number().int().min(1).max(100_000)
+/** Diet and sourcing badges shown on the product. */
+const productLabelsField = z.array(z.enum(['vegan', 'organic'])).max(2)
 
 export const createProductSchema = z.object({
   name: z.string().trim().min(1, 'name is required'),
@@ -242,6 +244,7 @@ export const createProductSchema = z.object({
   variantId: z.string().trim().optional(),
   kind: productKindField.optional(),
   tags: productTagsField.optional(),
+  labels: productLabelsField.optional(),
   minQuantity: minQuantityField.optional(),
   /** The parts list, when this product is a pre-configured box. */
   components: z.array(productComponentSchema).max(50).optional(),
@@ -267,6 +270,7 @@ export const updateProductSchema = z
     variantId: z.string().trim().optional(),
     kind: productKindField.optional(),
     tags: productTagsField.optional(),
+    labels: productLabelsField.optional(),
     minQuantity: minQuantityField.optional(),
     components: z.array(productComponentSchema).max(50).optional(),
   })

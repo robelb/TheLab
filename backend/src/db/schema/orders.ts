@@ -80,9 +80,10 @@ export const orders = pgTable(
     subtotal: numeric('subtotal', { precision: 10, scale: 2 }).notNull(),
     shipping: numeric('shipping', { precision: 10, scale: 2 }).notNull(),
     /**
-     * The per-item pick fee for packing boxes (€0.15 for each item put into a
-     * box). Its own column so the operator can change it on confirm and the
-     * invoice shows it as its own line. Included in `total`.
+     * What packing the boxes costs — the pick fee, €0.30 for the first item
+     * into a box and €0.15 for each after (see `pickFee`). Already inside the
+     * box lines' prices and so in `subtotal`: the customer sees it as part of
+     * each box, never as a line. Kept so the operator can see it.
      */
     fulfilmentFee: numeric('fulfilment_fee', { precision: 10, scale: 2 })
       .notNull()

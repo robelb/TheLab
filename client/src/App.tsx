@@ -33,6 +33,7 @@ import { CollectionsPage as AdminCollectionsPage } from '@/pages/admin/Collectio
 import { FeaturedProductsPage } from '@/pages/admin/FeaturedProductsPage'
 import { CollectionDetailPage as AdminCollectionDetailPage } from '@/pages/admin/CollectionDetailPage'
 import { SystemInstructionsPage } from '@/pages/admin/SystemInstructionsPage'
+import { NotificationsPage } from '@/pages/admin/NotificationsPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SharePage } from '@/pages/SharePage'
 import { Toaster } from '@/components/ui/sonner'
@@ -119,6 +120,7 @@ export default function App() {
                     path="admin/instructions"
                     element={<SystemInstructionsPage />}
                   />
+                  <Route path="admin/notifications" element={<NotificationsPage />} />
                 </Route>
               </Routes>
               </FunnelProvider>

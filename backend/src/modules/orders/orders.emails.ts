@@ -5,7 +5,7 @@
  * needs to know what an order is.
  */
 
-import { env } from '../../config/env.js'
+import { IS_PRODUCTION, dashboardUrl, env } from '../../config/env.js'
 import type { Invoice } from '../../db/schema/index.js'
 import {
   button,
@@ -24,12 +24,10 @@ import {
   type RenderedEmail,
   type Row,
 } from '../../emails/layout.js'
-import {
-  notifyRecipients,
-  registerEmailBuilder,
-} from '../../services/mailer.js'
+import { registerEmailBuilder } from '../../services/mailer.js'
 import { renderInvoicePdf } from '../../services/invoicePdf.js'
 import { vatRateFor, zeroVatReason } from '../../lib/shipping.js'
+import { getNotifySettings } from '../settings/settings.service.js'
 import { getInvoiceByOrder } from './invoices.service.js'
 import { getOrder, type OrderDto } from './orders.service.js'
 
@@ -245,9 +243,10 @@ export function orderNotifyEmail(order: OrderDto): RenderedEmail {
     ? `${de ? 'Kollektion' : 'Collection'} „${order.collectionName}“ (/c/${order.collectionSlug})`
     : 'Shop'
   const m = (n: number) => formatMoney(n, order.currency, locale)
-  const link = `${env.PUBLIC_SHOP_URL}/dashboard/orders/${order.id}`
+  const link = dashboardUrl(`/orders/${order.id}`)
   const title = `${de ? 'Neue Anfrage' : 'New request'} ${order.reference}`
-  const subject = `${title} · ${order.collectionName ?? 'Shop'} · ${m(order.total)}`
+  // Requests placed on a local or test server say so, so nobody acts on one.
+  const subject = `${IS_PRODUCTION ? '' : '[DEV] '}${title} · ${order.collectionName ?? 'Shop'} · ${m(order.total)}`
 
   const facts: Row[] = [
     { label: de ? 'Herkunft' : 'Origin', value: origin },
@@ -420,7 +419,7 @@ registerEmailBuilder('email.order_received', async (payload) => {
 })
 
 registerEmailBuilder('email.order_notify', async (payload) => {
-  const to = notifyRecipients()
+  const { emails: to } = await getNotifySettings()
   if (to.length === 0) return null
   const order = await loadOrder(payload)
   if (!order) return null
