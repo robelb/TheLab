@@ -1,5 +1,6 @@
 import { ArrowLeft, Check, Maximize2, Pencil, Share2, Star, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { createShare, shareUrl, type ShareBrand } from '@/api/share'
 import { ProductFormDialog } from '@/components/dashboard/ProductFormDialog'
@@ -42,6 +43,7 @@ function DataRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export function ProductDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const { data: product, isLoading, error } = useProduct(id)
   const { brand } = useBrand()
@@ -72,12 +74,12 @@ export function ProductDetailPage() {
     return (
       <div className="space-y-4">
         <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error instanceof Error ? error.message : 'Product not found'}
+          {error instanceof Error ? error.message : t('dashboard.products.detail.notFound')}
         </p>
         <Button asChild variant="outline">
           <Link to="/dashboard/products">
             <ArrowLeft className="size-4" />
-            Back to products
+            {t('dashboard.products.detail.backToProducts')}
           </Link>
         </Button>
       </div>
@@ -146,7 +148,7 @@ export function ProductDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="icon" aria-label="Back">
+          <Button asChild variant="ghost" size="icon" aria-label={t('dashboard.products.detail.back')}>
             <Link to="/dashboard/products">
               <ArrowLeft className="size-4" />
             </Link>
@@ -158,7 +160,7 @@ export function ProductDetailPage() {
         </div>
         <Button variant="outline" onClick={() => setEditing(true)}>
           <Pencil className="size-4" />
-          Edit product
+          {t('dashboard.products.detail.editProduct')}
         </Button>
       </div>
 
@@ -167,13 +169,15 @@ export function ProductDetailPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Details</CardTitle>
+              <CardTitle className="text-base">
+                {t('dashboard.products.detail.details')}
+              </CardTitle>
             </CardHeader>
             <CardContent className="divide-y divide-border/40 py-0">
-              <DataRow label="SKU" value={product.sku ?? '—'} />
-              <DataRow label="Category" value={product.category} />
+              <DataRow label={t('dashboard.products.detail.sku')} value={product.sku ?? '—'} />
+              <DataRow label={t('dashboard.products.detail.category')} value={product.category} />
               <DataRow
-                label="Labels"
+                label={t('dashboard.products.detail.labels')}
                 value={
                   product.labels?.length ? (
                     <ProductLabels labels={product.labels} className="justify-end" />
@@ -183,41 +187,47 @@ export function ProductDetailPage() {
                 }
               />
               <DataRow
-                label="Price"
+                label={t('dashboard.products.detail.price')}
                 value={formatPrice(product.price, product.currency)}
               />
               <DataRow
-                label="Stock"
+                label={t('dashboard.products.detail.stock')}
                 value={
                   product.stock === 0 ? (
-                    <span className="text-destructive">Out of stock</span>
+                    <span className="text-destructive">
+                      {t('dashboard.products.outOfStock')}
+                    </span>
                   ) : (
                     (product.stock ?? '—')
                   )
                 }
               />
               <DataRow
-                label="Featured"
+                label={t('dashboard.products.detail.featured')}
                 value={
                   product.isFeatured ? (
                     <Badge className="gap-1 text-[10px]">
                       <Star className="size-2.5" />
-                      Featured
+                      {t('dashboard.products.badgeFeatured')}
                     </Badge>
                   ) : (
-                    'No'
+                    t('dashboard.products.detail.no')
                   )
                 }
               />
               {product.description && (
                 <div className="space-y-1 py-2 text-sm">
-                  <span className="text-muted-foreground">Description</span>
+                  <span className="text-muted-foreground">
+                    {t('dashboard.products.detail.description')}
+                  </span>
                   <p>{product.description}</p>
                 </div>
               )}
               {product.details.length > 0 && (
                 <div className="space-y-1 py-2 text-sm">
-                  <span className="text-muted-foreground">Details</span>
+                  <span className="text-muted-foreground">
+                    {t('dashboard.products.detail.details')}
+                  </span>
                   <ul className="list-inside list-disc text-muted-foreground">
                     {product.details.map((d) => (
                       <li key={d}>{d}</li>
@@ -231,22 +241,34 @@ export function ProductDetailPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                Images ({galleryImages.length}
-                {notApproved.length > 0 && (
-                  <span className="font-normal text-muted-foreground">
-                    {` + ${notApproved.length} pending`}
-                  </span>
+                {notApproved.length > 0 ? (
+                  <Trans
+                    i18nKey="dashboard.products.detail.imagesTitleWithPending"
+                    values={{ total: galleryImages.length, pending: notApproved.length }}
+                    components={{
+                      pending: <span className="font-normal text-muted-foreground" />,
+                    }}
+                  />
+                ) : (
+                  t('dashboard.products.detail.imagesTitle', {
+                    total: galleryImages.length,
+                  })
                 )}
-                )
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-20">Preview</TableHead>
-                    <TableHead className="w-28">Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-20">
+                      {t('dashboard.products.detail.colPreview')}
+                    </TableHead>
+                    <TableHead className="w-28">
+                      {t('dashboard.products.detail.colStatus')}
+                    </TableHead>
+                    <TableHead className="text-right">
+                      {t('dashboard.products.detail.colActions')}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -266,7 +288,7 @@ export function ProductDetailPage() {
                             href={row.src}
                             target="_blank"
                             rel="noreferrer"
-                            aria-label="Open full-size image in a new tab"
+                            aria-label={t('dashboard.products.detail.openFullSize')}
                           >
                             <img
                               src={row.src}
@@ -280,14 +302,14 @@ export function ProductDetailPage() {
                             row.cover ? (
                               <Badge className="gap-1 text-[10px]">
                                 <Star className="size-2.5" />
-                                Cover
+                                {t('dashboard.products.detail.cover')}
                               </Badge>
                             ) : (
                               <Badge
                                 variant="secondary"
                                 className="text-[10px]"
                               >
-                                In shop
+                                {t('dashboard.products.detail.inShop')}
                               </Badge>
                             )
                           ) : (
@@ -295,7 +317,7 @@ export function ProductDetailPage() {
                               variant="outline"
                               className="border-amber-400/50 text-[10px] text-amber-600 dark:text-amber-400"
                             >
-                              Not approved
+                              {t('dashboard.products.detail.notApproved')}
                             </Badge>
                           )}
                         </TableCell>
@@ -308,7 +330,9 @@ export function ProductDetailPage() {
                                 onClick={() => saveShareMut.mutate(row.slug!)}
                               >
                                 <Check className="size-4" />
-                                {isApproving ? 'Approving…' : 'Approve'}
+                                {isApproving
+                                  ? t('dashboard.products.detail.approving')
+                                  : t('dashboard.products.detail.approve')}
                               </Button>
                             )}
                             <Button
@@ -316,17 +340,19 @@ export function ProductDetailPage() {
                               variant="outline"
                               disabled={isSharing}
                               onClick={() => shareImage(row.src)}
-                              title="Copy a public link to share this image for sign-off"
+                              title={t('dashboard.products.detail.shareTitle')}
                             >
                               {isCopied ? (
                                 <>
                                   <Check className="size-4" />
-                                  Copied
+                                  {t('dashboard.products.copied')}
                                 </>
                               ) : (
                                 <>
                                   <Share2 className="size-4" />
-                                  {isSharing ? 'Sharing…' : 'Share'}
+                                  {isSharing
+                                    ? t('dashboard.products.sharing')
+                                    : t('dashboard.products.share')}
                                 </>
                               )}
                             </Button>
@@ -338,13 +364,13 @@ export function ProductDetailPage() {
                                 disabled={isRejecting}
                                 aria-label={
                                   row.approved
-                                    ? 'Remove image from shop'
-                                    : 'Reject design'
+                                    ? t('dashboard.products.detail.removeFromShop')
+                                    : t('dashboard.products.detail.rejectDesign')
                                 }
                                 title={
                                   row.approved
-                                    ? 'Remove this image from the shop and delete the design'
-                                    : 'Reject and delete this design'
+                                    ? t('dashboard.products.detail.removeFromShopTitle')
+                                    : t('dashboard.products.detail.rejectDesignTitle')
                                 }
                                 onClick={() => deleteShareMut.mutate(row.slug!)}
                               >
@@ -365,7 +391,9 @@ export function ProductDetailPage() {
         {/* Right: AI photoshoot */}
         <Card className="lg:sticky lg:top-24 h-fit">
           <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
-            <CardTitle className="text-base">AI photoshoot</CardTitle>
+            <CardTitle className="text-base">
+              {t('dashboard.products.detail.photoshoot')}
+            </CardTitle>
             {/* The panel can place branding inline, but the editor has room to
                 work in — same canvas, same result, more space. */}
             <Button asChild size="sm" variant="outline">
@@ -375,7 +403,7 @@ export function ProductDetailPage() {
                 )}`}
               >
                 <Maximize2 className="size-3.5" />
-                Open design editor
+                {t('dashboard.products.detail.openDesignEditor')}
               </Link>
             </Button>
           </CardHeader>

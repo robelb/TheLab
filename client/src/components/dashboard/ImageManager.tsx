@@ -1,5 +1,6 @@
 import { GripVertical, ImagePlus, Loader2, Star, Upload, X } from 'lucide-react'
 import { useRef, useState, type DragEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { fileToDataUrl, uploadImages } from '@/api/uploads'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +12,7 @@ interface ImageManagerProps {
 }
 
 export function ImageManager({ images, onChange }: ImageManagerProps) {
+  const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,7 +38,7 @@ export function ImageManager({ images, onChange }: ImageManagerProps) {
         (err as { response?: { data?: { error?: string } } })?.response?.data
           ?.error ??
         (err as Error)?.message ??
-        'Upload failed'
+        t('dashboard.products.images.uploadFailed')
       setError(message)
     } finally {
       setUploading(false)
@@ -103,10 +105,12 @@ export function ImageManager({ images, onChange }: ImageManagerProps) {
           <Upload className="size-6 text-muted-foreground" />
         )}
         <p className="text-sm font-medium">
-          {uploading ? 'Uploading…' : 'Drop images here or click to upload'}
+          {uploading
+            ? t('dashboard.products.images.uploading')
+            : t('dashboard.products.images.dropzone')}
         </p>
         <p className="text-xs text-muted-foreground">
-          PNG, JPG or WebP — multiple files supported
+          {t('dashboard.products.images.dropzoneHint')}
         </p>
         <input
           ref={fileInputRef}
@@ -132,11 +136,11 @@ export function ImageManager({ images, onChange }: ImageManagerProps) {
               addUrl()
             }
           }}
-          placeholder="…or paste an image URL"
+          placeholder={t('dashboard.products.images.urlPlaceholder')}
         />
         <Button type="button" variant="outline" onClick={addUrl}>
           <ImagePlus className="size-4" />
-          Add
+          {t('dashboard.products.images.add')}
         </Button>
       </div>
 
@@ -149,12 +153,12 @@ export function ImageManager({ images, onChange }: ImageManagerProps) {
       {/* Thumbnail grid (drag to reorder) */}
       {images.length === 0 ? (
         <p className="rounded-brand border border-border/40 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-          No images yet. The first image becomes the product cover.
+          {t('dashboard.products.images.empty')}
         </p>
       ) : (
         <>
           <p className="text-xs text-muted-foreground">
-            Drag to reorder — the first image is the cover.
+            {t('dashboard.products.images.reorderHint')}
           </p>
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
             {images.map((src, index) => (
@@ -191,13 +195,13 @@ export function ImageManager({ images, onChange }: ImageManagerProps) {
                 {index === 0 && (
                   <span className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
                     <Star className="size-2.5" />
-                    Cover
+                    {t('dashboard.products.images.cover')}
                   </span>
                 )}
 
                 <button
                   type="button"
-                  aria-label="Remove image"
+                  aria-label={t('dashboard.products.images.remove')}
                   onClick={() => removeAt(index)}
                   className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity hover:bg-destructive group-hover:opacity-100"
                 >

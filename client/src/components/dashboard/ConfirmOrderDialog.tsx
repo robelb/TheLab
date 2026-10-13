@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -59,21 +60,21 @@ function billingDraftFrom(order: Order): BillingDraft {
   }
 }
 
+/** Each field's label is `dashboard.orders.confirm.billing.<key>`. */
 const BILLING_FIELDS: {
   key: keyof BillingDraft
-  label: string
   required?: boolean
   wide?: boolean
 }[] = [
-  { key: 'company', label: 'Company', required: true, wide: true },
-  { key: 'name', label: 'Attention of' },
-  { key: 'email', label: 'Invoice email' },
-  { key: 'street', label: 'Street and number', required: true, wide: true },
-  { key: 'line2', label: 'Address line 2', wide: true },
-  { key: 'zip', label: 'Postcode', required: true },
-  { key: 'city', label: 'City', required: true },
-  { key: 'vatId', label: 'VAT ID' },
-  { key: 'poNumber', label: 'PO number' },
+  { key: 'company', required: true, wide: true },
+  { key: 'name' },
+  { key: 'email' },
+  { key: 'street', required: true, wide: true },
+  { key: 'line2', wide: true },
+  { key: 'zip', required: true },
+  { key: 'city', required: true },
+  { key: 'vatId' },
+  { key: 'poNumber' },
 ]
 
 function round(value: number): number {
@@ -104,6 +105,7 @@ export function ConfirmOrderDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { t } = useTranslation()
   const confirm = useConfirmOrder()
   const [prices, setPrices] = useState<string[]>(() =>
     order.items.map((item) => item.unitPrice.toFixed(2)),
@@ -179,23 +181,35 @@ export function ConfirmOrderDialog({
           if (delivery?.status === 'failed') {
             notifyError(
               null,
-              `${updated.reference} confirmed, but the invoice email to ${invoiceEmail} failed: ${delivery.error}${delivery.willRetry ? ' We will retry automatically.' : ' Use “Resend email” to try again.'}`,
+              t(
+                delivery.willRetry
+                  ? 'dashboard.orders.confirm.toast.emailFailedRetry'
+                  : 'dashboard.orders.confirm.toast.emailFailedResend',
+                { reference: updated.reference, email: invoiceEmail, error: delivery.error },
+              ),
             )
           } else {
             notifySaved(
-              `${updated.reference} confirmed`,
+              t('dashboard.orders.confirm.toast.confirmed', { reference: updated.reference }),
               !updated.invoice
                 ? undefined
                 : delivery?.status === 'sent'
-                  ? `Invoice ${updated.invoice.number} was sent to ${invoiceEmail}.`
+                  ? t('dashboard.orders.confirm.toast.invoiceSent', {
+                      number: updated.invoice.number,
+                      email: invoiceEmail,
+                    })
                   : delivery?.status === 'queued'
-                    ? `Invoice ${updated.invoice.number} is queued; no mail provider is configured.`
-                    : `Invoice ${updated.invoice.number} was already issued.`,
+                    ? t('dashboard.orders.confirm.toast.invoiceQueued', {
+                        number: updated.invoice.number,
+                      })
+                    : t('dashboard.orders.confirm.toast.invoiceAlreadyIssued', {
+                        number: updated.invoice.number,
+                      }),
             )
           }
           onOpenChange(false)
         },
-        onError: (err) => notifyError(err, 'Could not confirm the order'),
+        onError: (err) => notifyError(err, t('dashboard.orders.confirm.toast.failed')),
       },
     )
   }
@@ -204,11 +218,10 @@ export function ConfirmOrderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Confirm {order.reference}</DialogTitle>
-          <DialogDescription>
-            Agree the final price. Prices are net, per unit — change any that
-            differ from what the shop estimated.
-          </DialogDescription>
+          <DialogTitle>
+            {t('dashboard.orders.confirm.title', { reference: order.reference })}
+          </DialogTitle>
+          <DialogDescription>{t('dashboard.orders.confirm.description')}</DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
@@ -220,11 +233,14 @@ export function ConfirmOrderDialog({
               <div className="min-w-0">
                 <p className="truncate font-medium">{item.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {item.quantity} × · estimated {m(item.unitPrice)}
+                  {t('dashboard.orders.confirm.estimated', {
+                    count: item.quantity,
+                    price: m(item.unitPrice),
+                  })}
                 </p>
               </div>
               <Input
-                aria-label={`Unit price for ${item.name}`}
+                aria-label={t('dashboard.orders.confirm.unitPriceFor', { name: item.name })}
                 inputMode="decimal"
                 value={prices[i]}
                 onChange={(e) =>
@@ -238,7 +254,7 @@ export function ConfirmOrderDialog({
             </div>
           ))}
           <div className="grid grid-cols-[1fr_110px_90px] items-center gap-3 border-t border-border/40 pt-3 text-sm">
-            <Label htmlFor="confirm-shipping">Shipping</Label>
+            <Label htmlFor="confirm-shipping">{t('dashboard.orders.confirm.shipping')}</Label>
             <Input
               id="confirm-shipping"
               inputMode="decimal"
@@ -255,18 +271,23 @@ export function ConfirmOrderDialog({
         {totals && (
           <dl className="space-y-1 border-t border-border/40 pt-3 text-sm">
             <div className="flex justify-between text-muted-foreground">
-              <dt>Net</dt>
+              <dt>{t('dashboard.orders.confirm.net')}</dt>
               <dd className="tabular-nums">{m(totals.net)}</dd>
             </div>
             <div className="flex justify-between text-muted-foreground">
               <dt>
-                VAT {previewVatRate} %
-                {previewVatRate === 0 && order.billing && ` (${order.billing.country}, VAT ID ${order.billing.vatId ?? '—'})`}
+                {t('dashboard.orders.confirm.vat', { rate: previewVatRate })}
+                {previewVatRate === 0 &&
+                  order.billing &&
+                  ` ${t('dashboard.orders.confirm.vatExempt', {
+                    country: order.billing.country,
+                    vatId: order.billing.vatId ?? '—',
+                  })}`}
               </dt>
               <dd className="tabular-nums">{m(totals.vat)}</dd>
             </div>
             <div className="flex justify-between text-base font-semibold">
-              <dt>Invoice total</dt>
+              <dt>{t('dashboard.orders.confirm.invoiceTotal')}</dt>
               <dd className="tabular-nums">{m(totals.gross)}</dd>
             </div>
           </dl>
@@ -274,10 +295,11 @@ export function ConfirmOrderDialog({
 
         {needsBilling && (
           <fieldset className="space-y-3 border-t border-border/40 pt-3">
-            <legend className="text-sm font-medium">Billing address</legend>
+            <legend className="text-sm font-medium">
+              {t('dashboard.orders.confirm.billingTitle')}
+            </legend>
             <p className="text-xs text-muted-foreground">
-              This request came in without one, so enter who the invoice is made
-              out to. It is saved on the order. Germany only.
+              {t('dashboard.orders.confirm.billingHint')}
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               {BILLING_FIELDS.map((field) => {
@@ -289,9 +311,12 @@ export function ConfirmOrderDialog({
                     className={`space-y-1 ${field.wide ? 'sm:col-span-2' : ''}`}
                   >
                     <Label htmlFor={`confirm-billing-${field.key}`} className="text-xs">
-                      {field.label}
+                      {t(`dashboard.orders.confirm.billing.${field.key}`)}
                       {!field.required && (
-                        <span className="font-normal text-muted-foreground"> (optional)</span>
+                        <span className="font-normal text-muted-foreground">
+                          {' '}
+                          {t('dashboard.orders.confirm.optional')}
+                        </span>
                       )}
                     </Label>
                     <Input
@@ -313,16 +338,16 @@ export function ConfirmOrderDialog({
 
         <div className="grid grid-cols-[1fr_160px] items-center gap-3 border-t border-border/40 pt-3 text-sm">
           <div>
-            <Label htmlFor="confirm-due">Payment due by</Label>
+            <Label htmlFor="confirm-due">{t('dashboard.orders.confirm.dueBy')}</Label>
             <p
               id="confirm-due-hint"
               className={`text-xs ${dueValid ? 'text-muted-foreground' : 'text-destructive'}`}
             >
               {!dueValid
-                ? 'Choose today or a later date.'
+                ? t('dashboard.orders.confirm.dueInvalid')
                 : termDays === 0
-                  ? 'Payable on receipt.'
-                  : `${termDays} ${termDays === 1 ? 'day' : 'days'} from today — printed on the invoice.`}
+                  ? t('dashboard.orders.confirm.dueOnReceipt')
+                  : t('dashboard.orders.confirm.dueInDays', { count: termDays ?? 0 })}
             </p>
           </div>
           <DatePicker
@@ -336,14 +361,16 @@ export function ConfirmOrderDialog({
         </div>
 
         <p className="rounded-brand border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
-          This issues a numbered invoice and emails it to{' '}
-          <span className="font-medium">{invoiceEmail}</span>. The price cannot be
-          changed afterwards — a mistake then needs a credit note.
+          <Trans
+            i18nKey="dashboard.orders.confirm.warning"
+            values={{ email: invoiceEmail }}
+            components={{ email: <span className="font-medium" /> }}
+          />
         </p>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('dashboard.orders.confirm.cancel')}
           </Button>
           <Button onClick={submit} disabled={!valid || confirm.isPending}>
             {confirm.isPending ? (
@@ -351,12 +378,12 @@ export function ConfirmOrderDialog({
             ) : (
               <CheckCircle2 className="size-4" />
             )}
-            Confirm & send invoice
+            {t('dashboard.orders.confirm.submit')}
           </Button>
         </DialogFooter>
         {needsBilling && !billingValid && (
           <p className="-mt-2 text-right text-xs text-muted-foreground">
-            Fill in company, street, postcode and city to confirm.
+            {t('dashboard.orders.confirm.billingRequired')}
           </p>
         )}
       </DialogContent>

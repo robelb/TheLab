@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { Inbox, Search, X } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,7 +31,7 @@ import {
   matchesSearch,
   orderSize,
   orderTodos,
-  SHIPPING_LABEL,
+  shippingLabel,
   type OrderTodo,
 } from '@/lib/orderOps'
 import { cn } from '@/lib/utils'
@@ -50,23 +52,26 @@ const PAYMENT_STYLE: Record<PaymentStatus, string> = {
 
 /**
  * The views the team works from, one click each. "Needs action" is the inbox:
- * every request with something left to do — see `orderTodos`.
+ * every request with something left to do — see `orderTodos`. Each label is
+ * `dashboard.orders.tabs.<key>`.
  */
 const TABS = [
-  { key: 'action', label: 'Needs action', test: (_o: Order, todos: OrderTodo[]) => todos.length > 0 },
-  { key: 'new', label: 'New', test: (o: Order) => o.status === 'new' },
-  { key: 'quoted', label: 'Quoted', test: (o: Order) => o.status === 'quoted' },
-  { key: 'unpaid', label: 'Unpaid', test: (o: Order) => Boolean(o.invoice) && o.paymentStatus !== 'paid' },
-  { key: 'paid', label: 'Paid', test: (o: Order) => o.paymentStatus === 'paid' },
-  { key: 'cancelled', label: 'Cancelled', test: (o: Order) => o.status === 'cancelled' },
-  { key: 'all', label: 'All', test: () => true },
+  { key: 'action', test: (_o: Order, todos: OrderTodo[]) => todos.length > 0 },
+  { key: 'new', test: (o: Order) => o.status === 'new' },
+  { key: 'quoted', test: (o: Order) => o.status === 'quoted' },
+  { key: 'unpaid', test: (o: Order) => Boolean(o.invoice) && o.paymentStatus !== 'paid' },
+  { key: 'paid', test: (o: Order) => o.paymentStatus === 'paid' },
+  { key: 'cancelled', test: (o: Order) => o.status === 'cancelled' },
+  { key: 'all', test: () => true },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
 
-function originLabel(order: Order): string {
-  if (order.source === 'funnel') return order.collectionName ?? order.collectionSlug ?? 'Collection'
-  return order.isGuest ? 'Shop · guest' : 'Shop'
+function originLabel(order: Order, t: TFunction): string {
+  if (order.source === 'funnel') {
+    return order.collectionName ?? order.collectionSlug ?? t('dashboard.orders.list.originCollection')
+  }
+  return order.isGuest ? t('dashboard.orders.list.originShopGuest') : t('dashboard.orders.list.originShop')
 }
 
 /** `all`, `storefront`, `funnel`, or `c:<collection id>` — one control, not two. */
@@ -85,6 +90,7 @@ function matchesOrigin(order: Order, origin: string): boolean {
  * bookmarked or sent to a colleague as it is.
  */
 export function OrdersPage() {
+  const { t, i18n } = useTranslation()
   const { can } = useAuth()
   const admin = can('manage_all')
   const navigate = useNavigate()
@@ -111,9 +117,12 @@ export function OrdersPage() {
       { replace: true },
     )
 
+  // The chips are worded in the current language, so they follow a switch.
+  const language = i18n.language
   const withTodos = useMemo(
     () => (orders ?? []).map((order) => ({ order, todos: orderTodos(order) })),
-    [orders],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [orders, language],
   )
 
   // The filters other than the tab, so each tab can show how many it holds.
@@ -157,10 +166,11 @@ export function OrdersPage() {
     return (
       <div className="flex flex-col items-center gap-3 py-20 text-center">
         <Inbox className="size-8 text-muted-foreground" />
-        <h2 className="font-display text-xl font-semibold">No requests yet</h2>
+        <h2 className="font-display text-xl font-semibold">
+          {t('dashboard.orders.list.emptyTitle')}
+        </h2>
         <p className="max-w-sm text-sm text-muted-foreground">
-          When someone sends a box request from the shop, it lands here with
-          everything needed to price and print it.
+          {t('dashboard.orders.list.emptyBody')}
         </p>
       </div>
     )
@@ -170,30 +180,30 @@ export function OrdersPage() {
     <div className="space-y-4">
       {/* ── Views ──────────────────────────────────────────────────── */}
       <div className="flex flex-wrap gap-1 border-b border-border/40" role="tablist">
-        {TABS.map((t) => (
+        {TABS.map((view) => (
           <button
-            key={t.key}
+            key={view.key}
             type="button"
             role="tab"
-            aria-selected={t.key === tab}
-            onClick={() => set('tab', t.key, 'action')}
+            aria-selected={view.key === tab}
+            onClick={() => set('tab', view.key, 'action')}
             className={cn(
               '-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition-colors',
-              t.key === tab
+              view.key === tab
                 ? 'border-primary font-medium text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
-            {t.label}
+            {t(`dashboard.orders.tabs.${view.key}`)}
             <span
               className={cn(
                 'rounded-full px-1.5 text-xs tabular-nums',
-                t.key === 'action' && counts.action > 0
+                view.key === 'action' && counts.action > 0
                   ? 'bg-primary text-primary-foreground'
                   : 'border border-border text-foreground/70',
               )}
             >
-              {counts[t.key]}
+              {counts[view.key]}
             </span>
           </button>
         ))}
@@ -207,20 +217,20 @@ export function OrdersPage() {
             type="search"
             value={q}
             onChange={(e) => set('q', e.target.value)}
-            placeholder="Reference, name, email, company, PO…"
-            aria-label="Search requests"
+            placeholder={t('dashboard.orders.list.searchPlaceholder')}
+            aria-label={t('dashboard.orders.list.searchLabel')}
             className="h-9 pl-9"
           />
         </div>
         {admin && (
           <Select value={origin} onValueChange={(v) => set('origin', v, 'all')}>
-            <SelectTrigger className="h-9 w-[190px]" aria-label="Origin">
+            <SelectTrigger className="h-9 w-[190px]" aria-label={t('dashboard.orders.list.origin')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All origins</SelectItem>
-              <SelectItem value="storefront">Shop</SelectItem>
-              <SelectItem value="funnel">Any collection</SelectItem>
+              <SelectItem value="all">{t('dashboard.orders.list.allOrigins')}</SelectItem>
+              <SelectItem value="storefront">{t('dashboard.orders.list.originShop')}</SelectItem>
+              <SelectItem value="funnel">{t('dashboard.orders.list.anyCollection')}</SelectItem>
               {collections?.length ? <SelectSeparator /> : null}
               {collections?.map((c) => (
                 <SelectItem key={c.id} value={`c:${c.id}`}>
@@ -231,24 +241,24 @@ export function OrdersPage() {
           </Select>
         )}
         <Select value={shipping} onValueChange={(v) => set('ship', v, 'all')}>
-          <SelectTrigger className="h-9 w-[150px]" aria-label="Shipping">
+          <SelectTrigger className="h-9 w-[150px]" aria-label={t('dashboard.orders.list.shipping')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Any shipping</SelectItem>
-            <SelectItem value="bulk">Bulk</SelectItem>
-            <SelectItem value="individual">Individual</SelectItem>
-            <SelectItem value="mixed">Mixed</SelectItem>
+            <SelectItem value="all">{t('dashboard.orders.list.anyShipping')}</SelectItem>
+            <SelectItem value="bulk">{shippingLabel('bulk')}</SelectItem>
+            <SelectItem value="individual">{shippingLabel('individual')}</SelectItem>
+            <SelectItem value="mixed">{shippingLabel('mixed')}</SelectItem>
           </SelectContent>
         </Select>
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          Needed by
+          {t('dashboard.orders.list.neededBy')}
           <Input
             type="date"
             value={from}
             onChange={(e) => set('from', e.target.value)}
             className="h-9 w-[140px]"
-            aria-label="Delivery date from"
+            aria-label={t('dashboard.orders.list.dateFrom')}
           />
           –
           <Input
@@ -256,16 +266,16 @@ export function OrdersPage() {
             value={to}
             onChange={(e) => set('to', e.target.value)}
             className="h-9 w-[140px]"
-            aria-label="Delivery date to"
+            aria-label={t('dashboard.orders.list.dateTo')}
           />
         </label>
         <Select value={sort} onValueChange={(v) => set('sort', v, 'newest')}>
-          <SelectTrigger className="h-9 w-[170px]" aria-label="Sort">
+          <SelectTrigger className="h-9 w-[170px]" aria-label={t('dashboard.orders.list.sort')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="newest">Newest first</SelectItem>
-            <SelectItem value="due">Delivery date first</SelectItem>
+            <SelectItem value="newest">{t('dashboard.orders.list.sortNewest')}</SelectItem>
+            <SelectItem value="due">{t('dashboard.orders.list.sortDue')}</SelectItem>
           </SelectContent>
         </Select>
         {filtering && (
@@ -277,7 +287,7 @@ export function OrdersPage() {
             }
           >
             <X className="size-4" />
-            Clear
+            {t('dashboard.orders.list.clear')}
           </Button>
         )}
       </div>
@@ -286,20 +296,20 @@ export function OrdersPage() {
       {rows.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted-foreground">
           {tab === 'action' && !filtering
-            ? 'Nothing needs doing right now.'
-            : 'Nothing matches these filters.'}
+            ? t('dashboard.orders.list.nothingToDo')
+            : t('dashboard.orders.list.noMatches')}
         </p>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Request</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Order</TableHead>
-              <TableHead>Delivery</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>To do</TableHead>
+              <TableHead>{t('dashboard.orders.list.columns.request')}</TableHead>
+              <TableHead>{t('dashboard.orders.list.columns.customer')}</TableHead>
+              <TableHead>{t('dashboard.orders.list.columns.order')}</TableHead>
+              <TableHead>{t('dashboard.orders.list.columns.delivery')}</TableHead>
+              <TableHead className="text-right">{t('dashboard.orders.list.columns.total')}</TableHead>
+              <TableHead>{t('dashboard.orders.list.columns.status')}</TableHead>
+              <TableHead>{t('dashboard.orders.list.columns.todo')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -314,7 +324,7 @@ export function OrdersPage() {
                   <span className="block text-xs text-muted-foreground">
                     {formatDateTime(order.createdAt)}
                   </span>
-                  <span className="block text-xs text-muted-foreground">{originLabel(order)}</span>
+                  <span className="block text-xs text-muted-foreground">{originLabel(order, t)}</span>
                 </TableCell>
                 <TableCell>
                   <span className="block text-sm">
@@ -330,7 +340,7 @@ export function OrdersPage() {
                     {order.delivery?.neededBy ? formatDate(order.delivery.neededBy) : '—'}
                   </span>
                   <span className="block text-xs text-muted-foreground">
-                    {SHIPPING_LABEL[order.shippingMethod ?? 'bulk']}
+                    {shippingLabel(order.shippingMethod ?? 'bulk')}
                     {order.delivery?.country ? ` · ${order.delivery.country}` : ''}
                   </span>
                 </TableCell>
@@ -338,23 +348,23 @@ export function OrdersPage() {
                   {order.totalGross != null ? (
                     <>
                       {formatPrice(order.totalGross, order.currency)}
-                      <span className="block text-xs text-muted-foreground">gross</span>
+                      <span className="block text-xs text-muted-foreground">{t('dashboard.orders.list.gross')}</span>
                     </>
                   ) : (
                     <>
                       {formatPrice(order.total, order.currency)}
-                      <span className="block text-xs text-muted-foreground">est. net</span>
+                      <span className="block text-xs text-muted-foreground">{t('dashboard.orders.list.estNet')}</span>
                     </>
                   )}
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-col items-start gap-1">
                     <Badge variant="outline" className={STATUS_STYLE[order.status]}>
-                      {order.status}
+                      {t(`dashboard.orders.status.${order.status}`)}
                     </Badge>
                     {order.invoice && order.paymentStatus && (
                       <Badge variant="outline" className={PAYMENT_STYLE[order.paymentStatus]}>
-                        {order.paymentStatus}
+                        {t(`dashboard.orders.payment.${order.paymentStatus}`)}
                       </Badge>
                     )}
                   </div>

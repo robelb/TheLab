@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Copy, ExternalLink, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { CollectionEditor } from '@/components/admin/CollectionEditor'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -23,6 +24,7 @@ import { Skeleton } from '@/components/ui/skeleton'
  * deserves an address you can return to and send to somebody.
  */
 export function CollectionDetailPage() {
+  const { t } = useTranslation()
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { can } = useAuth()
@@ -49,13 +51,15 @@ export function CollectionDetailPage() {
     return (
       <div className="flex flex-col items-center gap-3 py-20 text-center">
         <h1 className="font-display text-xl font-semibold">
-          That collection is gone
+          {t('dashboard.admin.collectionDetail.notFoundTitle')}
         </h1>
         <p className="max-w-sm text-sm text-muted-foreground">
-          It may have been deleted. The ones that are left are on the list.
+          {t('dashboard.admin.collectionDetail.notFoundBody')}
         </p>
         <Button asChild variant="outline">
-          <Link to="/dashboard/admin/collections">Back to collections</Link>
+          <Link to="/dashboard/admin/collections">
+            {t('dashboard.admin.collectionDetail.backToList')}
+          </Link>
         </Button>
       </div>
     )
@@ -79,7 +83,7 @@ export function CollectionDetailPage() {
       <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
         <Link to="/dashboard/admin/collections">
           <ArrowLeft className="size-4" />
-          Collections
+          {t('dashboard.admin.collections.title')}
         </Link>
       </Button>
 
@@ -94,12 +98,14 @@ export function CollectionDetailPage() {
               <Badge variant="secondary">#{collection.tag}</Badge>
               {!collection.allowCustomization && (
                 <Badge variant="outline">
-                  {collection.allowBoxBuilding ? 'No customisation' : 'Buy only'}
+                  {collection.allowBoxBuilding
+                    ? t('dashboard.admin.collectionDetail.noCustomisation')
+                    : t('dashboard.admin.collections.modes.buyOnly')}
                 </Badge>
               )}
               {!collection.active && (
                 <Badge variant="outline" className="text-muted-foreground">
-                  Ended
+                  {t('dashboard.admin.collections.ended')}
                 </Badge>
               )}
             </h1>
@@ -110,12 +116,14 @@ export function CollectionDetailPage() {
           <div className="flex shrink-0 items-center gap-2">
             <Button type="button" size="sm" variant="outline" onClick={copyLink}>
               <Copy className="size-4" />
-              {copied ? 'Copied' : 'Copy link'}
+              {copied
+                ? t('dashboard.admin.collectionDetail.copied')
+                : t('dashboard.admin.collections.copyLink')}
             </Button>
             <Button asChild size="sm" variant="ghost">
               <a href={`/c/${collection.slug}`} target="_blank" rel="noreferrer">
                 <ExternalLink className="size-4" />
-                Preview
+                {t('dashboard.admin.collectionDetail.preview')}
               </a>
             </Button>
           </div>
@@ -133,11 +141,13 @@ export function CollectionDetailPage() {
           neither is something anybody does by accident on the way past. */}
       <section className="space-y-3 rounded-brand border border-border/40 p-4">
         <div>
-          <h2 className="font-display text-base font-semibold">The campaign</h2>
+          <h2 className="font-display text-base font-semibold">
+            {t('dashboard.admin.collectionDetail.campaignTitle')}
+          </h2>
           <p className="text-xs text-muted-foreground">
             {collection.active
-              ? 'Live — ads pointing here reach the page.'
-              : 'Ended — ads pointing here land on a "no longer available" page.'}
+              ? t('dashboard.admin.collectionDetail.liveHint')
+              : t('dashboard.admin.collectionDetail.endedHint')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -153,19 +163,28 @@ export function CollectionDetailPage() {
                   onSuccess: () =>
                     notifySaved(
                       collection.active
-                        ? `/c/${collection.slug} is no longer live`
-                        : `/c/${collection.slug} is live again`,
+                        ? t('dashboard.admin.collectionDetail.endedToast', {
+                            slug: collection.slug,
+                          })
+                        : t('dashboard.admin.collectionDetail.reopenedToast', {
+                            slug: collection.slug,
+                          }),
                       collection.active
-                        ? 'Ads pointing at it will land on a "no longer available" page.'
+                        ? t('dashboard.admin.collectionDetail.endedToastDetail')
                         : undefined,
                     ),
                   onError: (err) =>
-                    notifyError(err, 'Could not change the campaign'),
+                    notifyError(
+                      err,
+                      t('dashboard.admin.collectionDetail.changeFailed'),
+                    ),
                 },
               )
             }
           >
-            {collection.active ? 'End campaign' : 'Reopen'}
+            {collection.active
+              ? t('dashboard.admin.collectionDetail.endCampaign')
+              : t('dashboard.admin.collectionDetail.reopen')}
           </Button>
           <Button
             type="button"
@@ -176,22 +195,31 @@ export function CollectionDetailPage() {
             onClick={() => {
               if (
                 window.confirm(
-                  `Delete /c/${collection.slug}? Any ad pointing at it will land on a "no longer available" page.`,
+                  t('dashboard.admin.collectionDetail.confirmDelete', {
+                    slug: collection.slug,
+                  }),
                 )
               ) {
                 removeCollection.mutate(collection.id, {
                   onSuccess: () => {
-                    notifySaved(`/c/${collection.slug} deleted`)
+                    notifySaved(
+                      t('dashboard.admin.collectionDetail.deleted', {
+                        slug: collection.slug,
+                      }),
+                    )
                     navigate('/dashboard/admin/collections')
                   },
                   onError: (err) =>
-                    notifyError(err, 'Could not delete the collection'),
+                    notifyError(
+                      err,
+                      t('dashboard.admin.collectionDetail.deleteFailed'),
+                    ),
                 })
               }
             }}
           >
             <Trash2 className="size-4" />
-            Delete
+            {t('dashboard.admin.common.delete')}
           </Button>
         </div>
       </section>

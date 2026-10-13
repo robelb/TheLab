@@ -1,5 +1,6 @@
 import { Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link, Navigate } from 'react-router-dom'
 import { CategoryFilter } from '@/components/dashboard/CategoryFilter'
 import { FeaturedBulkActions } from '@/components/dashboard/FeaturedBulkActions'
@@ -37,15 +38,10 @@ import { useRowSelection } from '@/hooks/use-row-selection'
 import { isSupplyCategory } from '@/lib/box'
 import { PAGE_SIZE_OPTIONS, type PageSize } from '@/types/product'
 import type { Product } from '@/types/product'
-
-function formatPrice(value: number, currency = 'EUR') {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-  }).format(value)
-}
+import { formatPrice } from '@/utils/format'
 
 export function ProductsAdminPage() {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState<PageSize>(20)
   const [search, setSearch] = useState('')
@@ -95,12 +91,12 @@ export function ProductsAdminPage() {
     try {
       await deleteMutation.mutateAsync(pendingDelete.id)
       setPendingDelete(null)
-      notifySaved(`${name} deleted`)
+      notifySaved(t('dashboard.products.list.deletedToast', { name }))
     } catch (err) {
       // A product inside a pre-configured box cannot be deleted, and the
       // server says so — which was previously swallowed into an unhandled
       // rejection and looked like nothing happening.
-      notifyError(err, `Could not delete ${name}`)
+      notifyError(err, t('dashboard.products.list.deleteFailed', { name }))
     }
   }
 
@@ -110,14 +106,16 @@ export function ProductsAdminPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="font-display text-2xl font-bold">Products</h1>
+          <h1 className="font-display text-2xl font-bold">{t('dashboard.products.list.title')}</h1>
           <p className="text-sm text-muted-foreground">
-            {pagination ? `${pagination.total} products` : 'Manage your catalog'}
+            {pagination
+              ? t('dashboard.products.list.count', { count: pagination.total })
+              : t('dashboard.products.list.subtitle')}
           </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="size-4" />
-          New product
+          {t('dashboard.products.list.newProduct')}
         </Button>
       </header>
 
@@ -130,7 +128,7 @@ export function ProductsAdminPage() {
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="Search products…"
+            placeholder={t('dashboard.products.list.searchPlaceholder')}
             className="pl-9"
           />
         </div>
@@ -166,15 +164,17 @@ export function ProductsAdminPage() {
                     checked={selection.pageState}
                     onCheckedChange={selection.togglePage}
                     disabled={showSkeleton || products.length === 0}
-                    aria-label="Select every product on this page"
+                    aria-label={t('dashboard.products.list.selectPage')}
                   />
                 </TableHead>
               )}
-              <TableHead>Product</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Stock</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t('dashboard.products.list.colProduct')}</TableHead>
+              <TableHead>{t('dashboard.products.list.colCategory')}</TableHead>
+              <TableHead>{t('dashboard.products.list.colPrice')}</TableHead>
+              <TableHead>{t('dashboard.products.list.colStock')}</TableHead>
+              <TableHead className="text-right">
+                {t('dashboard.products.list.colActions')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -219,7 +219,7 @@ export function ProductsAdminPage() {
                   colSpan={columnCount}
                   className="py-10 text-center text-muted-foreground"
                 >
-                  No products found.
+                  {t('dashboard.products.list.empty')}
                 </TableCell>
               </TableRow>
             )}
@@ -235,7 +235,7 @@ export function ProductsAdminPage() {
                     <Checkbox
                       checked={selection.selected.has(p.id)}
                       onCheckedChange={() => selection.toggle(p.id)}
-                      aria-label={`Select ${p.name}`}
+                      aria-label={t('dashboard.products.list.selectRow', { name: p.name })}
                     />
                   </TableCell>
                 )}
@@ -255,13 +255,15 @@ export function ProductsAdminPage() {
                           {p.name}
                         </Link>
                         {p.isFeatured && (
-                          <Badge className="text-[10px]">Featured</Badge>
+                          <Badge className="text-[10px]">
+                            {t('dashboard.products.badgeFeatured')}
+                          </Badge>
                         )}
                         {/* These never reach the shop — they're only offered
                             when a shopper builds a box. */}
                         {isSupplyCategory(p.categorySlug) && (
                           <Badge variant="outline" className="text-[10px]">
-                            Supply
+                            {t('dashboard.products.list.badgeSupply')}
                           </Badge>
                         )}
                       </div>
@@ -277,7 +279,9 @@ export function ProductsAdminPage() {
                 <TableCell>{formatPrice(p.price, p.currency)}</TableCell>
                 <TableCell>
                   {p.stock === 0 ? (
-                    <span className="text-destructive">Out of stock</span>
+                    <span className="text-destructive">
+                      {t('dashboard.products.outOfStock')}
+                    </span>
                   ) : (
                     <span>{p.stock}</span>
                   )}
@@ -288,7 +292,7 @@ export function ProductsAdminPage() {
                       asChild
                       variant="ghost"
                       size="icon"
-                      aria-label={`Open ${p.name}`}
+                      aria-label={t('dashboard.products.list.openRow', { name: p.name })}
                     >
                       <Link to={`/dashboard/products/${p.id}`}>
                         <Eye className="size-4" />
@@ -298,7 +302,7 @@ export function ProductsAdminPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => openEdit(p)}
-                      aria-label={`Edit ${p.name}`}
+                      aria-label={t('dashboard.products.list.editRow', { name: p.name })}
                     >
                       <Pencil className="size-4" />
                     </Button>
@@ -307,7 +311,7 @@ export function ProductsAdminPage() {
                       size="icon"
                       className="text-destructive hover:text-destructive"
                       onClick={() => setPendingDelete(p)}
-                      aria-label={`Delete ${p.name}`}
+                      aria-label={t('dashboard.products.list.deleteRow', { name: p.name })}
                     >
                       <Trash2 className="size-4" />
                     </Button>
@@ -345,18 +349,22 @@ export function ProductsAdminPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete product?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('dashboard.products.list.deleteTitle')}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove{' '}
-              <span className="font-medium text-foreground">
-                {pendingDelete?.name}
-              </span>
-              . This action cannot be undone.
+              <Trans
+                i18nKey="dashboard.products.list.deleteDescription"
+                values={{ name: pendingDelete?.name ?? '' }}
+                components={{
+                  name: <span className="font-medium text-foreground" />,
+                }}
+              />
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteMutation.isPending}>
-              Cancel
+              {t('dashboard.products.list.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
@@ -366,7 +374,9 @@ export function ProductsAdminPage() {
                 void confirmDelete()
               }}
             >
-              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+              {deleteMutation.isPending
+                ? t('dashboard.products.list.deleting')
+                : t('dashboard.products.list.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

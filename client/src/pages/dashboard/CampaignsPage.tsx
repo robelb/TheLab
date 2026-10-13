@@ -1,5 +1,6 @@
 import { ImageIcon, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { usePostHog } from '@posthog/react'
 import {
@@ -47,6 +48,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import type { Campaign, CampaignStatus } from '@/types/campaign'
+import { formatDate } from '@/utils/format'
 
 // ── Manual "New campaign" dialog ─────────────────────────────────────────────
 function NewCampaignDialog({
@@ -58,6 +60,7 @@ function NewCampaignDialog({
   onOpenChange: (open: boolean) => void
   domain: string | null
 }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const posthog = usePostHog()
   const create = useCreateCampaign()
@@ -89,19 +92,28 @@ function NewCampaignDialog({
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New campaign</DialogTitle>
+          <DialogTitle>{t('dashboard.company.campaigns.newDialog.title')}</DialogTitle>
         </DialogHeader>
         <form onSubmit={f.handleSubmit(submit)} className="space-y-4" noValidate>
           <FormField
             id="campaign-title"
-            label="Name"
+            label={t('dashboard.company.shared.name')}
             error={f.errors.title}
-            hint="You'll add products to the bundle on the next screen."
+            hint={t('dashboard.company.campaigns.newDialog.nameHint')}
           >
-            <Input {...f.register('title')} placeholder="Summer essentials" autoFocus />
+            <Input
+              {...f.register('title')}
+              placeholder={t('dashboard.company.campaigns.newDialog.namePlaceholder')}
+              autoFocus
+            />
           </FormField>
           {create.error && (
-            <FormAlert>{apiErrorMessage(create.error, 'Could not create the campaign.')}</FormAlert>
+            <FormAlert>
+              {apiErrorMessage(
+                create.error,
+                t('dashboard.company.campaigns.newDialog.createError'),
+              )}
+            </FormAlert>
           )}
           <DialogFooter>
             <Button
@@ -110,10 +122,12 @@ function NewCampaignDialog({
               onClick={() => onOpenChange(false)}
               disabled={create.isPending}
             >
-              Cancel
+              {t('dashboard.company.shared.cancel')}
             </Button>
             <Button type="submit" disabled={create.isPending}>
-              {create.isPending ? 'Creating…' : 'Create campaign'}
+              {create.isPending
+                ? t('dashboard.company.campaigns.newDialog.creating')
+                : t('dashboard.company.campaigns.newDialog.create')}
             </Button>
           </DialogFooter>
         </form>
@@ -131,15 +145,8 @@ const statusVariant: Record<CampaignStatus, 'default' | 'secondary' | 'outline'>
     dismissed: 'outline',
   }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
 export function CampaignsPage() {
+  const { t } = useTranslation()
   const { brand } = useBrand()
   const { domain } = useAuth()
   const brandSignals = useCampaignBrandSignals()
@@ -182,19 +189,23 @@ export function CampaignsPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="font-display text-2xl font-bold">Campaigns</h1>
+          <h1 className="font-display text-2xl font-bold">
+            {t('dashboard.company.campaigns.title')}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Create a campaign for{' '}
-            <span className="font-medium text-foreground">
-              {brand.companyName}
-            </span>{' '}
-            and add a bundle of products.
+            <Trans
+              i18nKey="dashboard.company.campaigns.subtitle"
+              values={{ company: brand.companyName }}
+              components={{
+                strong: <span className="font-medium text-foreground" />,
+              }}
+            />
           </p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" />
-            New campaign
+            {t('dashboard.company.campaigns.newCampaign')}
           </Button>
           <Button
             variant="outline"
@@ -202,7 +213,9 @@ export function CampaignsPage() {
             disabled={generate.isPending}
           >
             <Sparkles className="size-4" />
-            {generate.isPending ? 'Generating…' : 'Generate with AI'}
+            {generate.isPending
+              ? t('dashboard.company.shared.generating')
+              : t('dashboard.company.campaigns.generateWithAi')}
           </Button>
         </div>
       </header>
@@ -229,11 +242,13 @@ export function CampaignsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40">
-              <TableHead>Campaign</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Products</TableHead>
-              <TableHead>Updated</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t('dashboard.company.campaigns.table.campaign')}</TableHead>
+              <TableHead>{t('dashboard.company.campaigns.table.status')}</TableHead>
+              <TableHead>{t('dashboard.company.campaigns.table.products')}</TableHead>
+              <TableHead>{t('dashboard.company.campaigns.table.updated')}</TableHead>
+              <TableHead className="text-right">
+                {t('dashboard.company.campaigns.table.actions')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -250,7 +265,7 @@ export function CampaignsPage() {
                 <TableCell colSpan={5} className="text-sm text-muted-foreground">
                   <span className="flex items-center gap-2">
                     <Sparkles className="size-4 animate-pulse text-primary" />
-                    Assembling a new campaign… (up to a minute)
+                    {t('dashboard.company.campaigns.assembling')}
                   </span>
                 </TableCell>
               </TableRow>
@@ -262,7 +277,7 @@ export function CampaignsPage() {
                   colSpan={5}
                   className="py-10 text-center text-muted-foreground"
                 >
-                  No campaigns yet — create your first one.
+                  {t('dashboard.company.campaigns.empty')}
                 </TableCell>
               </TableRow>
             )}
@@ -276,7 +291,7 @@ export function CampaignsPage() {
                       aria-busy={c.heroImageStatus === 'pending'}
                       title={
                         c.heroImageStatus === 'pending'
-                          ? 'Regenerating the bundle image…'
+                          ? t('dashboard.company.campaigns.regeneratingImage')
                           : undefined
                       }
                     >
@@ -312,26 +327,34 @@ export function CampaignsPage() {
                       c.status === 'dismissed' && 'text-muted-foreground',
                     )}
                   >
-                    {c.status}
+                    {t(`dashboard.company.campaigns.status.${c.status}`)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {c.products.length}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {formatDate(c.updatedAt)}
+                  {formatDate(c.updatedAt, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     <Button asChild variant="outline" size="sm">
-                      <Link to={`/dashboard/campaign/${c.id}`}>Open</Link>
+                      <Link to={`/dashboard/campaign/${c.id}`}>
+                        {t('dashboard.company.campaigns.open')}
+                      </Link>
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="text-destructive hover:text-destructive"
                       onClick={() => setPendingDelete(c)}
-                      aria-label={`Delete ${c.title}`}
+                      aria-label={t('dashboard.company.campaigns.deleteAria', {
+                        title: c.title,
+                      })}
                     >
                       <Trash2 className="size-4" />
                     </Button>
@@ -349,15 +372,18 @@ export function CampaignsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete campaign?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('dashboard.company.campaigns.deleteDialog.title')}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              “{pendingDelete?.title}” will be permanently removed. This can't be
-              undone.
+              {t('dashboard.company.campaigns.deleteDialog.description', {
+                title: pendingDelete?.title,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={remove.isPending}>
-              Cancel
+              {t('dashboard.company.shared.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -367,7 +393,9 @@ export function CampaignsPage() {
                 void confirmDelete()
               }}
             >
-              {remove.isPending ? 'Deleting…' : 'Delete'}
+              {remove.isPending
+                ? t('dashboard.company.shared.deleting')
+                : t('dashboard.company.shared.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -12,6 +12,8 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { uploadVideo } from '@/api/uploads'
 import { AddProductDialog } from '@/components/AddProductDialog'
@@ -59,13 +61,17 @@ import type { Product } from '@/types/product'
 /** ISO timestamp → `YYYY-MM-DD` for a native date input (empty when null). */
 const isoToDateInput = (iso: string | null) => (iso ? iso.slice(0, 10) : '')
 
-function formatWindow(start: string | null, end: string | null): string {
+function formatWindow(
+  t: TFunction,
+  start: string | null,
+  end: string | null,
+): string {
   const s = isoToDateInput(start)
   const e = isoToDateInput(end)
-  if (s && e) return `${s} → ${e}`
-  if (s) return `From ${s}`
-  if (e) return `Until ${e}`
-  return 'Always on'
+  if (s && e) return t('dashboard.company.detail.window.range', { start: s, end: e })
+  if (s) return t('dashboard.company.detail.window.from', { date: s })
+  if (e) return t('dashboard.company.detail.window.until', { date: e })
+  return t('dashboard.company.detail.window.alwaysOn')
 }
 
 function AddVideoDialog({
@@ -77,6 +83,7 @@ function AddVideoDialog({
   onOpenChange: (open: boolean) => void
   campaignId: string
 }) {
+  const { t } = useTranslation()
   const add = useAddCampaignVideo()
   const [file, setFile] = useState<File | null>(null)
   const [localUrl, setLocalUrl] = useState<string | null>(null)
@@ -107,7 +114,9 @@ function AddVideoDialog({
       setLocalUrl(URL.createObjectURL(f))
       setOrientation(meta.orientation)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not read video')
+      setError(err instanceof Error
+          ? err.message
+          : t('dashboard.company.detail.videoDialog.readError'))
     }
   }
 
@@ -130,7 +139,9 @@ function AddVideoDialog({
       reset()
       onOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add video')
+      setError(err instanceof Error
+          ? err.message
+          : t('dashboard.company.detail.videoDialog.addError'))
     } finally {
       setUploading(false)
     }
@@ -138,9 +149,9 @@ function AddVideoDialog({
 
   const orientationHint =
     orientation === 'portrait'
-      ? 'Shows in the desktop side rail'
+      ? t('dashboard.company.detail.videoDialog.portraitHint')
       : orientation === 'landscape'
-        ? 'Shows as the mobile hero banner'
+        ? t('dashboard.company.detail.videoDialog.landscapeHint')
         : null
 
   return (
@@ -153,7 +164,9 @@ function AddVideoDialog({
     >
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add campaign video</DialogTitle>
+          <DialogTitle>
+            {t('dashboard.company.detail.videoDialog.title')}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           {localUrl && (
@@ -176,7 +189,9 @@ function AddVideoDialog({
             <Button asChild variant="outline" size="sm">
               <label className="cursor-pointer">
                 <Upload className="size-4" />
-                {file ? 'Choose a different file' : 'Choose video'}
+                {file
+                  ? t('dashboard.company.detail.videoDialog.chooseDifferent')
+                  : t('dashboard.company.detail.videoDialog.chooseVideo')}
                 <input
                   type="file"
                   accept="video/*"
@@ -191,7 +206,7 @@ function AddVideoDialog({
             </Button>
             {orientation && (
               <Badge variant="secondary" className="text-[10px] uppercase">
-                {orientation}
+                {t(`dashboard.company.detail.orientation.${orientation}`)}
               </Badge>
             )}
             {orientationHint && (
@@ -203,12 +218,14 @@ function AddVideoDialog({
 
           <div className="space-y-1.5">
             <span className="text-xs font-medium text-muted-foreground">
-              Description
+              {t('dashboard.company.detail.videoDialog.description')}
             </span>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What is this video about? Used to match it to what shoppers are browsing."
+              placeholder={t(
+                'dashboard.company.detail.videoDialog.descriptionPlaceholder',
+              )}
               rows={3}
             />
           </div>
@@ -216,25 +233,25 @@ function AddVideoDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <span className="text-xs font-medium text-muted-foreground">
-                Show from
+                {t('dashboard.company.detail.videoDialog.showFrom')}
               </span>
               <DatePicker
                 value={startsAt}
                 onChange={setStartsAt}
                 max={endsAt || undefined}
-                placeholder="Any time"
+                placeholder={t('dashboard.company.detail.videoDialog.anyTime')}
                 clearable
               />
             </div>
             <div className="space-y-1.5">
               <span className="text-xs font-medium text-muted-foreground">
-                Show until
+                {t('dashboard.company.detail.videoDialog.showUntil')}
               </span>
               <DatePicker
                 value={endsAt}
                 onChange={setEndsAt}
                 min={startsAt || undefined}
-                placeholder="No end date"
+                placeholder={t('dashboard.company.detail.videoDialog.noEndDate')}
                 clearable
               />
             </div>
@@ -251,10 +268,12 @@ function AddVideoDialog({
               }}
               disabled={uploading}
             >
-              Cancel
+              {t('dashboard.company.shared.cancel')}
             </Button>
             <Button onClick={() => void submit()} disabled={!file || uploading}>
-              {uploading ? 'Uploading…' : 'Add video'}
+              {uploading
+                ? t('dashboard.company.detail.videoDialog.uploading')
+                : t('dashboard.company.detail.videoDialog.submit')}
             </Button>
           </div>
         </div>
@@ -281,6 +300,7 @@ function BundleImage({
   bundleCount: number
   bundleChanged: boolean
 }) {
+  const { t } = useTranslation()
   const regenerate = useRegenerateCampaignHeroImage()
   const [preview, setPreview] = useState(false)
 
@@ -293,18 +313,18 @@ function BundleImage({
   const failureMessage =
     (regenerate.error instanceof Error ? regenerate.error.message : null) ??
     campaign.heroImageError ??
-    'Could not regenerate the bundle image.'
+    t('dashboard.company.detail.image.regenerateError')
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-medium text-muted-foreground">
-          Bundle image
+          {t('dashboard.company.detail.image.label')}
         </span>
         <div className="flex items-center gap-2">
           {campaign.heroImageStale && !regenerating && (
             <Badge variant="secondary" className="text-[10px] uppercase">
-              Out of date
+              {t('dashboard.company.detail.image.outOfDate')}
             </Badge>
           )}
           <Button
@@ -314,7 +334,9 @@ function BundleImage({
             disabled={regenerating || bundleCount === 0}
           >
             <RefreshCw className={cn('size-4', regenerating && 'animate-spin')} />
-            {regenerating ? 'Generating…' : 'Regenerate image'}
+            {regenerating
+              ? t('dashboard.company.shared.generating')
+              : t('dashboard.company.detail.image.regenerate')}
           </Button>
         </div>
       </div>
@@ -328,7 +350,7 @@ function BundleImage({
             type="button"
             onClick={() => setPreview(true)}
             className="block w-full"
-            aria-label="Preview campaign image"
+            aria-label={t('dashboard.company.detail.image.previewAria')}
           >
             {/* The previous image stays up until the new one is stored. */}
             <img
@@ -344,8 +366,8 @@ function BundleImage({
           <div className="flex h-44 flex-col items-center justify-center gap-2 px-4 text-center text-sm text-muted-foreground">
             <ImageIcon className="size-6" />
             {bundleCount === 0
-              ? 'Add products to generate a bundle image.'
-              : 'No bundle image yet.'}
+              ? t('dashboard.company.detail.image.addProductsFirst')
+              : t('dashboard.company.detail.image.none')}
           </div>
         )}
 
@@ -353,10 +375,10 @@ function BundleImage({
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/60 px-4 text-center">
             <Loader2 className="size-6 animate-spin text-primary" />
             <p className="text-xs font-medium">
-              Generating the new bundle image…
+              {t('dashboard.company.detail.image.generatingTitle')}
             </p>
             <p className="text-[11px] text-muted-foreground">
-              This can take up to a minute. You can keep working.
+              {t('dashboard.company.detail.image.generatingHint')}
             </p>
           </div>
         )}
@@ -366,22 +388,25 @@ function BundleImage({
         <p className="flex items-start gap-2 rounded-brand border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           <AlertTriangle className="mt-px size-3.5 shrink-0" />
           <span>
-            {failureMessage} The previous image was kept — try “Regenerate
-            image”.
+            {t('dashboard.company.detail.image.failed', {
+              message: failureMessage,
+            })}
           </span>
         </p>
       )}
 
       {bundleChanged && !regenerating && (
         <p className="text-xs text-muted-foreground">
-          Bundle changed — save to update the image.
+          {t('dashboard.company.detail.image.bundleChanged')}
         </p>
       )}
 
       {campaign.heroImageUrl && (
         <Dialog open={preview} onOpenChange={setPreview}>
           <DialogContent className="max-w-4xl border-none bg-transparent p-0 shadow-none">
-            <DialogTitle className="sr-only">Campaign image</DialogTitle>
+            <DialogTitle className="sr-only">
+              {t('dashboard.company.detail.image.dialogTitle')}
+            </DialogTitle>
             <img
               src={campaign.heroImageUrl}
               alt={campaign.title}
@@ -396,6 +421,7 @@ function BundleImage({
 
 /** The campaign's storefront video ads, with upload and inline playback. */
 function CampaignVideos({ campaign }: { campaign: Campaign }) {
+  const { t } = useTranslation()
   const deleteVideo = useDeleteCampaignVideo()
   const [videoOpen, setVideoOpen] = useState(false)
   const [playingVideo, setPlayingVideo] = useState<CampaignVideoItem | null>(
@@ -406,16 +432,18 @@ function CampaignVideos({ campaign }: { campaign: Campaign }) {
     <div className="space-y-2 border-t border-border/40 pt-4">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">
-          Videos ({campaign.videos.length})
+          {t('dashboard.company.detail.videos.heading', {
+            count: campaign.videos.length,
+          })}
         </span>
         <Button variant="outline" size="sm" onClick={() => setVideoOpen(true)}>
           <Plus className="size-4" />
-          Add video
+          {t('dashboard.company.detail.videos.add')}
         </Button>
       </div>
       {campaign.videos.length === 0 ? (
         <p className="rounded-brand border border-border/40 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-          No videos yet — add one to run as a storefront ad.
+          {t('dashboard.company.detail.videos.empty')}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -428,7 +456,11 @@ function CampaignVideos({ campaign }: { campaign: Campaign }) {
                 type="button"
                 onClick={() => setPlayingVideo(v)}
                 className="group flex min-w-0 flex-1 items-center gap-3 text-left"
-                aria-label={`Play video: ${v.description || 'campaign video'}`}
+                aria-label={t('dashboard.company.detail.videos.playAria', {
+                  name:
+                    v.description ||
+                    t('dashboard.company.detail.videos.fallbackName'),
+                })}
               >
                 <div className="relative size-14 shrink-0 overflow-hidden rounded-brand border border-border/40 bg-black">
                   <video
@@ -449,15 +481,16 @@ function CampaignVideos({ campaign }: { campaign: Campaign }) {
                         variant="secondary"
                         className="text-[10px] uppercase"
                       >
-                        {v.orientation}
+                        {t(`dashboard.company.detail.orientation.${v.orientation}`)}
                       </Badge>
                     )}
                     <span className="truncate text-sm">
-                      {v.description || 'No description'}
+                      {v.description ||
+                        t('dashboard.company.detail.videos.noDescription')}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {formatWindow(v.startsAt, v.endsAt)}
+                    {formatWindow(t, v.startsAt, v.endsAt)}
                   </p>
                 </div>
               </button>
@@ -472,7 +505,7 @@ function CampaignVideos({ campaign }: { campaign: Campaign }) {
                   })
                 }
                 disabled={deleteVideo.isPending}
-                aria-label="Delete video"
+                aria-label={t('dashboard.company.detail.videos.deleteAria')}
               >
                 <Trash2 className="size-4" />
               </Button>
@@ -493,7 +526,8 @@ function CampaignVideos({ campaign }: { campaign: Campaign }) {
       >
         <DialogContent className="max-w-3xl border-none bg-transparent p-0 shadow-none">
           <DialogTitle className="sr-only">
-            {playingVideo?.description || 'Campaign video'}
+            {playingVideo?.description ||
+              t('dashboard.company.detail.videos.dialogTitle')}
           </DialogTitle>
           {playingVideo && (
             <video
@@ -516,6 +550,7 @@ function CampaignVideos({ campaign }: { campaign: Campaign }) {
 }
 
 function CampaignEditor({ campaign }: { campaign: Campaign }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const update = useUpdateCampaign()
   const remove = useDeleteCampaign()
@@ -571,9 +606,11 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <div className="flex items-center gap-2">
-          <CardTitle className="text-base">Campaign</CardTitle>
+          <CardTitle className="text-base">
+            {t('dashboard.company.detail.editor.heading')}
+          </CardTitle>
           <Badge variant="secondary" className="text-[10px] uppercase">
-            {campaign.status}
+            {t(`dashboard.company.campaigns.status.${campaign.status}`)}
           </Badge>
         </div>
       </CardHeader>
@@ -586,14 +623,18 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
         />
 
         <div className="space-y-1.5">
-          <span className="text-xs font-medium text-muted-foreground">Name</span>
+          <span className="text-xs font-medium text-muted-foreground">
+            {t('dashboard.company.shared.name')}
+          </span>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
 
         {dirty && (
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" onClick={saveEdits} disabled={update.isPending}>
-              {update.isPending ? 'Saving…' : 'Save changes'}
+              {update.isPending
+                ? t('dashboard.company.shared.saving')
+                : t('dashboard.company.detail.editor.saveChanges')}
             </Button>
             <Button
               variant="ghost"
@@ -601,11 +642,11 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
               onClick={discardEdits}
               disabled={update.isPending}
             >
-              Discard
+              {t('dashboard.company.detail.editor.discard')}
             </Button>
             {bundleChanged && (
               <span className="text-xs text-muted-foreground">
-                Saving regenerates the bundle image.
+                {t('dashboard.company.detail.editor.saveRegenerates')}
               </span>
             )}
           </div>
@@ -614,16 +655,18 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">
-              Bundle ({bundle.length})
+              {t('dashboard.company.detail.editor.bundle', {
+                count: bundle.length,
+              })}
             </span>
             <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
               <Plus className="size-4" />
-              Add product
+              {t('dashboard.company.detail.editor.addProduct')}
             </Button>
           </div>
           {bundle.length === 0 ? (
             <p className="rounded-brand border border-border/40 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
-              No products in this bundle yet — add some.
+              {t('dashboard.company.detail.editor.emptyBundle')}
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -648,7 +691,7 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
             disabled={remove.isPending}
           >
             <Trash2 className="size-4" />
-            Delete
+            {t('dashboard.company.shared.delete')}
           </Button>
           <div className="flex flex-wrap gap-2">
             {campaign.status !== 'dismissed' && (
@@ -658,7 +701,7 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
                 disabled={update.isPending}
               >
                 <XCircle className="size-4" />
-                Dismiss
+                {t('dashboard.company.detail.editor.dismiss')}
               </Button>
             )}
             {campaign.status !== 'approved' && (
@@ -667,7 +710,7 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
                 disabled={update.isPending}
               >
                 <Check className="size-4" />
-                Approve &amp; launch
+                {t('dashboard.company.detail.editor.approve')}
               </Button>
             )}
           </div>
@@ -686,15 +729,18 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete campaign?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('dashboard.company.campaigns.deleteDialog.title')}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              “{campaign.title}” will be permanently removed. This can't be
-              undone.
+              {t('dashboard.company.campaigns.deleteDialog.description', {
+                title: campaign.title,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={remove.isPending}>
-              Cancel
+              {t('dashboard.company.shared.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -704,7 +750,9 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
                 void confirmDelete()
               }}
             >
-              {remove.isPending ? 'Deleting…' : 'Delete'}
+              {remove.isPending
+                ? t('dashboard.company.shared.deleting')
+                : t('dashboard.company.shared.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -714,6 +762,7 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
 }
 
 export function CampaignDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const { data: campaign, isLoading, error } = useCampaign(id)
 
@@ -722,7 +771,7 @@ export function CampaignDetailPage() {
       <Button asChild variant="ghost" size="sm" className="-ml-2 gap-2">
         <Link to="/dashboard/campaign">
           <ArrowLeft className="size-4" />
-          All campaigns
+          {t('dashboard.company.detail.allCampaigns')}
         </Link>
       </Button>
 
@@ -730,7 +779,9 @@ export function CampaignDetailPage() {
 
       {!isLoading && (error || !campaign) && (
         <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error instanceof Error ? error.message : 'Campaign not found'}
+          {error instanceof Error
+            ? error.message
+            : t('dashboard.company.detail.notFound')}
         </p>
       )}
 

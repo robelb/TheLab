@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -34,6 +35,7 @@ export function CollectionBoxesTable({
   onMove: (index: number, by: number) => void
   onRemove: (product: Product) => void
 }) {
+  const { t } = useTranslation()
   const full = boxes.length >= max
 
   return (
@@ -41,17 +43,20 @@ export function CollectionBoxesTable({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-display text-base font-semibold">
-            Boxes shown first
+            {t('dashboard.admin.collectionBoxes.title')}
             <span className="ml-2 text-sm font-normal text-muted-foreground">
               {boxes.length} / {max}
             </span>
           </h2>
           <p className="text-xs text-muted-foreground">
-            The offers at the top of the page, in this order.
-            {full && ' That is the most a page can lead with.'}
+            {full
+              ? t('dashboard.admin.collectionBoxes.descriptionFull')
+              : t('dashboard.admin.collectionBoxes.description')}
           </p>
           {saving && (
-            <p className="mt-1 text-xs text-muted-foreground">Saving…</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t('dashboard.admin.common.saving')}
+            </p>
           )}
         </div>
         <Button
@@ -62,7 +67,7 @@ export function CollectionBoxesTable({
           onClick={onAdd}
         >
           <Plus className="size-4" />
-          Add boxes
+          {t('dashboard.admin.collectionBoxes.add')}
         </Button>
       </div>
 
@@ -71,12 +76,16 @@ export function CollectionBoxesTable({
           <TableHeader>
             <TableRow className="bg-muted/40">
               <TableHead className="w-12 text-center">#</TableHead>
-              <TableHead>Box</TableHead>
-              <TableHead>Contents</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead className="text-right">Order</TableHead>
+              <TableHead>{t('dashboard.admin.collectionBoxes.columns.box')}</TableHead>
+              <TableHead>
+                {t('dashboard.admin.collectionBoxes.columns.contents')}
+              </TableHead>
+              <TableHead>{t('dashboard.admin.common.price')}</TableHead>
+              <TableHead className="text-right">
+                {t('dashboard.admin.collectionBoxes.columns.order')}
+              </TableHead>
               <TableHead className="w-12 text-right">
-                <span className="sr-only">Remove</span>
+                <span className="sr-only">{t('dashboard.admin.common.remove')}</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -87,7 +96,7 @@ export function CollectionBoxesTable({
                   colSpan={6}
                   className="py-10 text-center text-muted-foreground"
                 >
-                  No boxes yet — the page will show only the products below.
+                  {t('dashboard.admin.collectionBoxes.empty')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -113,7 +122,9 @@ export function CollectionBoxesTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {box.components?.length ?? 0} items
+                    {t('dashboard.admin.collectionBoxes.items', {
+                      count: box.components?.length ?? 0,
+                    })}
                   </TableCell>
                   <TableCell className="tabular-nums">
                     {formatPrice(box.price, box.currency)}
@@ -125,7 +136,9 @@ export function CollectionBoxesTable({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        aria-label={`Move ${box.name} up`}
+                        aria-label={t('dashboard.admin.collectionBoxes.moveUp', {
+                          name: box.name,
+                        })}
                         disabled={i === 0 || saving}
                         onClick={() => onMove(i, -1)}
                       >
@@ -136,7 +149,9 @@ export function CollectionBoxesTable({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        aria-label={`Move ${box.name} down`}
+                        aria-label={t('dashboard.admin.collectionBoxes.moveDown', {
+                          name: box.name,
+                        })}
                         disabled={i === boxes.length - 1 || saving}
                         onClick={() => onMove(i, 1)}
                       >
@@ -151,7 +166,9 @@ export function CollectionBoxesTable({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        aria-label={`Remove ${box.name}`}
+                        aria-label={t('dashboard.admin.collectionBoxes.removeAria', {
+                          name: box.name,
+                        })}
                         disabled={saving}
                         onClick={() => onRemove(box)}
                       >

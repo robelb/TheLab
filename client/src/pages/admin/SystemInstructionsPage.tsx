@@ -9,6 +9,8 @@ import {
   Save,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { useAuth } from '@/context/AuthContext'
 import {
   useDeleteSystemInstruction,
@@ -38,17 +40,33 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { formatDateTime } from '@/utils/format'
 
-function statusOf(i: SystemInstructionView): {
+function statusOf(
+  i: SystemInstructionView,
+  t: TFunction,
+): {
   label: string
   variant: 'default' | 'secondary' | 'outline'
 } {
-  if (!i.override) return { label: 'Built-in', variant: 'secondary' }
-  if (i.override.isActive) return { label: 'Custom', variant: 'default' }
-  return { label: 'Custom (off)', variant: 'outline' }
+  if (!i.override)
+    return {
+      label: t('dashboard.admin.systemInstructions.status.builtIn'),
+      variant: 'secondary',
+    }
+  if (i.override.isActive)
+    return {
+      label: t('dashboard.admin.systemInstructions.status.custom'),
+      variant: 'default',
+    }
+  return {
+    label: t('dashboard.admin.systemInstructions.status.customOff'),
+    variant: 'outline',
+  }
 }
 
 function Editor({ instruction }: { instruction: SystemInstructionView }) {
+  const { t } = useTranslation()
   const save = useSaveSystemInstruction()
   const remove = useDeleteSystemInstruction()
   const [revertOpen, setRevertOpen] = useState(false)
@@ -69,11 +87,15 @@ function Editor({ instruction }: { instruction: SystemInstructionView }) {
         onSuccess: () =>
           toast.success(
             isActive
-              ? 'Override saved — used for new generations.'
-              : 'Override saved but disabled — built-in prompt is used.',
+              ? t('dashboard.admin.systemInstructions.savedActive')
+              : t('dashboard.admin.systemInstructions.savedInactive'),
           ),
         onError: (err) =>
-          toast.error(err instanceof Error ? err.message : 'Save failed'),
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : t('dashboard.admin.systemInstructions.saveFailed'),
+          ),
       },
     )
 
@@ -82,10 +104,14 @@ function Editor({ instruction }: { instruction: SystemInstructionView }) {
       onSuccess: () => {
         setRevertOpen(false)
         setContent(instruction.defaultTemplate)
-        toast.success('Override removed — the built-in prompt applies again.')
+        toast.success(t('dashboard.admin.systemInstructions.reverted'))
       },
       onError: (err) =>
-        toast.error(err instanceof Error ? err.message : 'Revert failed'),
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : t('dashboard.admin.systemInstructions.revertFailed'),
+        ),
     })
 
   return (
@@ -94,10 +120,10 @@ function Editor({ instruction }: { instruction: SystemInstructionView }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-base">{instruction.title}</CardTitle>
           <Badge
-            variant={statusOf(instruction).variant}
+            variant={statusOf(instruction, t).variant}
             className="text-[10px] uppercase"
           >
-            {statusOf(instruction).label}
+            {statusOf(instruction, t).label}
           </Badge>
         </div>
         <CardDescription>{instruction.description}</CardDescription>
@@ -106,7 +132,7 @@ function Editor({ instruction }: { instruction: SystemInstructionView }) {
         {instruction.placeholders.length > 0 && (
           <div className="space-y-1.5 rounded-brand border border-border/40 bg-muted/20 p-3">
             <p className="text-xs font-medium">
-              Placeholders — replaced with live data at generation time:
+              {t('dashboard.admin.systemInstructions.placeholdersIntro')}
             </p>
             <ul className="space-y-1">
               {instruction.placeholders.map((p) => (
@@ -141,7 +167,9 @@ function Editor({ instruction }: { instruction: SystemInstructionView }) {
             ) : (
               <Save className="size-4" />
             )}
-            {instruction.override ? 'Save override' : 'Save as override'}
+            {instruction.override
+              ? t('dashboard.admin.systemInstructions.saveOverride')
+              : t('dashboard.admin.systemInstructions.saveAsOverride')}
           </Button>
 
           {instruction.override && (
@@ -152,8 +180,8 @@ function Editor({ instruction }: { instruction: SystemInstructionView }) {
               disabled={busy}
               title={
                 active
-                  ? 'Keep the text but use the built-in prompt'
-                  : 'Use this override for new generations'
+                  ? t('dashboard.admin.systemInstructions.disableTitle')
+                  : t('dashboard.admin.systemInstructions.enableTitle')
               }
             >
               {active ? (
@@ -161,7 +189,9 @@ function Editor({ instruction }: { instruction: SystemInstructionView }) {
               ) : (
                 <CheckCircle2 className="size-4" />
               )}
-              {active ? 'Disable override' : 'Enable override'}
+              {active
+                ? t('dashboard.admin.systemInstructions.disable')
+                : t('dashboard.admin.systemInstructions.enable')}
             </Button>
           )}
 
@@ -170,10 +200,10 @@ function Editor({ instruction }: { instruction: SystemInstructionView }) {
             size="sm"
             onClick={() => setContent(instruction.defaultTemplate)}
             disabled={busy || content === instruction.defaultTemplate}
-            title="Reset the editor to the built-in template (does not save)"
+            title={t('dashboard.admin.systemInstructions.loadBuiltInTitle')}
           >
             <FileText className="size-4" />
-            Load built-in template
+            {t('dashboard.admin.systemInstructions.loadBuiltIn')}
           </Button>
 
           {instruction.override && (
@@ -185,22 +215,22 @@ function Editor({ instruction }: { instruction: SystemInstructionView }) {
               disabled={busy}
             >
               <RotateCcw className="size-4" />
-              Revert to built-in
+              {t('dashboard.admin.systemInstructions.revertToBuiltIn')}
             </Button>
           )}
 
           {dirty && (
             <span className="text-xs text-muted-foreground">
-              Unsaved changes
+              {t('dashboard.admin.systemInstructions.unsaved')}
             </span>
           )}
         </div>
 
         {instruction.override && (
           <p className="text-xs text-muted-foreground">
-            Override last saved{' '}
-            {new Date(instruction.override.updatedAt).toLocaleString()}. New
-            generations pick changes up within ~15 seconds.
+            {t('dashboard.admin.systemInstructions.lastSaved', {
+              date: formatDateTime(instruction.override.updatedAt),
+            })}
           </p>
         )}
       </CardContent>
@@ -208,15 +238,18 @@ function Editor({ instruction }: { instruction: SystemInstructionView }) {
       <AlertDialog open={revertOpen} onOpenChange={setRevertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Revert to the built-in prompt?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('dashboard.admin.systemInstructions.revertTitle')}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              The custom override for “{instruction.title}” will be deleted and
-              the built-in prompt will be used again. This can't be undone.
+              {t('dashboard.admin.systemInstructions.revertBody', {
+                title: instruction.title,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={remove.isPending}>
-              Cancel
+              {t('dashboard.admin.common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -226,7 +259,9 @@ function Editor({ instruction }: { instruction: SystemInstructionView }) {
                 doRevert()
               }}
             >
-              {remove.isPending ? 'Reverting…' : 'Revert'}
+              {remove.isPending
+                ? t('dashboard.admin.systemInstructions.reverting')
+                : t('dashboard.admin.systemInstructions.revert')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -236,6 +271,7 @@ function Editor({ instruction }: { instruction: SystemInstructionView }) {
 }
 
 export function SystemInstructionsPage() {
+  const { t } = useTranslation()
   const { can } = useAuth()
   const { data: instructions, isLoading, error } = useSystemInstructions()
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
@@ -252,12 +288,10 @@ export function SystemInstructionsPage() {
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="font-display text-2xl font-bold">
-          System instructions
+          {t('dashboard.admin.systemInstructions.title')}
         </h1>
         <p className="text-sm text-muted-foreground">
-          The AI prompts behind image generation, campaign copy and brand
-          extraction. Overrides apply platform-wide, to every company — the
-          built-in prompt is always the fallback.
+          {t('dashboard.admin.systemInstructions.subtitle')}
         </p>
       </header>
 
@@ -265,7 +299,7 @@ export function SystemInstructionsPage() {
         <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error instanceof Error
             ? error.message
-            : 'Failed to load instructions'}
+            : t('dashboard.admin.systemInstructions.loadFailed')}
         </p>
       )}
 
@@ -274,11 +308,11 @@ export function SystemInstructionsPage() {
       {instructions && instructions.length > 0 && (
         <div className="grid gap-6 lg:grid-cols-[260px_1fr] lg:items-start">
           <nav
-            aria-label="Instructions"
+            aria-label={t('dashboard.admin.systemInstructions.navAria')}
             className="space-y-1 lg:sticky lg:top-20"
           >
             {instructions.map((i) => {
-              const status = statusOf(i)
+              const status = statusOf(i, t)
               const isSelected = i.key === selected?.key
               return (
                 <button

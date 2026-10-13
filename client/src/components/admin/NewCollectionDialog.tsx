@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,7 @@ export function NewCollectionDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const createCollection = useCreateCollection()
   // Already loaded by the list behind this dialog, so checking a slug against
@@ -76,7 +78,12 @@ export function NewCollectionDialog({
   const slugProblem =
     slugError ??
     (clash
-      ? `/c/${cleanSlug} is already taken by “${clash.title.de}”${clash.active ? '' : ' (ended)'}. Each collection needs its own URL.`
+      ? t(
+          clash.active
+            ? 'dashboard.admin.newCollection.slugTaken'
+            : 'dashboard.admin.newCollection.slugTakenEnded',
+          { slug: cleanSlug, title: clash.title.de },
+        )
       : f.errors.slug)
 
   function reset() {
@@ -112,8 +119,8 @@ export function NewCollectionDialog({
         sortOrder: 0,
       })
       notifySaved(
-        `/c/${created.slug} created`,
-        'Now add the boxes and products it should show.',
+        t('dashboard.admin.newCollection.created', { slug: created.slug }),
+        t('dashboard.admin.newCollection.createdDetail'),
       )
       reset()
       onOpenChange(false)
@@ -123,13 +130,14 @@ export function NewCollectionDialog({
       // Stays open so nothing typed is lost. A refusal about the URL goes
       // under the URL field — the likeliest one is a slug somebody used
       // between this list loading and the button being pressed.
-      const message = apiErrorMessage(err, 'Could not create the collection')
+      const fallback = t('dashboard.admin.newCollection.createFailed')
+      const message = apiErrorMessage(err, fallback)
       if (apiErrorField(err) === 'slug') {
         setSlugError(message)
         document.getElementById('new-slug')?.focus()
       } else {
         setError(message)
-        notifyError(err, 'Could not create the collection')
+        notifyError(err, fallback)
       }
     }
   }
@@ -144,16 +152,18 @@ export function NewCollectionDialog({
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>New collection</DialogTitle>
+          <DialogTitle>{t('dashboard.admin.newCollection.title')}</DialogTitle>
           <DialogDescription>
-            Name it here. You add the boxes and products on the next screen.
+            {t('dashboard.admin.newCollection.description')}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={f.handleSubmit(submit)} className="space-y-4" noValidate>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="new-slug">URL segment</Label>
+              <Label htmlFor="new-slug">
+                {t('dashboard.admin.newCollection.slugLabel')}
+              </Label>
               <Input
                 {...f.register('slug')}
                 onChange={(e) => {
@@ -168,7 +178,9 @@ export function NewCollectionDialog({
               <FieldMessage
                 id="new-slug"
                 error={slugProblem ?? undefined}
-                hint={`The page will be at /c/${cleanSlug || '…'}`}
+                hint={t('dashboard.admin.newCollection.slugHint', {
+                  slug: cleanSlug || '…',
+                })}
               />
               {slugProblem && suggestion && (
                 <button
@@ -179,38 +191,42 @@ export function NewCollectionDialog({
                     setSlugError(null)
                   }}
                 >
-                  Use /c/{suggestion} instead
+                  {t('dashboard.admin.newCollection.useSuggestion', {
+                    slug: suggestion,
+                  })}
                 </button>
               )}
             </div>
 
             <FormField
               id="new-tag"
-              label="Occasion tag"
+              label={t('dashboard.admin.newCollection.tagLabel')}
               error={f.errors.tag}
-              hint="Products carrying this tag fill the page."
+              hint={t('dashboard.admin.newCollection.tagHint')}
             >
               <Input {...f.register('tag')} placeholder="christmas" />
             </FormField>
           </div>
 
-          <FormField id="new-titleDe" label="Headline (German)" error={f.errors.titleDe}>
+          <FormField id="new-titleDe" label={t('dashboard.admin.collectionForm.headlineDe')} error={f.errors.titleDe}>
             <Input {...f.register('titleDe')} />
           </FormField>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               id="new-titleEn"
-              label="Headline (English)"
+              label={t('dashboard.admin.collectionForm.headlineEn')}
               error={f.errors.titleEn}
-              hint="Falls back to the German one if left blank."
+              hint={t('dashboard.admin.newCollection.headlineEnHint')}
               optional
             >
               <Input {...f.register('titleEn')} />
             </FormField>
 
             <div className="space-y-2">
-              <Label htmlFor="new-locale">Language visitors get</Label>
+              <Label htmlFor="new-locale">
+                {t('dashboard.admin.collectionForm.locale')}
+              </Label>
               <Select
                 value={locale}
                 onValueChange={(v) => f.set('locale', v as 'de' | 'en')}
@@ -219,8 +235,8 @@ export function NewCollectionDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="de">Deutsch</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="de">{t('common.german')}</SelectItem>
+                  <SelectItem value="en">{t('common.english')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -234,13 +250,15 @@ export function NewCollectionDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t('dashboard.admin.common.cancel')}
             </Button>
             <Button
               type="submit"
               disabled={createCollection.isPending || Boolean(clash)}
             >
-              {createCollection.isPending ? 'Creating…' : 'Create and add boxes'}
+              {createCollection.isPending
+                ? t('dashboard.admin.common.creating')
+                : t('dashboard.admin.newCollection.submit')}
             </Button>
           </DialogFooter>
         </form>

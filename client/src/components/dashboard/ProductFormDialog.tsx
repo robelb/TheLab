@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ImageManager } from '@/components/dashboard/ImageManager'
 import {
   BundleContentsEditor,
@@ -33,7 +34,7 @@ import {
 } from '@/hooks/use-product-mutations'
 import { apiErrorMessage, notifyError, notifySaved } from '@/lib/notify'
 import { useZodForm, type FormErrors } from '@/lib/form'
-import { productSchema } from '@/lib/schemas/dashboard'
+import { makeProductSchema } from '@/lib/schemas/dashboard'
 import type { ProductComponentInput, ProductInput } from '@/types/dashboard'
 import type { Product, ProductLabel } from '@/types/product'
 
@@ -73,9 +74,9 @@ interface FormState {
   contents: BundleContentsValue
 }
 
-const LABEL_OPTIONS: { value: ProductLabel; label: string }[] = [
-  { value: 'vegan', label: 'Vegan' },
-  { value: 'organic', label: 'Bio (organic)' },
+const LABEL_OPTIONS: { value: ProductLabel; labelKey: string }[] = [
+  { value: 'vegan', labelKey: 'dashboard.products.form.labelVegan' },
+  { value: 'organic', labelKey: 'dashboard.products.form.labelOrganic' },
 ]
 
 const EMPTY_CONTENTS: BundleContentsValue = {
@@ -142,6 +143,7 @@ export function ProductFormDialog({
   open,
   onClose,
 }: ProductFormDialogProps) {
+  const { t } = useTranslation()
   const { data: categories = [] } = useCategories()
   const createMutation = useCreateProduct()
   const updateMutation = useUpdateProduct()
@@ -149,6 +151,7 @@ export function ProductFormDialog({
   const mutation = isEditing ? updateMutation : createMutation
 
   const [tab, setTab] = useState<Tab>('details')
+  const productSchema = useMemo(() => makeProductSchema(t), [t])
   const f = useZodForm({ schema: productSchema, initialValues: EMPTY })
   const form = f.values
   const { reset } = f
@@ -185,6 +188,7 @@ export function ProductFormDialog({
   }, [open, product, categories, reset])
 
   const update = f.set
+  const optionalLabel = t('dashboard.products.form.optional')
   /** Which tabs have something to fix, for the dot on their label. */
   const tabsWithErrors = new Set(Object.keys(f.errors).map(tabOf))
 
@@ -259,17 +263,21 @@ export function ProductFormDialog({
       }
       onClose()
       notifySaved(
-        product ? `${payload.name} saved` : `${payload.name} added`,
+        product
+          ? t('dashboard.products.form.savedToast', { name: payload.name })
+          : t('dashboard.products.form.addedToast', { name: payload.name }),
         form.isBundle
-          ? `Pre-configured box · ${form.contents.items.length} product${form.contents.items.length === 1 ? '' : 's'} inside`
+          ? t('dashboard.products.form.bundleToast', {
+              count: form.contents.items.length,
+            })
           : undefined,
       )
     } catch (err) {
-      const message = apiErrorMessage(err, 'Something went wrong')
+      const message = apiErrorMessage(err, t('dashboard.products.form.saveFailed'))
       // Kept inline as well: the dialog stays open on a failure, and the
       // message usually names the field that has to change.
       setError(message)
-      notifyError(err, 'Something went wrong')
+      notifyError(err, t('dashboard.products.form.saveFailed'))
     }
   }
 
@@ -277,11 +285,15 @@ export function ProductFormDialog({
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit product' : 'New product'}</DialogTitle>
+          <DialogTitle>
+            {isEditing
+              ? t('dashboard.products.form.editTitle')
+              : t('dashboard.products.form.newTitle')}
+          </DialogTitle>
           <DialogDescription>
             {isEditing
-              ? 'Update product details and manage its images.'
-              : 'Add a new product to your catalog.'}
+              ? t('dashboard.products.form.editDescription')
+              : t('dashboard.products.form.newDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -297,17 +309,18 @@ export function ProductFormDialog({
           <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
             <TabsList>
               <TabsTrigger value="details" className={brandTabClass}>
-                Details
+                {t('dashboard.products.form.tabDetails')}
                 <ErrorDot show={tabsWithErrors.has('details')} />
               </TabsTrigger>
               <TabsTrigger value="images" className={brandTabClass}>
-                Images{form.images.length > 0 && ` (${form.images.length})`}
+                {t('dashboard.products.form.tabImages')}
+                {form.images.length > 0 && ` (${form.images.length})`}
                 <ErrorDot show={tabsWithErrors.has('images')} />
               </TabsTrigger>
               {/* Only a pre-configured box has anything inside it. */}
               {form.isBundle && (
                 <TabsTrigger value="contents" className={brandTabClass}>
-                  Box contents
+                  {t('dashboard.products.form.tabContents')}
                   {form.contents.items.length > 0 &&
                     ` (${form.contents.items.length})`}
                   <ErrorDot show={tabsWithErrors.has('contents')} />
@@ -317,33 +330,34 @@ export function ProductFormDialog({
 
             <TabsContent value="details" className="mt-4">
               <div className="grid gap-4 sm:grid-cols-2">
-                <FormField id="name" label="Name" error={f.errors.name} className="sm:col-span-2">
+                <FormField id="name" label={t('dashboard.products.form.name')} error={f.errors.name} className="sm:col-span-2">
                   <Input {...f.register('name')} />
                 </FormField>
 
                 <FormField
                   id="tagline"
-                  label="Tagline"
+                  label={t('dashboard.products.form.tagline')}
                   error={f.errors.tagline}
                   optional
+                  optionalLabel={optionalLabel}
                   className="sm:col-span-2"
                 >
                   <Input {...f.register('tagline')} />
                 </FormField>
 
-                <FormField id="price" label="Price" error={f.errors.price} hint="Net, before VAT.">
+                <FormField id="price" label={t('dashboard.products.form.price')} error={f.errors.price} hint={t('dashboard.products.form.priceHint')}>
                   <Input {...f.register('price')} type="number" min="0" step="0.01" inputMode="decimal" />
                 </FormField>
 
-                <FormField id="currency" label="Currency" error={f.errors.currency}>
+                <FormField id="currency" label={t('dashboard.products.form.currency')} error={f.errors.currency}>
                   <Input {...f.register('currency')} maxLength={3} placeholder="EUR" />
                 </FormField>
 
-                <FormField id="stock" label="Stock" error={f.errors.stock}>
+                <FormField id="stock" label={t('dashboard.products.form.stock')} error={f.errors.stock}>
                   <Input {...f.register('stock')} type="number" min="0" step="1" inputMode="numeric" />
                 </FormField>
 
-                <FormField id="categoryId" label="Category" error={f.errors.categoryId}>
+                <FormField id="categoryId" label={t('dashboard.products.form.category')} error={f.errors.categoryId}>
                   <Select
                     value={form.categoryId}
                     onValueChange={(v) => update('categoryId', v)}
@@ -354,7 +368,7 @@ export function ProductFormDialog({
                       aria-invalid={f.errors.categoryId ? true : undefined}
                       aria-describedby={f.errors.categoryId ? 'categoryId-error' : undefined}
                     >
-                      <SelectValue placeholder="Select a category" />
+                      <SelectValue placeholder={t('dashboard.products.form.categoryPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((c) => (
@@ -368,9 +382,10 @@ export function ProductFormDialog({
 
                 <FormField
                   id="description"
-                  label="Description"
+                  label={t('dashboard.products.form.description')}
                   error={f.errors.description}
                   optional
+                  optionalLabel={optionalLabel}
                   className="sm:col-span-2"
                 >
                   <Textarea {...f.register('description')} rows={3} />
@@ -378,10 +393,11 @@ export function ProductFormDialog({
 
                 <FormField
                   id="details"
-                  label="Details"
+                  label={t('dashboard.products.form.details')}
                   error={f.errors.details}
-                  hint="One per line."
+                  hint={t('dashboard.products.form.detailsHint')}
                   optional
+                  optionalLabel={optionalLabel}
                   className="sm:col-span-2"
                 >
                   <Textarea {...f.register('details')} rows={3} />
@@ -389,19 +405,20 @@ export function ProductFormDialog({
 
                 <FormField
                   id="sku"
-                  label="SKU"
+                  label={t('dashboard.products.form.sku')}
                   error={f.errors.sku}
-                  hint="Generated for you if left blank."
+                  hint={t('dashboard.products.form.skuHint')}
                   optional
+                  optionalLabel={optionalLabel}
                 >
                   <Input {...f.register('sku')} />
                 </FormField>
 
                 <FormField
                   id="minQuantity"
-                  label="Minimum order"
+                  label={t('dashboard.products.form.minQuantity')}
                   error={f.errors.minQuantity}
-                  hint="The fewest a customer can order."
+                  hint={t('dashboard.products.form.minQuantityHint')}
                 >
                   <Input {...f.register('minQuantity')} type="number" min="1" step="1" inputMode="numeric" />
                 </FormField>
@@ -411,21 +428,24 @@ export function ProductFormDialog({
                     anybody gets round to adding it to a menu. */}
                 <FormField
                   id="tags"
-                  label="Occasions"
+                  label={t('dashboard.products.form.tags')}
                   error={f.errors.tags}
-                  hint="Comma separated. A collection page shows everything carrying its occasion."
+                  hint={t('dashboard.products.form.tagsHint')}
                   optional
+                  optionalLabel={optionalLabel}
                   className="sm:col-span-2"
                 >
-                  <Input {...f.register('tags')} placeholder="christmas, welcome" />
+                  <Input {...f.register('tags')} placeholder={t('dashboard.products.form.tagsPlaceholder')} />
                 </FormField>
 
                 {/* Badges shoppers see on the product and in the box builder.
                     Set here, they stay through a catalogue resync. */}
                 <fieldset className="space-y-2 sm:col-span-2">
-                  <legend className="text-sm font-medium">Labels</legend>
+                  <legend className="text-sm font-medium">
+                    {t('dashboard.products.form.labels')}
+                  </legend>
                   <div className="flex flex-wrap gap-x-6 gap-y-2">
-                    {LABEL_OPTIONS.map(({ value, label }) => (
+                    {LABEL_OPTIONS.map(({ value, labelKey }) => (
                       <div key={value} className="flex items-center gap-2">
                         <Checkbox
                           id={`label-${value}`}
@@ -440,14 +460,13 @@ export function ProductFormDialog({
                           }
                         />
                         <Label htmlFor={`label-${value}`} className="font-medium">
-                          {label}
+                          {t(labelKey)}
                         </Label>
                       </div>
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Shown on the product page and when picking products for a box. Labels set
-                    here are kept when the catalogue is resynced.
+                    {t('dashboard.products.form.labelsHint')}
                   </p>
                 </fieldset>
 
@@ -458,7 +477,7 @@ export function ProductFormDialog({
                     onCheckedChange={(c) => update('isFeatured', c === true)}
                   />
                   <Label htmlFor="featured" className="font-medium">
-                    Featured product
+                    {t('dashboard.products.form.featured')}
                   </Label>
                 </div>
 
@@ -476,7 +495,7 @@ export function ProductFormDialog({
                     }}
                   />
                   <Label htmlFor="isBundle" className="font-medium">
-                    Pre-configured box
+                    {t('dashboard.products.form.isBundle')}
                   </Label>
                 </div>
               </div>
@@ -510,9 +529,7 @@ export function ProductFormDialog({
 
           {f.errorCount > 0 ? (
             <FormAlert>
-              {f.errorCount === 1
-                ? 'One thing to fix before saving. It is marked above.'
-                : `${f.errorCount} things to fix before saving. They are marked above.`}
+              {t('dashboard.products.form.errorSummary', { count: f.errorCount })}
             </FormAlert>
           ) : (
             <FormAlert>{error}</FormAlert>
@@ -520,14 +537,14 @@ export function ProductFormDialog({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
+              {t('dashboard.products.form.cancel')}
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending
-                ? 'Saving…'
+                ? t('dashboard.products.form.saving')
                 : isEditing
-                  ? 'Save changes'
-                  : 'Create product'}
+                  ? t('dashboard.products.form.saveChanges')
+                  : t('dashboard.products.form.create')}
             </Button>
           </DialogFooter>
         </form>
@@ -538,11 +555,12 @@ export function ProductFormDialog({
 
 /** A small red dot on a tab that has something to fix. */
 function ErrorDot({ show }: { show: boolean }) {
+  const { t } = useTranslation()
   if (!show) return null
   return (
     <span
       className="ml-1.5 inline-block size-1.5 rounded-full bg-destructive"
-      aria-label="has errors"
+      aria-label={t('dashboard.products.form.hasErrors')}
     />
   )
 }

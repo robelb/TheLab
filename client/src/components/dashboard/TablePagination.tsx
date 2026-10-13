@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -29,6 +30,7 @@ export function TablePagination({
   pageSizes?: readonly number[]
   disabled?: boolean
 }) {
+  const { t } = useTranslation()
   if (pagination.total === 0) return null
   const first = (pagination.page - 1) * pagination.limit + 1
 
@@ -36,7 +38,9 @@ export function TablePagination({
     <div className="flex flex-wrap items-center justify-between gap-4">
       <div className="flex flex-wrap items-center gap-6">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Rows per page</span>
+          <span className="text-sm text-muted-foreground">
+            {t('dashboard.products.pagination.rowsPerPage')}
+          </span>
           <Select
             value={String(pagination.limit)}
             onValueChange={(v) => onLimitChange(Number(v))}
@@ -54,18 +58,20 @@ export function TablePagination({
           </Select>
         </div>
         <p className="text-sm text-muted-foreground">
-          Showing{' '}
-          <span className="font-medium text-foreground">
-            {first}–{first + shown - 1}
-          </span>{' '}
-          of{' '}
-          <span className="font-medium text-foreground">{pagination.total}</span>
+          <Trans
+            i18nKey="dashboard.products.pagination.showing"
+            values={{ from: first, to: first + shown - 1, total: pagination.total }}
+            components={{ b: <span className="font-medium text-foreground" /> }}
+          />
         </p>
       </div>
 
       <div className="flex items-center gap-2">
         <span className="text-sm text-muted-foreground">
-          Page {pagination.page} of {Math.max(pagination.totalPages, 1)}
+          {t('dashboard.products.pagination.page', {
+            page: pagination.page,
+            pages: Math.max(pagination.totalPages, 1),
+          })}
         </span>
         <Button
           variant="outline"
@@ -73,7 +79,7 @@ export function TablePagination({
           disabled={!pagination.hasPrevPage || disabled}
           onClick={() => onPageChange(Math.max(1, pagination.page - 1))}
         >
-          Previous
+          {t('dashboard.products.pagination.previous')}
         </Button>
         <Button
           variant="outline"
@@ -81,7 +87,7 @@ export function TablePagination({
           disabled={!pagination.hasNextPage || disabled}
           onClick={() => onPageChange(pagination.page + 1)}
         >
-          Next
+          {t('dashboard.products.pagination.next')}
         </Button>
       </div>
     </div>

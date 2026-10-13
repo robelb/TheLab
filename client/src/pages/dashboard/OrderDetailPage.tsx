@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import {
   ArrowLeft,
   Check,
@@ -53,9 +55,10 @@ import {
   shippingCalc,
   subtotalCalc,
   lineUnit,
-  SHIPPING_LABEL,
+  shippingLabel,
   type Calc,
 } from '@/lib/orderOps'
+import i18n from '@/i18n'
 import { isEu } from '@/lib/shipping'
 import { cn } from '@/lib/utils'
 import { formatDate, formatDateTime, formatPrice } from '@/utils/format'
@@ -71,10 +74,10 @@ function pct(value: number): string {
   return `${Math.round(value * 100)}%`
 }
 
-function layerLabel(layer: PlacementLayer): string {
-  if (layer.kind === 'logo') return 'Brand logo'
-  if (layer.kind === 'image') return 'Artwork'
-  return 'Wording'
+function layerLabel(layer: PlacementLayer, t: TFunction): string {
+  if (layer.kind === 'logo') return t('dashboard.orders.detail.placement.logo')
+  if (layer.kind === 'image') return t('dashboard.orders.detail.placement.image')
+  return t('dashboard.orders.detail.placement.text')
 }
 
 /**
@@ -87,25 +90,26 @@ function layerLabel(layer: PlacementLayer): string {
  * percentage and labelled as such rather than implying a measurement.
  */
 function PlacementTable({ layout }: { layout: PlacementLayout }) {
+  const { t } = useTranslation()
   if (!layout.layers.length) return null
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[34rem] border-collapse text-xs">
         <thead>
           <tr className="border-b border-border/60 text-left text-muted-foreground">
-            <th className="py-1 pr-3 font-medium">Element</th>
-            <th className="py-1 pr-3 font-medium">Content</th>
-            <th className="py-1 pr-3 font-medium">Across</th>
-            <th className="py-1 pr-3 font-medium">Down</th>
-            <th className="py-1 pr-3 font-medium">Width</th>
-            <th className="py-1 pr-3 font-medium">Rotation</th>
-            <th className="py-1 font-medium">Typeface</th>
+            <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.element')}</th>
+            <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.content')}</th>
+            <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.across')}</th>
+            <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.down')}</th>
+            <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.width')}</th>
+            <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.rotation')}</th>
+            <th className="py-1 font-medium">{t('dashboard.orders.detail.placement.typeface')}</th>
           </tr>
         </thead>
         <tbody className="tabular-nums">
           {layout.layers.map((layer) => (
             <tr key={layer.id} className="border-b border-border/30 last:border-0">
-              <td className="py-1.5 pr-3 whitespace-nowrap">{layerLabel(layer)}</td>
+              <td className="py-1.5 pr-3 whitespace-nowrap">{layerLabel(layer, t)}</td>
               <td className="max-w-[12rem] truncate py-1.5 pr-3">
                 {layer.kind === 'text' ? (
                   <span className="flex items-center gap-1.5">
@@ -133,9 +137,11 @@ function PlacementTable({ layout }: { layout: PlacementLayout }) {
               </td>
               <td className="py-1.5 text-muted-foreground">
                 {layer.kind === 'text'
-                  ? `${layer.fontStyle ?? 'sans'}${
-                      layer.fontWeight === 'bold' ? ' bold' : ''
-                    }`
+                  ? layer.fontWeight === 'bold'
+                    ? t('dashboard.orders.detail.placement.bold', {
+                        face: layer.fontStyle ?? 'sans',
+                      })
+                    : (layer.fontStyle ?? 'sans')
                   : '—'}
               </td>
             </tr>
@@ -143,8 +149,7 @@ function PlacementTable({ layout }: { layout: PlacementLayout }) {
         </tbody>
       </table>
       <p className="mt-1.5 text-[11px] text-muted-foreground">
-        Positions are the centre of each element as a share of the product photo,
-        not a physical measurement.
+        {t('dashboard.orders.detail.placement.note')}
       </p>
     </div>
   )
@@ -158,6 +163,7 @@ function DesignBlock({
   design: ProductDesign | null | undefined
   title: string
 }) {
+  const { t } = useTranslation()
   if (!design) return null
   const artwork = design.flat ?? design.image
   return (
@@ -174,7 +180,7 @@ function DesignBlock({
               className="max-h-56 rounded-brand border border-border/40 object-contain"
             />
             <figcaption className="text-[11px] text-muted-foreground">
-              Approved artwork — this is what prints
+              {t('dashboard.orders.detail.design.approved')}
             </figcaption>
           </figure>
         )}
@@ -186,28 +192,27 @@ function DesignBlock({
               className="max-h-56 rounded-brand border border-border/40 object-contain"
             />
             <figcaption className="text-[11px] text-muted-foreground">
-              Photoreal render — presentation only
+              {t('dashboard.orders.detail.design.photoreal')}
             </figcaption>
           </figure>
         )}
       </div>
       {design.prompt && (
         <p className="rounded-brand bg-muted/40 px-2 py-1.5 text-xs">
-          <span className="text-muted-foreground">Brief: </span>
+          <span className="text-muted-foreground">{t('dashboard.orders.detail.design.brief')} </span>
           {design.prompt}
         </p>
       )}
       {design.logoUrl && (
         <p className="text-xs text-muted-foreground">
-          Used a custom logo for this design, not the company mark.
+          {t('dashboard.orders.detail.design.customLogo')}
         </p>
       )}
       {design.layout ? (
         <PlacementTable layout={design.layout} />
       ) : (
         <p className="text-xs text-muted-foreground">
-          No placement recorded — the artwork was generated from the brief rather
-          than positioned by hand.
+          {t('dashboard.orders.detail.design.noPlacement')}
         </p>
       )}
     </div>
@@ -219,11 +224,12 @@ function DesignBlock({
  * opening that product in the dashboard so ops can check what to pack.
  */
 function SupplyHeading({ label, line }: { label: string; line: BoxLine }) {
+  const { t } = useTranslation()
   return (
     <Link
       to={`/dashboard/products/${line.productId}`}
       className="group flex items-center gap-3"
-      title={`Open ${line.name}`}
+      title={t('dashboard.orders.detail.openProduct', { name: line.name })}
     >
       {line.image ? (
         <img
@@ -248,6 +254,7 @@ function SupplyHeading({ label, line }: { label: string; line: BoxLine }) {
 
 /** A small copy button that confirms with a tick, for text ops paste elsewhere. */
 function CopyButton({ text, label }: { text: string; label: string }) {
+  const { t } = useTranslation()
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const copy = async () => {
     setState((await copyText(text)) ? 'copied' : 'failed')
@@ -261,7 +268,11 @@ function CopyButton({ text, label }: { text: string; label: string }) {
       aria-label={label}
     >
       {state === 'copied' ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
-      {state === 'copied' ? 'Copied' : state === 'failed' ? 'Copy failed' : 'Copy'}
+      {state === 'copied'
+        ? t('dashboard.orders.detail.copy.copied')
+        : state === 'failed'
+          ? t('dashboard.orders.detail.copy.failed')
+          : t('dashboard.orders.detail.copy.copy')}
     </button>
   )
 }
@@ -270,21 +281,22 @@ const IMAGE_FILE = /\.(png|jpe?g|webp|gif|svg|avif)(\?|#|$)/i
 
 /** The customer's sticker logo: a preview when it is an image, and its link. */
 function UploadedLogo({ logo }: { logo: StickerLogo }) {
+  const { t } = useTranslation()
   const isImage = IMAGE_FILE.test(logo.url) || IMAGE_FILE.test(logo.name ?? '')
   return (
     <div className="mt-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Uploaded image
+          {t('dashboard.orders.detail.logo.uploaded')}
         </p>
-        <CopyButton text={logo.url} label="Copy link to the logo" />
+        <CopyButton text={logo.url} label={t('dashboard.orders.detail.logo.copyLink')} />
       </div>
       <div className="mt-1 flex items-center gap-3">
         <a href={logo.url} target="_blank" rel="noreferrer" className="shrink-0">
           {isImage ? (
             <img
               src={logo.url}
-              alt={logo.name ?? 'Sticker logo'}
+              alt={logo.name ?? t('dashboard.orders.detail.logo.alt')}
               className="size-24 rounded-brand border border-border/40 bg-white object-contain p-1"
             />
           ) : (
@@ -300,7 +312,7 @@ function UploadedLogo({ logo }: { logo: StickerLogo }) {
           download
           className="min-w-0 break-all text-sm text-primary underline underline-offset-2"
         >
-          {logo.name ?? 'Download the logo file'}
+          {logo.name ?? t('dashboard.orders.detail.logo.download')}
         </a>
       </div>
     </div>
@@ -348,6 +360,7 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
    * client-side, which once arrived claiming zero; those are summed from their
    * contents instead.
    */
+  const { t } = useTranslation()
   const unit = lineUnit(item)
   const lineTotal = unit * item.quantity
   const money = (n: number) => formatPrice(n, item.currency ?? currency)
@@ -368,34 +381,44 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
             <p className="font-medium">{item.name}</p>
             <p className="text-xs text-muted-foreground">
               {item.sku ? `${item.sku} · ` : ''}
-              {item.box ? `${item.quantity} ${item.quantity === 1 ? 'box' : 'boxes'}` : `× ${item.quantity}`}
+              {item.box
+                ? t('dashboard.orders.detail.line.boxes', { count: item.quantity })
+                : `× ${item.quantity}`}
               {item.box &&
-                (item.pricingMode === 'bundle'
-                  ? ' · ready-made box at its set price'
-                  : ' · built by the customer')}
+                ` · ${
+                  item.pricingMode === 'bundle'
+                    ? t('dashboard.orders.detail.line.readyMade')
+                    : t('dashboard.orders.detail.line.built')
+                }`}
             </p>
             {item.tierPrice !== undefined && (
-              <p className="text-xs text-primary">Volume price applied</p>
+              <p className="text-xs text-primary">
+                {t('dashboard.orders.detail.line.volumeApplied')}
+              </p>
             )}
           </div>
           <div className="text-right">
             <p className="font-medium tabular-nums">{money(lineTotal)}</p>
             <p className="text-xs text-muted-foreground tabular-nums">
-              {money(unit)} {item.box ? 'per box' : 'each'}
+              {item.box
+                ? t('dashboard.orders.detail.line.perBox', { price: money(unit) })
+                : t('dashboard.orders.detail.line.each', { price: money(unit) })}
             </p>
           </div>
         </div>
       </div>
 
       {/* A single branded product. */}
-      {!item.box && <DesignBlock design={item.design} title="Design" />}
+      {!item.box && (
+        <DesignBlock design={item.design} title={t('dashboard.orders.detail.design.title')} />
+      )}
 
       {/* A built box: its contents, then every design inside it. */}
       {item.box && (
         <div className="space-y-3">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              In each box · to pack for {item.quantity}
+              {t('dashboard.orders.detail.line.inEachBox', { count: item.quantity })}
             </p>
             <table className="mt-1 w-full text-sm">
               <tbody>
@@ -403,10 +426,12 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
                   <tr key={part.productId} className="border-b border-border/30 last:border-0">
                     <td className="py-1 pr-3">{part.name}</td>
                     <td className="py-1 pr-3 text-right tabular-nums text-muted-foreground">
-                      {part.quantity} per box
+                      {t('dashboard.orders.detail.line.partPerBox', { count: part.quantity })}
                     </td>
                     <td className="py-1 pr-3 text-right tabular-nums">
-                      {part.quantity * item.quantity} total
+                      {t('dashboard.orders.detail.line.partTotal', {
+                        count: part.quantity * item.quantity,
+                      })}
                     </td>
                     <td className="py-1 text-right tabular-nums text-muted-foreground">
                       {money(part.price)}
@@ -420,18 +445,16 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
           {calc && (
             <div className="rounded-brand border border-border/40 p-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                How the price per box is made
+                {t('dashboard.orders.detail.line.howPriced')}
               </p>
               <CalcRows calc={calc} money={money} />
               <div className="mt-1 flex justify-between border-t border-border/40 pt-1 text-sm font-medium">
-                <span>Price per box</span>
+                <span>{t('dashboard.orders.detail.line.pricePerBox')}</span>
                 <span className="tabular-nums">{money(unit)}</span>
               </div>
               {item.quantity > 1 && (
                 <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>
-                    × {item.quantity} boxes
-                  </span>
+                  <span>{t('dashboard.orders.detail.line.timesBoxes', { count: item.quantity })}</span>
                   <span className="tabular-nums">{money(lineTotal)}</span>
                 </div>
               )}
@@ -441,14 +464,20 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
 
           {item.box.greetingCard && (
             <div className="rounded-brand border border-border/40 p-3">
-              <SupplyHeading label="Greeting card" line={item.box.greetingCard} />
+              <SupplyHeading
+                label={t('dashboard.orders.detail.card.title')}
+                line={item.box.greetingCard}
+              />
               {item.box.greetingCard.message?.trim() ? (
                 <div className="mt-3">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Message
+                      {t('dashboard.orders.detail.card.message')}
                     </p>
-                    <CopyButton text={item.box.greetingCard.message} label="Copy message" />
+                    <CopyButton
+                      text={item.box.greetingCard.message}
+                      label={t('dashboard.orders.detail.card.copyMessage')}
+                    />
                   </div>
                   <p className="mt-1 whitespace-pre-line rounded-brand border border-border/40 px-3 py-2 text-sm">
                     {item.box.greetingCard.message}
@@ -456,34 +485,41 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  No message yet — the customer will send it later.
+                  {t('dashboard.orders.detail.card.noMessage')}
                 </p>
               )}
             </div>
           )}
           {item.box.stickers && (
             <div className="rounded-brand border border-border/40 p-3">
-              <SupplyHeading label="Sticker logo" line={item.box.stickers} />
+              <SupplyHeading
+                label={t('dashboard.orders.detail.logo.title')}
+                line={item.box.stickers}
+              />
               {item.box.stickerLogo ? (
                 <UploadedLogo logo={item.box.stickerLogo} />
               ) : (
                 <p className="mt-2 text-sm">
-                  <Badge variant="outline">Logo to follow</Badge>{' '}
-                  <span className="text-muted-foreground">Ask the customer for it.</span>
+                  <Badge variant="outline">{t('dashboard.orders.detail.logo.toFollow')}</Badge>{' '}
+                  <span className="text-muted-foreground">
+                    {t('dashboard.orders.detail.logo.askCustomer')}
+                  </span>
                 </p>
               )}
             </div>
           )}
           {item.box.packagingPrompt && (
             <p className="rounded-brand bg-muted/40 px-2 py-1.5 text-xs">
-              <span className="text-muted-foreground">Box print brief: </span>
+              <span className="text-muted-foreground">
+                {t('dashboard.orders.detail.line.boxBrief')}{' '}
+              </span>
               {item.box.packagingPrompt}
             </p>
           )}
           {item.box.packagingLayout && (
             <div className="space-y-1.5 rounded-brand border border-border/40 p-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Box placement
+                {t('dashboard.orders.detail.line.boxPlacement')}
               </p>
               <PlacementTable layout={item.box.packagingLayout} />
             </div>
@@ -496,7 +532,9 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
                 <DesignBlock
                   key={productId}
                   design={design}
-                  title={`Design — ${part?.name ?? productId}`}
+                  title={t('dashboard.orders.detail.design.titleFor', {
+                    name: part?.name ?? productId,
+                  })}
                 />
               )
             })}
@@ -538,23 +576,26 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
  * handed to a supplier.
  */
 /** The campaign fields that are actually set, in a readable order. */
-function attributionRows(order: Order): [string, string][] {
+function attributionRows(order: Order, t: TFunction): [string, string][] {
   const a = order.attribution
   const rows: [string, string | null | undefined][] = [
-    ['Source', order.source ?? null],
-    ['Collection', order.collectionSlug],
-    ['Entered through', a?.entrySlug],
-    ['Google click id', a?.gclid],
-    ['Meta click id', a?.fbclid],
-    ['Microsoft click id', a?.msclkid],
+    [t('dashboard.orders.detail.campaign.source'), order.source ?? null],
+    [t('dashboard.orders.detail.campaign.collection'), order.collectionSlug],
+    [t('dashboard.orders.detail.campaign.enteredThrough'), a?.entrySlug],
+    [t('dashboard.orders.detail.campaign.gclid'), a?.gclid],
+    [t('dashboard.orders.detail.campaign.fbclid'), a?.fbclid],
+    [t('dashboard.orders.detail.campaign.msclkid'), a?.msclkid],
     ['utm_source', a?.utmSource],
     ['utm_medium', a?.utmMedium],
     ['utm_campaign', a?.utmCampaign],
     ['utm_term', a?.utmTerm],
     ['utm_content', a?.utmContent],
-    ['Landed on', a?.landingPath],
-    ['Referrer', a?.referrer],
-    ['First seen', a?.firstSeenAt ? formatDateTime(a.firstSeenAt) : null],
+    [t('dashboard.orders.detail.campaign.landedOn'), a?.landingPath],
+    [t('dashboard.orders.detail.campaign.referrer'), a?.referrer],
+    [
+      t('dashboard.orders.detail.campaign.firstSeen'),
+      a?.firstSeenAt ? formatDateTime(a.firstSeenAt) : null,
+    ],
   ]
   return rows.filter((row): row is [string, string] => Boolean(row[1]))
 }
@@ -576,11 +617,12 @@ async function openInvoice(order: Order) {
     setTimeout(() => URL.revokeObjectURL(url), 60_000)
   } catch (err) {
     tab?.close()
-    notifyError(err, 'Could not open the invoice')
+    notifyError(err, i18n.t('dashboard.orders.detail.toast.invoiceOpenFailed'))
   }
 }
 
 export function OrderDetailPage() {
+  const { t } = useTranslation()
   const { id = '' } = useParams()
   const { data: order, isLoading, error } = useOrder(id)
   const setStatus = useSetOrderStatus()
@@ -604,12 +646,12 @@ export function OrderDetailPage() {
     return (
       <div className="flex flex-col items-center gap-3 py-20 text-center">
         <p className="text-sm text-muted-foreground">
-          That request could not be found.
+          {t('dashboard.orders.detail.notFound')}
         </p>
         <Button asChild variant="outline">
           <Link to="/dashboard/orders">
             <ArrowLeft className="size-4" />
-            Back to requests
+            {t('dashboard.orders.detail.backToRequests')}
           </Link>
         </Button>
       </div>
@@ -628,10 +670,10 @@ export function OrderDetailPage() {
   const vatNote = !billingCountry
     ? null
     : billingCountry === 'DE'
-      ? 'German VAT, 19 %'
+      ? t('dashboard.orders.detail.vatNote.de')
       : isEu(billingCountry)
-        ? '0 % — intra-Community supply (VAT ID required)'
-        : '0 % — export'
+        ? t('dashboard.orders.detail.vatNote.eu')
+        : t('dashboard.orders.detail.vatNote.export')
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -639,12 +681,12 @@ export function OrderDetailPage() {
         <Button asChild variant="ghost" size="sm" className="-ml-2">
           <Link to="/dashboard/orders">
             <ArrowLeft className="size-4" />
-            All requests
+            {t('dashboard.orders.detail.allRequests')}
           </Link>
         </Button>
         <Button variant="outline" size="sm" onClick={() => window.print()}>
           <Printer className="size-4" />
-          Print / PDF
+          {t('dashboard.orders.detail.print')}
         </Button>
       </div>
 
@@ -653,7 +695,7 @@ export function OrderDetailPage() {
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-mono text-2xl font-semibold">{order.reference}</h1>
           <Badge variant="outline" className={STATUS_STYLE[order.status]}>
-            {order.status}
+            {t(`dashboard.orders.status.${order.status}`)}
           </Badge>
           {order.invoice && (
             <Badge
@@ -664,18 +706,23 @@ export function OrderDetailPage() {
                   : 'border-amber-500/40 bg-amber-500/10 text-amber-700'
               }
             >
-              {order.paymentStatus ?? 'unpaid'}
+              {t(`dashboard.orders.payment.${order.paymentStatus ?? 'unpaid'}`)}
             </Badge>
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          {billing?.company || order.contact.company || order.contact.name} · sent{' '}
-          {formatDateTime(order.createdAt)} ·{' '}
-          {order.source === 'funnel'
-            ? `collection ${order.collectionName ?? order.collectionSlug ?? ''}`
-            : order.isGuest
-              ? 'shop, as a guest'
-              : 'shop, signed in'}
+          {t('dashboard.orders.detail.sentLine', {
+            customer: billing?.company || order.contact.company || order.contact.name,
+            date: formatDateTime(order.createdAt),
+            origin:
+              order.source === 'funnel'
+                ? t('dashboard.orders.detail.origin.collection', {
+                    name: order.collectionName ?? order.collectionSlug ?? '',
+                  })
+                : order.isGuest
+                  ? t('dashboard.orders.detail.origin.guest')
+                  : t('dashboard.orders.detail.origin.signedIn'),
+          })}
         </p>
 
         {/* Actions */}
@@ -688,18 +735,24 @@ export function OrderDetailPage() {
                 {
                   onSuccess: (updated) =>
                     notifySaved(
-                      `${order.reference} marked ${updated.status}`,
+                      t('dashboard.orders.detail.toast.marked', {
+                        reference: order.reference,
+                        status: t(`dashboard.orders.status.${updated.status}`),
+                      }),
                       // Worth saying: this is the signal the ads side scores on.
-                      updated.status === 'quoted' ? 'Sent to the campaign feed.' : undefined,
+                      updated.status === 'quoted'
+                        ? t('dashboard.orders.detail.toast.sentToFeed')
+                        : undefined,
                     ),
-                  onError: (err) => notifyError(err, 'Could not change the status'),
+                  onError: (err) =>
+                    notifyError(err, t('dashboard.orders.detail.toast.statusFailed')),
                 },
               )
             }
             // An invoiced order's status is settled until a credit note exists.
             disabled={setStatus.isPending || Boolean(order.invoice)}
           >
-            <SelectTrigger className="h-8 w-36 text-xs" aria-label="Status">
+            <SelectTrigger className="h-8 w-36 text-xs" aria-label={t('dashboard.orders.detail.statusLabel')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -711,7 +764,7 @@ export function OrderDetailPage() {
                   value={s}
                   disabled={s === 'confirmed' && order.status !== 'confirmed'}
                 >
-                  {s}
+                  {t(`dashboard.orders.status.${s}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -720,7 +773,7 @@ export function OrderDetailPage() {
             <>
               <Button size="sm" onClick={() => setConfirming(true)}>
                 <CheckCircle2 className="size-4" />
-                Confirm order…
+                {t('dashboard.orders.detail.confirmOrder')}
               </Button>
               <ConfirmOrderDialog
                 key={order.updatedAt}
@@ -744,18 +797,26 @@ export function OrderDetailPage() {
                     },
                     {
                       onSuccess: (updated) =>
-                        notifySaved(`${order.reference} marked ${updated.paymentStatus}`),
-                      onError: (err) => notifyError(err, 'Could not change the payment'),
+                        notifySaved(
+                          t('dashboard.orders.detail.toast.marked', {
+                            reference: order.reference,
+                            status: t(`dashboard.orders.payment.${updated.paymentStatus ?? 'unpaid'}`),
+                          }),
+                        ),
+                      onError: (err) =>
+                        notifyError(err, t('dashboard.orders.detail.toast.paymentFailed')),
                     },
                   )
                 }
               >
                 {setPayment.isPending && <Loader2 className="size-4 animate-spin" />}
-                {order.paymentStatus === 'paid' ? 'Mark unpaid' : 'Mark as paid'}
+                {order.paymentStatus === 'paid'
+                  ? t('dashboard.orders.detail.markUnpaid')
+                  : t('dashboard.orders.detail.markPaid')}
               </Button>
               <Button size="sm" variant="outline" onClick={() => void openInvoice(order)}>
                 <FileDown className="size-4" />
-                Invoice PDF
+                {t('dashboard.orders.detail.invoicePdf')}
               </Button>
             </>
           )}
@@ -772,15 +833,13 @@ export function OrderDetailPage() {
                       sent.status === 'sent'
                         ? notifySaved(
                             order.invoice
-                              ? 'Confirmation and invoice sent'
-                              : 'Request confirmation sent',
-                            `To ${order.contact.email}`,
+                              ? t('dashboard.orders.detail.toast.confirmationSent')
+                              : t('dashboard.orders.detail.toast.receivedSent'),
+                            t('dashboard.orders.detail.toast.to', { email: order.contact.email }),
                           )
-                        : notifyError(
-                            null,
-                            'Email is only queued: no mail provider is configured on the server.',
-                          ),
-                    onError: (err) => notifyError(err, 'Could not send the email'),
+                        : notifyError(null, t('dashboard.orders.detail.toast.emailQueued')),
+                    onError: (err) =>
+                      notifyError(err, t('dashboard.orders.detail.toast.emailFailed')),
                   },
                 )
               }
@@ -790,7 +849,9 @@ export function OrderDetailPage() {
               ) : (
                 <Mail className="size-4" />
               )}
-              {resend.isPending ? 'Sending…' : 'Resend email'}
+              {resend.isPending
+                ? t('dashboard.orders.detail.sending')
+                : t('dashboard.orders.detail.resendEmail')}
             </Button>
           )}
         </div>
@@ -800,7 +861,7 @@ export function OrderDetailPage() {
       {todos.length > 0 && (
         <section className="rounded-brand border border-amber-500/40 bg-amber-500/5 p-4">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-800">
-            To do
+            {t('dashboard.orders.detail.todo')}
           </h2>
           <ul className="space-y-1.5 text-sm">
             {todos.map((todo) => (
@@ -825,7 +886,7 @@ export function OrderDetailPage() {
         <div className="space-y-5">
           <section className="space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              What they asked for · {orderSize(order)}
+              {t('dashboard.orders.detail.askedFor', { size: orderSize(order) })}
             </h2>
             <ul className="space-y-4">
               {order.items.map((item, i) => (
@@ -836,7 +897,7 @@ export function OrderDetailPage() {
 
           <section className="space-y-1 rounded-brand border border-border/40 p-4 text-sm">
             <div className="flex justify-between text-muted-foreground">
-              <span>Subtotal</span>
+              <span>{t('dashboard.orders.detail.totals.subtotal')}</span>
               <span className="tabular-nums">{formatPrice(order.subtotal, order.currency)}</span>
             </div>
             <div className="pl-3 text-xs text-muted-foreground [&_ul]:mt-0 [&_ul]:text-xs">
@@ -854,7 +915,9 @@ export function OrderDetailPage() {
               </div>
             )}
             <div className="flex justify-between text-muted-foreground">
-              <span>Shipping · {SHIPPING_LABEL[method]}</span>
+              <span>
+                {t('dashboard.orders.detail.totals.shipping', { method: shippingLabel(method) })}
+              </span>
               <span className="tabular-nums">{formatPrice(order.shipping, order.currency)}</span>
             </div>
             {shipping.rows.length > 0 && (
@@ -868,33 +931,35 @@ export function OrderDetailPage() {
             {order.totalGross != null ? (
               <>
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Net</span>
+                  <span>{t('dashboard.orders.detail.totals.net')}</span>
                   <span className="tabular-nums">{formatPrice(order.total, order.currency)}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
-                  <span>VAT {order.vatRate ?? ''} %</span>
+                  <span>{t('dashboard.orders.detail.totals.vat', { rate: order.vatRate ?? '' })}</span>
                   <span className="tabular-nums">{formatPrice(order.vat ?? 0, order.currency)}</span>
                 </div>
                 <div className="flex justify-between text-base font-semibold">
-                  <span>Total</span>
+                  <span>{t('dashboard.orders.detail.totals.total')}</span>
                   <span className="tabular-nums">
                     {formatPrice(order.totalGross, order.currency)}
                   </span>
                 </div>
                 <p className="pt-1 text-xs text-muted-foreground">
-                  Agreed price, confirmed{' '}
-                  {order.confirmedAt ? formatDateTime(order.confirmedAt) : ''}.
+                  {t('dashboard.orders.detail.totals.agreed', {
+                    date: order.confirmedAt ? formatDateTime(order.confirmedAt) : '',
+                  })}
                 </p>
               </>
             ) : (
               <>
                 <div className="flex justify-between text-base font-semibold">
-                  <span>Total (net)</span>
+                  <span>{t('dashboard.orders.detail.totals.totalNet')}</span>
                   <span className="tabular-nums">{formatPrice(order.total, order.currency)}</span>
                 </div>
                 <p className="pt-1 text-xs text-muted-foreground">
-                  Estimate{vatNote ? `, VAT: ${vatNote}` : ''} — the price is agreed on
-                  confirmation.
+                  {vatNote
+                    ? t('dashboard.orders.detail.totals.estimateVat', { vat: vatNote })
+                    : t('dashboard.orders.detail.totals.estimate')}
                 </p>
               </>
             )}
@@ -910,11 +975,11 @@ export function OrderDetailPage() {
           {(order.source === 'funnel' || order.attribution) && (
             <details className="group rounded-brand border border-border/40 bg-muted/10 px-3 py-2 text-sm print:hidden">
               <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground">
-                Campaign
+                {t('dashboard.orders.detail.campaign.title')}
                 {order.collectionSlug ? ` · ${order.collectionSlug}` : ''}
               </summary>
               <dl className="mt-2 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
-                {attributionRows(order).map(([label, value]) => (
+                {attributionRows(order, t).map(([label, value]) => (
                   <div key={label} className="flex gap-2">
                     <dt className="text-muted-foreground">{label}</dt>
                     <dd className="min-w-0 break-all">{value}</dd>
@@ -927,19 +992,19 @@ export function OrderDetailPage() {
 
         {/* ── Everything they told us ──────────────────────────────── */}
         <aside className="space-y-4">
-          <SideCard title="Customer">
+          <SideCard title={t('dashboard.orders.detail.customer.title')}>
             <dl className="space-y-1">
               <Field
-                label="Name"
+                label={t('dashboard.orders.detail.customer.name')}
                 value={
                   [order.contact.firstName, order.contact.lastName].filter(Boolean).join(' ') ||
                   order.contact.name
                 }
               />
-              <Field label="Position" value={order.contact.position} />
-              <Field label="Company" value={order.contact.company} />
+              <Field label={t('dashboard.orders.detail.customer.position')} value={order.contact.position} />
+              <Field label={t('dashboard.orders.detail.customer.company')} value={order.contact.company} />
               <Field
-                label="Email"
+                label={t('dashboard.orders.detail.customer.email')}
                 value={
                   <a href={`mailto:${order.contact.email}`} className="text-primary hover:underline">
                     {order.contact.email}
@@ -947,7 +1012,7 @@ export function OrderDetailPage() {
                 }
               />
               <Field
-                label="Phone"
+                label={t('dashboard.orders.detail.customer.phone')}
                 value={
                   order.contact.phone && (
                     <a href={`tel:${order.contact.phone}`} className="text-primary hover:underline">
@@ -956,13 +1021,23 @@ export function OrderDetailPage() {
                   )
                 }
               />
-              <Field label="Account" value={order.isGuest ? 'None — ordered as a guest' : 'Signed in'} />
-              <Field label="Language" value={order.locale?.toUpperCase()} />
+              <Field
+                label={t('dashboard.orders.detail.customer.account')}
+                value={
+                  order.isGuest
+                    ? t('dashboard.orders.detail.customer.guest')
+                    : t('dashboard.orders.detail.customer.signedIn')
+                }
+              />
+              <Field
+                label={t('dashboard.orders.detail.customer.language')}
+                value={order.locale?.toUpperCase()}
+              />
             </dl>
           </SideCard>
 
           {billing && (
-            <SideCard title="Invoice to">
+            <SideCard title={t('dashboard.orders.detail.billing.title')}>
               <div>
                 {addressLines([
                   billing.company,
@@ -976,47 +1051,71 @@ export function OrderDetailPage() {
                 ))}
               </div>
               <dl className="space-y-1 pt-1">
-                <Field label="VAT ID" value={billing.vatId || '—'} />
-                <Field label="VAT" value={vatNote} />
-                <Field label="PO number" value={billing.poNumber || 'Not given (may follow)'} />
-                <Field label="Invoice email" value={billing.email} />
-                <Field label="Payment" value={order.paymentMethod === 'invoice' ? 'By invoice' : '—'} />
+                <Field label={t('dashboard.orders.detail.billing.vatId')} value={billing.vatId || '—'} />
+                <Field label={t('dashboard.orders.detail.billing.vat')} value={vatNote} />
+                <Field
+                  label={t('dashboard.orders.detail.billing.poNumber')}
+                  value={billing.poNumber || t('dashboard.orders.detail.billing.poMissing')}
+                />
+                <Field label={t('dashboard.orders.detail.billing.email')} value={billing.email} />
+                <Field
+                  label={t('dashboard.orders.detail.billing.payment')}
+                  value={
+                    order.paymentMethod === 'invoice'
+                      ? t('dashboard.orders.detail.billing.byInvoice')
+                      : '—'
+                  }
+                />
               </dl>
             </SideCard>
           )}
 
-          <SideCard title="Delivery">
+          <SideCard title={t('dashboard.orders.detail.delivery.title')}>
             <dl className="space-y-1">
               <Field
-                label="Method"
+                label={t('dashboard.orders.detail.delivery.method')}
                 value={
                   method === 'individual'
-                    ? 'Individual — one box per recipient'
+                    ? t('dashboard.orders.detail.delivery.individual')
                     : method === 'mixed'
                       ? order.shippingSplit
-                        ? `Mixed — ${order.shippingSplit.bulkBoxes} to the address below, ${order.shippingSplit.individualBoxes} individually`
-                        : 'Mixed'
-                      : 'Bulk — everything to one address'
+                        ? t('dashboard.orders.detail.delivery.mixedSplit', {
+                            bulk: order.shippingSplit.bulkBoxes,
+                            individual: order.shippingSplit.individualBoxes,
+                          })
+                        : shippingLabel('mixed')
+                      : t('dashboard.orders.detail.delivery.bulk')
                 }
               />
               <Field
-                label="Needed by"
+                label={t('dashboard.orders.detail.delivery.neededBy')}
                 value={
                   delivery?.neededBy
-                    ? `${formatDate(delivery.neededBy)}${
-                        days !== null ? (days < 0 ? ` (${-days} days ago)` : ` (in ${days} days)`) : ''
-                      }`
-                    : 'Not stated'
+                    ? days === null
+                      ? formatDate(delivery.neededBy)
+                      : days < 0
+                        ? t('dashboard.orders.detail.delivery.neededByAgo', {
+                            date: formatDate(delivery.neededBy),
+                            count: -days,
+                          })
+                        : t('dashboard.orders.detail.delivery.neededByIn', {
+                            date: formatDate(delivery.neededBy),
+                            count: days,
+                          })
+                    : t('dashboard.orders.detail.delivery.notStated')
                 }
               />
               {method === 'individual' ? (
-                <Field label="Recipients in" value={countryName(delivery?.country)} />
+                <Field
+                  label={t('dashboard.orders.detail.delivery.recipientsIn')}
+                  value={countryName(delivery?.country)}
+                />
               ) : (
                 <Field
-                  label="Address"
+                  label={t('dashboard.orders.detail.delivery.address')}
                   value={
                     delivery?.sameAsBilling ? (
-                      <span>Same as the invoice address</span>
+                      <span>{t('dashboard.orders.detail.delivery.sameAsBilling')}</span>
                     ) : (
                       <span>
                         {addressLines([
@@ -1036,43 +1135,66 @@ export function OrderDetailPage() {
               )}
               {method !== 'bulk' && (
                 <Field
-                  label="Recipients"
+                  label={t('dashboard.orders.detail.delivery.recipients')}
                   value={
                     order.addressesLater
-                      ? 'Addresses to follow by email'
-                      : 'Addresses received'
+                      ? t('dashboard.orders.detail.delivery.addressesLater')
+                      : t('dashboard.orders.detail.delivery.addressesReceived')
                   }
                 />
               )}
             </dl>
             {delivery?.notes && (
               <p className="whitespace-pre-wrap rounded-brand bg-muted/40 px-3 py-2">
-                <span className="text-muted-foreground">Notes: </span>
+                <span className="text-muted-foreground">
+                  {t('dashboard.orders.detail.delivery.notes')}{' '}
+                </span>
                 {delivery.notes}
               </p>
             )}
           </SideCard>
 
           {order.invoice && (
-            <SideCard title="Invoice">
+            <SideCard title={t('dashboard.orders.detail.invoice.title')}>
               <dl className="space-y-1">
-                <Field label="Number" value={<span className="font-mono">{order.invoice.number}</span>} />
-                <Field label="Issued" value={formatDateTime(order.invoice.issuedAt)} />
-                <Field label="Due" value={formatDate(order.invoice.dueAt)} />
-                <Field label="Amount" value={formatPrice(order.invoice.gross, order.invoice.currency)} />
-                <Field label="Paid" value={order.paymentStatus === 'paid' ? 'Yes' : 'Not yet'} />
+                <Field
+                  label={t('dashboard.orders.detail.invoice.number')}
+                  value={<span className="font-mono">{order.invoice.number}</span>}
+                />
+                <Field
+                  label={t('dashboard.orders.detail.invoice.issued')}
+                  value={formatDateTime(order.invoice.issuedAt)}
+                />
+                <Field
+                  label={t('dashboard.orders.detail.invoice.due')}
+                  value={formatDate(order.invoice.dueAt)}
+                />
+                <Field
+                  label={t('dashboard.orders.detail.invoice.amount')}
+                  value={formatPrice(order.invoice.gross, order.invoice.currency)}
+                />
+                <Field
+                  label={t('dashboard.orders.detail.invoice.paid')}
+                  value={
+                    order.paymentStatus === 'paid'
+                      ? t('dashboard.orders.detail.invoice.yes')
+                      : t('dashboard.orders.detail.invoice.notYet')
+                  }
+                />
               </dl>
             </SideCard>
           )}
 
-          <SideCard title="Consent">
+          <SideCard title={t('dashboard.orders.detail.consent.title')}>
             <dl className="space-y-1">
               <Field
-                label="Privacy"
+                label={t('dashboard.orders.detail.consent.privacy')}
                 value={
                   order.privacyAcceptedAt
-                    ? `Accepted ${formatDateTime(order.privacyAcceptedAt)}`
-                    : 'Not recorded'
+                    ? t('dashboard.orders.detail.consent.accepted', {
+                        date: formatDateTime(order.privacyAcceptedAt),
+                      })
+                    : t('dashboard.orders.detail.consent.notRecorded')
                 }
               />
             </dl>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AxiosError } from 'axios'
 import { useAuth } from '@/context/AuthContext'
 import { useReExtractCompany, useUpdateCompany } from '@/hooks/use-companies'
@@ -16,14 +17,8 @@ import { useZodForm } from '@/lib/form'
 import { companyNameSchema } from '@/lib/schemas/dashboard'
 import { Badge } from '@/components/ui/badge'
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Extracting…',
-  ready: 'Ready',
-  failed: 'Failed',
-  skipped: 'Skipped',
-}
-
 export function CompanySettingsPage() {
+  const { t } = useTranslation()
   const { company } = useAuth()
   const updateCompany = useUpdateCompany()
   const reExtract = useReExtractCompany()
@@ -38,7 +33,7 @@ export function CompanySettingsPage() {
   if (!company) {
     return (
       <p className="text-sm text-muted-foreground">
-        You are not attached to a company.
+        {t('dashboard.company.settings.notAttached')}
       </p>
     )
   }
@@ -48,12 +43,13 @@ export function CompanySettingsPage() {
     setSaveError(null)
     try {
       await updateCompany.mutateAsync({ id: company!.id, body: { name } })
-      setNotice('Company name saved.')
+      setNotice(t('dashboard.company.settings.nameSaved'))
     } catch (err) {
       setSaveError(
         err instanceof AxiosError
-          ? (err.response?.data?.error ?? 'Could not save the name. Please try again.')
-          : 'Could not save the name. Please try again.',
+          ? (err.response?.data?.error ??
+              t('dashboard.company.settings.saveNameError'))
+          : t('dashboard.company.settings.saveNameError'),
       )
     }
   }
@@ -61,23 +57,28 @@ export function CompanySettingsPage() {
   async function handleReExtract() {
     setNotice(null)
     await reExtract.mutateAsync(company!.id)
-    setNotice('Branding refreshed. Reload the app to see the new theme applied.')
+    setNotice(t('dashboard.company.settings.refreshed'))
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-bold">Company</h1>
+        <h1 className="font-display text-2xl font-bold">
+          {t('dashboard.company.settings.title')}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Manage {company.name}'s profile and branding.
+          {t('dashboard.company.settings.subtitle', { company: company.name })}
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Profile</CardTitle>
+          <CardTitle className="text-lg">
+            {t('dashboard.company.settings.profile')}
+          </CardTitle>
           <CardDescription>
-            Domain <span className="font-medium">{company.domain}</span>
+            {t('dashboard.company.settings.domain')}{' '}
+            <span className="font-medium">{company.domain}</span>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -86,14 +87,21 @@ export function CompanySettingsPage() {
             className="flex items-start gap-3"
             noValidate
           >
-            <FormField id="c-name" label="Company name" error={f.errors.name} className="flex-1">
+            <FormField
+              id="c-name"
+              label={t('dashboard.company.settings.companyName')}
+              error={f.errors.name}
+              className="flex-1"
+            >
               <Input {...f.register('name')} />
             </FormField>
             {/* Lines the button up with the input, under its label. */}
             <div className="space-y-2">
               <span className="block h-4" aria-hidden />
               <Button type="submit" disabled={updateCompany.isPending}>
-                {updateCompany.isPending ? 'Saving…' : 'Save'}
+                {updateCompany.isPending
+                  ? t('dashboard.company.shared.saving')
+                  : t('dashboard.company.settings.save')}
               </Button>
             </div>
           </form>
@@ -106,14 +114,17 @@ export function CompanySettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            Branding
+            {t('dashboard.company.settings.branding')}
             <Badge variant="outline">
-              {STATUS_LABELS[company.brandStatus] ?? company.brandStatus}
+              {t(`dashboard.company.settings.brandStatus.${company.brandStatus}`, {
+                defaultValue: company.brandStatus,
+              })}
             </Badge>
           </CardTitle>
           <CardDescription>
-            Re-run brand extraction to refresh your theme and product mockups
-            from {company.domain}.
+            {t('dashboard.company.settings.reExtractDescription', {
+              domain: company.domain,
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -126,7 +137,9 @@ export function CompanySettingsPage() {
             disabled={reExtract.isPending}
             onClick={handleReExtract}
           >
-            {reExtract.isPending ? 'Refreshing…' : 'Re-extract branding'}
+            {reExtract.isPending
+              ? t('dashboard.company.settings.refreshing')
+              : t('dashboard.company.settings.reExtract')}
           </Button>
         </CardContent>
       </Card>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Check, Copy, ExternalLink, Pencil, Plus, Search } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/context/AuthContext'
 import { useAllCollections } from '@/hooks/use-collections-admin'
 import { NewCollectionDialog } from '@/components/admin/NewCollectionDialog'
@@ -35,6 +36,7 @@ import {
  * a handful, and the list is already loaded whole for the detail page.
  */
 export function CollectionsPage() {
+  const { t } = useTranslation()
   const { can } = useAuth()
   const navigate = useNavigate()
   const collectionsQuery = useAllCollections()
@@ -79,16 +81,16 @@ export function CollectionsPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="font-display text-2xl font-bold">Collections</h1>
+          <h1 className="font-display text-2xl font-bold">{t('dashboard.admin.collections.title')}</h1>
           <p className="text-sm text-muted-foreground">
             {collectionsQuery.data
-              ? `${all.length} page${all.length === 1 ? '' : 's'} · hand the link to the agency and add the campaign parameters to the end of it`
-              : 'Each one is a page an ad can point at.'}
+              ? t('dashboard.admin.collections.summary', { count: all.length })
+              : t('dashboard.admin.collections.intro')}
           </p>
         </div>
         <Button type="button" onClick={() => setCreating(true)}>
           <Plus className="size-4" />
-          New collection
+          {t('dashboard.admin.collections.new')}
         </Button>
       </header>
 
@@ -100,14 +102,14 @@ export function CollectionsPage() {
             setSearch(e.target.value)
             setPage(1)
           }}
-          placeholder="Search by URL, tag or headline…"
+          placeholder={t('dashboard.admin.collections.searchPlaceholder')}
           className="pl-9"
         />
       </div>
 
       {collectionsQuery.error && (
         <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Could not load the collections. Reload to try again.
+          {t('dashboard.admin.collections.loadFailed')}
         </p>
       )}
 
@@ -115,12 +117,14 @@ export function CollectionsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40">
-              <TableHead>Page</TableHead>
-              <TableHead>Tag</TableHead>
-              <TableHead>Boxes</TableHead>
-              <TableHead>Mode</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>{t('dashboard.admin.collections.columns.page')}</TableHead>
+              <TableHead>{t('dashboard.admin.collections.columns.tag')}</TableHead>
+              <TableHead>{t('dashboard.admin.collections.columns.boxes')}</TableHead>
+              <TableHead>{t('dashboard.admin.collections.columns.mode')}</TableHead>
+              <TableHead>{t('dashboard.admin.collections.columns.status')}</TableHead>
+              <TableHead className="text-right">
+                {t('dashboard.admin.collections.columns.actions')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -162,10 +166,10 @@ export function CollectionsPage() {
                   className="py-12 text-center text-muted-foreground"
                 >
                   {needle ? (
-                    `No collection matches “${search.trim()}”.`
+                    t('dashboard.admin.collections.noMatch', { query: search.trim() })
                   ) : (
                     <div className="flex flex-col items-center gap-3">
-                      No collections yet.
+                      {t('dashboard.admin.collections.empty')}
                       <Button
                         type="button"
                         variant="outline"
@@ -173,7 +177,7 @@ export function CollectionsPage() {
                         onClick={() => setCreating(true)}
                       >
                         <Plus className="size-4" />
-                        Create the first one
+                        {t('dashboard.admin.collections.createFirst')}
                       </Button>
                     </div>
                   )}
@@ -219,16 +223,24 @@ export function CollectionsPage() {
                       title={boxes.map((b) => b.name).join(', ') || undefined}
                     >
                       {boxes.length || (
-                        <span className="text-muted-foreground">None</span>
+                        <span className="text-muted-foreground">
+                          {t('dashboard.admin.collections.noBoxes')}
+                        </span>
                       )}
                     </TableCell>
                     <TableCell>
                       {collection.allowCustomization ? (
-                        <span className="text-sm">Build, brand &amp; buy</span>
+                        <span className="text-sm">
+                          {t('dashboard.admin.collections.modes.customize')}
+                        </span>
                       ) : collection.allowBoxBuilding ? (
-                        <span className="text-sm">Build &amp; buy</span>
+                        <span className="text-sm">
+                          {t('dashboard.admin.collections.modes.build')}
+                        </span>
                       ) : (
-                        <Badge variant="outline">Buy only</Badge>
+                        <Badge variant="outline">
+                          {t('dashboard.admin.collections.modes.buyOnly')}
+                        </Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -237,14 +249,14 @@ export function CollectionsPage() {
                           variant="outline"
                           className="border-primary/40 bg-primary/10 text-primary"
                         >
-                          Live
+                          {t('dashboard.admin.collections.live')}
                         </Badge>
                       ) : (
                         <Badge
                           variant="outline"
                           className="border-border/60 text-muted-foreground"
                         >
-                          Ended
+                          {t('dashboard.admin.collections.ended')}
                         </Badge>
                       )}
                     </TableCell>
@@ -254,8 +266,10 @@ export function CollectionsPage() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          aria-label={`Copy the link to /c/${collection.slug}`}
-                          title="Copy link"
+                          aria-label={t('dashboard.admin.collections.copyLinkAria', {
+                            slug: collection.slug,
+                          })}
+                          title={t('dashboard.admin.collections.copyLink')}
                           onClick={() =>
                             copyLink(collection.slug, collection.defaultLocale)
                           }
@@ -270,8 +284,10 @@ export function CollectionsPage() {
                           asChild
                           variant="ghost"
                           size="icon"
-                          aria-label={`Open /c/${collection.slug}`}
-                          title="Open the page"
+                          aria-label={t('dashboard.admin.collections.openAria', {
+                            slug: collection.slug,
+                          })}
+                          title={t('dashboard.admin.collections.openTitle')}
                         >
                           <a
                             href={`/c/${collection.slug}`}
@@ -285,8 +301,10 @@ export function CollectionsPage() {
                           asChild
                           variant="ghost"
                           size="icon"
-                          aria-label={`Edit /c/${collection.slug}`}
-                          title="Edit"
+                          aria-label={t('dashboard.admin.collections.editAria', {
+                            slug: collection.slug,
+                          })}
+                          title={t('dashboard.admin.collections.edit')}
                         >
                           <Link to={editUrl}>
                             <Pencil className="size-4" />

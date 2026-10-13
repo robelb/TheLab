@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AxiosError } from 'axios'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -7,7 +8,7 @@ import {
   useSetUserActive,
   useUsers,
 } from '@/hooks/use-users'
-import { ASSIGNABLE_ROLES, ROLE_LABELS, type Role } from '@/lib/roles'
+import { ASSIGNABLE_ROLES, type Role } from '@/lib/roles'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -22,6 +23,7 @@ import { useZodForm } from '@/lib/form'
 import { newUserSchema } from '@/lib/schemas/dashboard'
 
 export function TeamPage() {
+  const { t } = useTranslation()
   const { company } = useAuth()
   const companyId = company?.id
   const usersQuery = useUsers(companyId ? { companyId } : {})
@@ -51,8 +53,8 @@ export function TeamPage() {
     } catch (err) {
       setFormError(
         err instanceof AxiosError
-          ? (err.response?.data?.error ?? 'Failed to add employee')
-          : 'Failed to add employee',
+          ? (err.response?.data?.error ?? t('dashboard.company.team.addError'))
+          : t('dashboard.company.team.addError'),
       )
     }
   }
@@ -62,17 +64,23 @@ export function TeamPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-bold">Team</h1>
+        <h1 className="font-display text-2xl font-bold">
+          {t('dashboard.company.team.title')}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Manage the people in {company?.name ?? 'your company'}.
+          {company?.name
+            ? t('dashboard.company.team.subtitle', { company: company.name })
+            : t('dashboard.company.team.subtitleNoCompany')}
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Add a team member</CardTitle>
+          <CardTitle className="text-lg">
+            {t('dashboard.company.team.addTitle')}
+          </CardTitle>
           <CardDescription>
-            They'll be able to sign in and share your company's branded shop.
+            {t('dashboard.company.team.addDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -81,25 +89,37 @@ export function TeamPage() {
             className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-start"
             noValidate
           >
-            <FormField id="t-name" label="Name" error={f.errors.name}>
+            <FormField
+              id="t-name"
+              label={t('dashboard.company.shared.name')}
+              error={f.errors.name}
+            >
               <Input {...f.register('name')} autoComplete="off" />
             </FormField>
-            <FormField id="t-email" label="Email" error={f.errors.email}>
+            <FormField
+              id="t-email"
+              label={t('dashboard.company.team.email')}
+              error={f.errors.email}
+            >
               <Input {...f.register('email')} type="email" autoComplete="off" />
             </FormField>
             <FormField
               id="t-password"
-              label="Temp password"
+              label={t('dashboard.company.team.tempPassword')}
               error={f.errors.password}
-              hint="At least 8 characters."
+              hint={t('dashboard.company.team.passwordHint')}
             >
               <Input {...f.register('password')} type="text" autoComplete="off" />
             </FormField>
-            <FormField id="t-role" label="Role" error={f.errors.role}>
+            <FormField
+              id="t-role"
+              label={t('dashboard.company.team.role')}
+              error={f.errors.role}
+            >
               <select {...f.register('role')} className="h-10 w-full rounded-brand border border-input bg-background px-3 text-sm">
                 {ASSIGNABLE_ROLES.map((r) => (
                   <option key={r} value={r}>
-                    {ROLE_LABELS[r]}
+                    {t(`dashboard.company.team.roles.${r}`)}
                   </option>
                 ))}
               </select>
@@ -108,7 +128,9 @@ export function TeamPage() {
             <div className="space-y-2">
               <span className="hidden h-4 lg:block" aria-hidden />
               <Button type="submit" className="w-full" disabled={createUser.isPending}>
-                {createUser.isPending ? 'Adding…' : 'Add member'}
+                {createUser.isPending
+                  ? t('dashboard.company.team.adding')
+                  : t('dashboard.company.team.addMember')}
               </Button>
             </div>
           </form>
@@ -120,22 +142,34 @@ export function TeamPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Members</CardTitle>
+          <CardTitle className="text-lg">
+            {t('dashboard.company.team.members')}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {usersQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
           ) : users.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No members yet.</p>
+            <p className="text-sm text-muted-foreground">
+              {t('dashboard.company.team.noMembers')}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
-                    <th className="py-2 pr-4 font-medium">Name</th>
-                    <th className="py-2 pr-4 font-medium">Email</th>
-                    <th className="py-2 pr-4 font-medium">Role</th>
-                    <th className="py-2 pr-4 font-medium">Status</th>
+                    <th className="py-2 pr-4 font-medium">
+                      {t('dashboard.company.shared.name')}
+                    </th>
+                    <th className="py-2 pr-4 font-medium">
+                      {t('dashboard.company.team.email')}
+                    </th>
+                    <th className="py-2 pr-4 font-medium">
+                      {t('dashboard.company.team.role')}
+                    </th>
+                    <th className="py-2 pr-4 font-medium">
+                      {t('dashboard.company.shared.status')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -163,7 +197,7 @@ export function TeamPage() {
                         >
                           {ASSIGNABLE_ROLES.map((r) => (
                             <option key={r} value={r}>
-                              {ROLE_LABELS[r]}
+                              {t(`dashboard.company.team.roles.${r}`)}
                             </option>
                           ))}
                         </select>
@@ -180,7 +214,9 @@ export function TeamPage() {
                             })
                           }
                         >
-                          {u.isActive ? 'Deactivate' : 'Activate'}
+                          {u.isActive
+                            ? t('dashboard.company.team.deactivate')
+                            : t('dashboard.company.team.activate')}
                         </Button>
                       </td>
                     </tr>

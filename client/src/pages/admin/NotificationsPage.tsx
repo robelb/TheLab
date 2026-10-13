@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { CircleAlert, Loader2, Mail, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { Trans, useTranslation } from 'react-i18next'
 import { useAuth } from '@/context/AuthContext'
 import { useNotifySettings, useSaveNotifySettings } from '@/hooks/use-settings'
 import { Button } from '@/components/ui/button'
@@ -33,6 +34,7 @@ function Notice({ children }: { children: React.ReactNode }) {
  * saved on the server and applies to the next request, no redeploy needed.
  */
 export function NotificationsPage() {
+  const { t } = useTranslation()
   const { can } = useAuth()
   const { data, isLoading } = useNotifySettings()
   const save = useSaveNotifySettings()
@@ -61,7 +63,7 @@ export function NotificationsPage() {
     if (!typed.length) return
     const bad = typed.find((v) => !EMAIL.test(v))
     if (bad) {
-      setError(`"${bad}" is not a valid email address.`)
+      setError(t('dashboard.admin.notifications.invalidEmail', { email: bad }))
       return
     }
     setEmails((list) => [...new Set([...list, ...typed])])
@@ -74,10 +76,11 @@ export function NotificationsPage() {
       onSuccess: (next) =>
         toast.success(
           next.emails.length
-            ? 'Saved — the next request is emailed to this list.'
-            : 'Saved — nobody is emailed about new requests now.',
+            ? t('dashboard.admin.notifications.saved')
+            : t('dashboard.admin.notifications.savedEmpty'),
         ),
-      onError: (err) => toast.error(apiErrorMessage(err, 'Could not save the list.')),
+      onError: (err) =>
+        toast.error(apiErrorMessage(err, t('dashboard.admin.notifications.saveFailed'))),
     })
 
   return (
@@ -85,12 +88,10 @@ export function NotificationsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Mail className="size-5" /> New request emails
+            <Mail className="size-5" /> {t('dashboard.admin.notifications.title')}
           </CardTitle>
           <CardDescription>
-            Everyone listed here gets an email as soon as a customer sends a request, with
-            its details and a link to open it in this dashboard. Changes apply to the next
-            request.
+            {t('dashboard.admin.notifications.description')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -100,15 +101,15 @@ export function NotificationsPage() {
             <>
               {!data.mailerReady && (
                 <Notice>
-                  This server has no email account set up (SMTP or Resend), so nothing is
-                  sent yet. Emails wait in the queue and go out once one is configured.
+                  {t('dashboard.admin.notifications.mailerNotReady')}
                 </Notice>
               )}
               {data.source === 'environment' && (
                 <Notice>
-                  Not managed here yet — the list below comes from the server setting{' '}
-                  <code>ORDER_NOTIFY_EMAIL</code>. Save it once and it is managed from this
-                  page from then on.
+                  <Trans
+                    i18nKey="dashboard.admin.notifications.fromEnvironment"
+                    components={{ code: <code /> }}
+                  />
                 </Notice>
               )}
 
@@ -122,7 +123,7 @@ export function NotificationsPage() {
                         variant="ghost"
                         size="icon"
                         className="size-7"
-                        aria-label={`Remove ${email}`}
+                        aria-label={t('dashboard.admin.notifications.removeAria', { email })}
                         onClick={() => setEmails((list) => list.filter((e) => e !== email))}
                       >
                         <X className="size-4" />
@@ -131,7 +132,7 @@ export function NotificationsPage() {
                   ))}
                 </ul>
               ) : (
-                <Notice>Nobody is emailed about new requests. Add at least one address.</Notice>
+                <Notice>{t('dashboard.admin.notifications.empty')}</Notice>
               )}
 
               <form onSubmit={add} className="space-y-1.5">
@@ -145,10 +146,10 @@ export function NotificationsPage() {
                       setDraft(e.target.value)
                       setError(null)
                     }}
-                    aria-label="Email address to add"
+                    aria-label={t('dashboard.admin.notifications.addAria')}
                   />
                   <Button type="submit" variant="outline" disabled={!draft.trim()}>
-                    <Plus className="size-4" /> Add
+                    <Plus className="size-4" /> {t('dashboard.admin.notifications.add')}
                   </Button>
                 </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}
@@ -156,11 +157,15 @@ export function NotificationsPage() {
 
               <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-4">
                 <p className="text-xs text-muted-foreground">
-                  {data.updatedAt ? `Last saved ${formatDateTime(data.updatedAt)}` : 'Not saved yet'}
+                  {data.updatedAt
+                    ? t('dashboard.admin.notifications.lastSaved', {
+                        date: formatDateTime(data.updatedAt),
+                      })
+                    : t('dashboard.admin.notifications.notSaved')}
                 </p>
                 <Button onClick={onSave} disabled={!dirty || save.isPending}>
                   {save.isPending && <Loader2 className="size-4 animate-spin" />}
-                  Save
+                  {t('dashboard.admin.notifications.save')}
                 </Button>
               </div>
             </>

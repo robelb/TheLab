@@ -1,4 +1,5 @@
 import { Loader2, Star, StarOff } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { useSetProductsFeatured } from '@/hooks/use-product-mutations'
 import { notifyError, notifySaved } from '@/lib/notify'
@@ -18,11 +19,11 @@ export function FeaturedBulkActions({
   /** The featured page only ever needs one direction per tab. */
   show?: 'both' | 'feature' | 'unfeature'
 }) {
+  const { t } = useTranslation()
   const mutation = useSetProductsFeatured()
   if (selected.size === 0) return null
 
   const count = selected.size
-  const label = count === 1 ? '1 product' : `${count} products`
   const pendingFlag = mutation.isPending ? mutation.variables?.isFeatured : null
 
   async function apply(isFeatured: boolean) {
@@ -31,21 +32,27 @@ export function FeaturedBulkActions({
         ids: [...selected],
         isFeatured,
       })
-      const done =
-        updated.length === 1 ? '1 product' : `${updated.length} products`
-      notifySaved(isFeatured ? `${done} featured` : `${done} unfeatured`)
+      notifySaved(
+        isFeatured
+          ? t('dashboard.products.featured.featuredToast', { count: updated.length })
+          : t('dashboard.products.featured.unfeaturedToast', { count: updated.length }),
+      )
       onDone()
     } catch (err) {
       notifyError(
         err,
-        isFeatured ? `Could not feature ${label}` : `Could not unfeature ${label}`,
+        isFeatured
+          ? t('dashboard.products.featured.featureFailed', { count })
+          : t('dashboard.products.featured.unfeatureFailed', { count }),
       )
     }
   }
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border/40 bg-muted/30 px-2 py-1">
-      <span className="text-sm">{count} selected</span>
+      <span className="text-sm">
+        {t('dashboard.products.featured.selected', { count })}
+      </span>
       {show !== 'unfeature' && (
         <Button
           type="button"
@@ -59,7 +66,7 @@ export function FeaturedBulkActions({
           ) : (
             <Star className="size-4" />
           )}
-          Mark featured
+          {t('dashboard.products.featured.markFeatured')}
         </Button>
       )}
       {show !== 'feature' && (
@@ -75,7 +82,7 @@ export function FeaturedBulkActions({
           ) : (
             <StarOff className="size-4" />
           )}
-          Unfeature
+          {t('dashboard.products.featured.unfeature')}
         </Button>
       )}
       <Button
@@ -85,7 +92,7 @@ export function FeaturedBulkActions({
         disabled={mutation.isPending}
         onClick={onDone}
       >
-        Clear
+        {t('dashboard.products.featured.clear')}
       </Button>
     </div>
   )

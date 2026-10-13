@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Package, Plus, Search, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { AddProductDialog } from '@/components/AddProductDialog'
 import { TablePagination } from '@/components/dashboard/TablePagination'
 import { Badge } from '@/components/ui/badge'
@@ -42,6 +43,7 @@ export function CollectionProductsTable({
 }: {
   collection: Collection
 }) {
+  const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(20)
   const [search, setSearch] = useState('')
@@ -105,21 +107,38 @@ export function CollectionProductsTable({
         for (const id of ids) next.delete(id)
         return next
       })
-      notifySaved(`${label} removed from /c/${collection.slug}`)
+      notifySaved(
+        t('dashboard.admin.collectionProducts.removed', {
+          label,
+          slug: collection.slug,
+        }),
+      )
     } catch (err) {
-      notifyError(err, `Could not remove ${label}`)
+      notifyError(
+        err,
+        t('dashboard.admin.collectionProducts.removeFailed', { label }),
+      )
     }
   }
 
   async function add(products: Product[]) {
     const label =
-      products.length === 1 ? products[0].name : `${products.length} products`
+      products.length === 1
+        ? products[0].name
+        : t('dashboard.admin.collectionProducts.count', {
+            count: products.length,
+          })
     try {
       await setMembers.mutateAsync({ add: products.map((p) => p.id) })
-      notifySaved(`${label} added to /c/${collection.slug}`)
+      notifySaved(
+        t('dashboard.admin.collectionProducts.added', {
+          label,
+          slug: collection.slug,
+        }),
+      )
       setPicking(false)
     } catch (err) {
-      notifyError(err, `Could not add ${label}`)
+      notifyError(err, t('dashboard.admin.collectionProducts.addFailed', { label }))
       // Keeps the picker open with the same ticks, to try again.
       throw err
     }
@@ -130,7 +149,7 @@ export function CollectionProductsTable({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-display text-base font-semibold">
-            Additional products
+            {t('dashboard.admin.collectionProducts.title')}
             {pagination && (
               <span className="ml-2 text-sm font-normal text-muted-foreground">
                 {memberIds.length}
@@ -138,8 +157,7 @@ export function CollectionProductsTable({
             )}
           </h2>
           <p className="text-xs text-muted-foreground">
-            Listed under the boxes, and what a shopper can put in a box of their
-            own. Saved the moment you add or remove one.
+            {t('dashboard.admin.collectionProducts.description')}
           </p>
         </div>
         <Button
@@ -150,7 +168,7 @@ export function CollectionProductsTable({
           onClick={() => setPicking(true)}
         >
           <Plus className="size-4" />
-          Add products or boxes
+          {t('dashboard.admin.collectionProducts.add')}
         </Button>
       </div>
 
@@ -163,13 +181,17 @@ export function CollectionProductsTable({
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="Search by name or SKU…"
+            placeholder={t('dashboard.admin.collectionProducts.searchPlaceholder')}
             className="pl-9"
           />
         </div>
         {selected.size > 0 && (
           <div className="flex items-center gap-2 rounded-brand border border-border/40 bg-muted/30 px-2 py-1">
-            <span className="text-sm">{selected.size} selected</span>
+            <span className="text-sm">
+              {t('dashboard.admin.collectionProducts.selected', {
+                count: selected.size,
+              })}
+            </span>
             <Button
               type="button"
               size="sm"
@@ -179,7 +201,9 @@ export function CollectionProductsTable({
               onClick={() =>
                 void remove(
                   [...selected],
-                  selected.size === 1 ? '1 product' : `${selected.size} products`,
+                  t('dashboard.admin.collectionProducts.count', {
+                    count: selected.size,
+                  }),
                 )
               }
             >
@@ -188,7 +212,7 @@ export function CollectionProductsTable({
               ) : (
                 <X className="size-4" />
               )}
-              Remove selected
+              {t('dashboard.admin.collectionProducts.removeSelected')}
             </Button>
             <Button
               type="button"
@@ -196,7 +220,7 @@ export function CollectionProductsTable({
               variant="ghost"
               onClick={() => setSelected(new Set())}
             >
-              Clear
+              {t('dashboard.admin.collectionProducts.clear')}
             </Button>
           </div>
         )}
@@ -211,13 +235,15 @@ export function CollectionProductsTable({
                   checked={allOnPage ? true : someOnPage ? 'indeterminate' : false}
                   onCheckedChange={togglePage}
                   disabled={rows.length === 0}
-                  aria-label="Select every product on this page"
+                  aria-label={t('dashboard.admin.common.selectAllOnPage')}
                 />
               </TableHead>
-              <TableHead>Product</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead className="text-right">Remove</TableHead>
+              <TableHead>{t('dashboard.admin.common.product')}</TableHead>
+              <TableHead>{t('dashboard.admin.common.category')}</TableHead>
+              <TableHead>{t('dashboard.admin.common.price')}</TableHead>
+              <TableHead className="text-right">
+                {t('dashboard.admin.common.remove')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -257,8 +283,10 @@ export function CollectionProductsTable({
                   className="py-10 text-center text-muted-foreground"
                 >
                   {q.trim()
-                    ? `Nothing in this collection matches “${q.trim()}”.`
-                    : 'No products yet — add the items shoppers should see under the boxes.'}
+                    ? t('dashboard.admin.collectionProducts.noMatch', {
+                        query: q.trim(),
+                      })
+                    : t('dashboard.admin.collectionProducts.empty')}
                 </TableCell>
               </TableRow>
             )}
@@ -273,7 +301,9 @@ export function CollectionProductsTable({
                     <Checkbox
                       checked={selected.has(product.id)}
                       onCheckedChange={() => toggle(product.id)}
-                      aria-label={`Select ${product.name}`}
+                      aria-label={t('dashboard.admin.common.selectItem', {
+                        name: product.name,
+                      })}
                     />
                   </TableCell>
                   <TableCell>
@@ -293,7 +323,7 @@ export function CollectionProductsTable({
                               className="shrink-0 gap-1 px-1.5 py-0 text-[10px]"
                             >
                               <Package className="size-3" />
-                              Box
+                              {t('dashboard.admin.collectionProducts.box')}
                             </Badge>
                           )}
                         </p>
@@ -317,7 +347,9 @@ export function CollectionProductsTable({
                         size="icon"
                         className="text-muted-foreground hover:text-destructive"
                         disabled={setMembers.isPending}
-                        aria-label={`Remove ${product.name} from this collection`}
+                        aria-label={t('dashboard.admin.collectionProducts.removeAria', {
+                          name: product.name,
+                        })}
                         onClick={() => void remove([product.id], product.name)}
                       >
                         <X className="size-4" />
@@ -349,7 +381,7 @@ export function CollectionProductsTable({
         // Every id already in, not just this page's — the server sends them.
         existingIds={onPageIds}
         onAddMany={add}
-        title="Add products or boxes to this collection"
+        title={t('dashboard.admin.collectionProducts.pickerTitle')}
       />
     </section>
   )

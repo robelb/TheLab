@@ -1,5 +1,6 @@
 import { Sparkles } from 'lucide-react'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -33,8 +34,9 @@ export function GenerateCampaignDialog({
   onOpenChange,
   onSubmit,
   pending,
-  title = 'Generate campaign',
+  title,
 }: GenerateCampaignDialogProps) {
+  const { t } = useTranslation()
   const f = useZodForm({
     schema: campaignBriefSchema,
     initialValues: { brief: '' },
@@ -52,10 +54,11 @@ export function GenerateCampaignDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle>
+            {title ?? t('dashboard.company.generate.title')}
+          </DialogTitle>
           <DialogDescription>
-            Describe the campaign you want in plain language — theme, season,
-            audience, vibe. Leave it blank for a default brand campaign.
+            {t('dashboard.company.generate.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -66,20 +69,23 @@ export function GenerateCampaignDialog({
         >
           <FormField
             id="generate-brief"
-            label="Brief"
+            label={t('dashboard.company.generate.brief')}
             optional
+            optionalLabel={t('dashboard.company.generate.optional')}
             error={f.errors.brief}
             // Counted down near the limit, so it is never a surprise.
             hint={
               length > CAMPAIGN_BRIEF_MAX * 0.8
-                ? `${CAMPAIGN_BRIEF_MAX - length} characters left.`
+                ? t('dashboard.company.generate.charactersLeft', {
+                    count: CAMPAIGN_BRIEF_MAX - length,
+                  })
                 : undefined
             }
           >
             <Textarea
               {...f.register('brief')}
               rows={4}
-              placeholder="e.g. A summer outdoor kit for young hikers — bright, energetic, adventure vibe."
+              placeholder={t('dashboard.company.generate.placeholder')}
               autoFocus
             />
           </FormField>
@@ -91,11 +97,13 @@ export function GenerateCampaignDialog({
               onClick={() => onOpenChange(false)}
               disabled={pending}
             >
-              Cancel
+              {t('dashboard.company.shared.cancel')}
             </Button>
             <Button type="submit" disabled={pending}>
               <Sparkles className="size-4" />
-              {pending ? 'Generating…' : 'Generate'}
+              {pending
+                ? t('dashboard.company.shared.generating')
+                : t('dashboard.company.generate.submit')}
             </Button>
           </DialogFooter>
         </form>

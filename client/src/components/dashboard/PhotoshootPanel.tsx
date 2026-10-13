@@ -1,5 +1,6 @@
 import { Check, ImageUp, Plus, Share2, Sparkles, X } from 'lucide-react'
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { usePostHog } from '@posthog/react'
 import { ASPECT_RATIOS, SCENE_TYPES, type PhotoshootRequest } from '@/api/photoshoot'
 import { createShare, shareUrl, type ShareBrand } from '@/api/share'
@@ -37,8 +38,18 @@ interface PhotoshootPanelProps {
 interface GenerationResult {
   key: string
   url: string
-  sceneLabel: string
+  /** Scene id, worded at render time so it follows the language. */
+  sceneType: string
   prompt: string
+}
+
+/** A scene's name in the current language, falling back to the API's English. */
+function useSceneLabel() {
+  const { t } = useTranslation()
+  return (id: string) =>
+    t(`dashboard.products.photoshoot.scenes.${id}`, {
+      defaultValue: SCENE_TYPES.find((s) => s.id === id)?.label ?? id,
+    })
 }
 
 /** A compact optional reference-image slot (Image A — style). */
@@ -51,6 +62,7 @@ function ReferenceSlot({
   value: string | null
   onChange: (dataUrl: string | null) => void
 }) {
+  const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFile = async (file: File | undefined) => {
@@ -66,7 +78,7 @@ function ReferenceSlot({
           <img src={value} alt="" className="h-full w-full object-cover" />
           <button
             type="button"
-            aria-label={`Remove ${label}`}
+            aria-label={t('dashboard.products.photoshoot.removeSlot', { label })}
             onClick={() => onChange(null)}
             className="absolute right-0.5 top-0.5 flex size-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-destructive"
           >
@@ -80,7 +92,7 @@ function ReferenceSlot({
           className="flex size-16 flex-col items-center justify-center gap-1 rounded-brand border border-dashed border-border text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
         >
           <ImageUp className="size-4" />
-          <span className="text-[10px]">Add</span>
+          <span className="text-[10px]">{t('dashboard.products.photoshoot.add')}</span>
         </button>
       )}
       <input
@@ -112,6 +124,7 @@ function BrandingSlot({
   override: string | null
   onOverride: (dataUrl: string | null) => void
 }) {
+  const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFile = async (file: File | undefined) => {
@@ -121,10 +134,10 @@ function BrandingSlot({
 
   const hasDefaultLogo = logoKind !== 'none'
   const caption = override
-    ? 'Custom'
+    ? t('dashboard.products.photoshoot.brandingCustom')
     : hasDefaultLogo
-      ? 'Company logo'
-      : 'No logo set'
+      ? t('dashboard.products.photoshoot.brandingCompanyLogo')
+      : t('dashboard.products.photoshoot.brandingNoLogo')
 
   const box = (() => {
     if (override) {
@@ -133,7 +146,7 @@ function BrandingSlot({
           <img src={override} alt="" className="h-full w-full object-contain p-1" />
           <button
             type="button"
-            aria-label="Revert to company logo"
+            aria-label={t('dashboard.products.photoshoot.revertLogo')}
             onClick={() => onOverride(null)}
             className="absolute right-0.5 top-0.5 flex size-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-destructive"
           >
@@ -159,7 +172,7 @@ function BrandingSlot({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        title="Click to upload a custom branding image"
+        title={t('dashboard.products.photoshoot.uploadBrandingTitle')}
         className={cn(
           'flex size-16 items-center justify-center overflow-hidden rounded-brand border text-muted-foreground transition-colors hover:border-primary/50',
           hasDefaultLogo
@@ -175,7 +188,7 @@ function BrandingSlot({
   return (
     <div className="space-y-1.5">
       <span className="text-xs font-medium text-muted-foreground">
-        Branding (C)
+        {t('dashboard.products.photoshoot.branding')}
       </span>
       {box}
       <span className="block text-center text-[10px] text-muted-foreground">
@@ -196,6 +209,8 @@ function BrandingSlot({
 }
 
 export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
+  const { t } = useTranslation()
+  const sceneLabel = useSceneLabel()
   const { brand } = useBrand()
   const posthog = usePostHog()
   const logo = brand.logo ?? null
@@ -263,11 +278,9 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
         styleImage: refine ? undefined : styleImage ?? undefined,
         ...brandingFields(),
       })
-      const sceneLabel =
-        SCENE_TYPES.find((s) => s.id === sceneType)?.label ?? sceneType
       keyRef.current += 1
       setResults((prev) => [
-        { key: `gen-${keyRef.current}`, url: res.url, sceneLabel, prompt: res.prompt },
+        { key: `gen-${keyRef.current}`, url: res.url, sceneType, prompt: res.prompt },
         ...prev,
       ])
       posthog?.capture('product photoshoot generated', {
@@ -285,7 +298,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
         (err as { response?: { data?: { error?: string } } })?.response?.data
           ?.error ??
           (err as Error)?.message ??
-          'Generation failed',
+          t('dashboard.products.photoshoot.generationFailed'),
       )
     } finally {
       // Always clear the loading state, regardless of success or failure.
@@ -346,7 +359,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
         (err as { response?: { data?: { error?: string } } })?.response?.data
           ?.error ??
           (err as Error)?.message ??
-          'Could not create share link',
+          t('dashboard.products.photoshoot.shareFailed'),
       )
     } finally {
       setSharingKey(null)
@@ -364,12 +377,10 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
           <div className="flex h-full flex-col items-center justify-center gap-2 rounded-brand border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground">
             <Sparkles className="size-6 text-primary" />
             <p className="font-medium text-foreground">
-              Generate premium product photography
+              {t('dashboard.products.photoshoot.emptyTitle')}
             </p>
             <p className="max-w-xs text-xs">
-              Pick a scene and a product image. The company logo is used as
-              branding by default — upload a different one to override. Results
-              appear here.
+              {t('dashboard.products.photoshoot.emptyBody')}
             </p>
           </div>
         )}
@@ -379,14 +390,16 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
           <div className="space-y-2 rounded-brand border border-border/40 bg-card p-3">
             <Badge variant="secondary" className="text-[10px]">
               {isRefining
-                ? 'Refining'
-                : SCENE_TYPES.find((s) => s.id === sceneType)?.label}
+                ? t('dashboard.products.photoshoot.refining')
+                : sceneLabel(sceneType)}
             </Badge>
             <div className="flex aspect-square max-w-[200px] animate-pulse items-center justify-center rounded-brand bg-muted/30 text-center text-sm text-muted-foreground">
               <span className="flex flex-col items-center gap-2 p-3">
                 <Sparkles className="size-5 animate-pulse text-primary" />
-                Generating…
-                <span className="text-[11px]">This can take up to a minute</span>
+                {t('dashboard.products.photoshoot.generating')}
+                <span className="text-[11px]">
+                  {t('dashboard.products.photoshoot.generatingHint')}
+                </span>
               </span>
             </div>
           </div>
@@ -403,7 +416,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
             >
               <div className="flex items-center justify-between gap-2">
                 <Badge variant="secondary" className="text-[10px]">
-                  {r.sceneLabel}
+                  {sceneLabel(r.sceneType)}
                 </Badge>
                 <div className="flex items-center gap-1.5">
                   <Button
@@ -411,17 +424,19 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
                     variant="outline"
                     disabled={isSharing}
                     onClick={() => shareResult(r)}
-                    title="Copy a public link to share this design for sign-off"
+                    title={t('dashboard.products.photoshoot.shareTitle')}
                   >
                     {isCopied ? (
                       <>
                         <Check className="size-4" />
-                        Copied
+                        {t('dashboard.products.copied')}
                       </>
                     ) : (
                       <>
                         <Share2 className="size-4" />
-                        {isSharing ? 'Sharing…' : 'Share'}
+                        {isSharing
+                          ? t('dashboard.products.sharing')
+                          : t('dashboard.products.share')}
                       </>
                     )}
                   </Button>
@@ -434,12 +449,12 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
                     {isAdded ? (
                       <>
                         <Check className="size-4" />
-                        Added
+                        {t('dashboard.products.photoshoot.added')}
                       </>
                     ) : (
                       <>
                         <Plus className="size-4" />
-                        Add to images
+                        {t('dashboard.products.photoshoot.addToImages')}
                       </>
                     )}
                   </Button>
@@ -448,18 +463,18 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
               <button
                 type="button"
                 onClick={() => setPreviewUrl(r.url)}
-                aria-label="Preview image larger"
+                aria-label={t('dashboard.products.photoshoot.previewLarger')}
                 className="block"
               >
                 <img
                   src={r.url}
-                  alt="Generated product"
+                  alt={t('dashboard.products.photoshoot.generatedAlt')}
                   className="max-w-[200px] cursor-zoom-in rounded-brand border border-border/30 bg-muted/10 object-contain transition-opacity hover:opacity-90"
                 />
               </button>
               <details className="text-xs text-muted-foreground">
                 <summary className="cursor-pointer select-none">
-                  View prompt
+                  {t('dashboard.products.photoshoot.viewPrompt')}
                 </summary>
                 <p className="mt-1 whitespace-pre-wrap">{r.prompt}</p>
               </details>
@@ -479,8 +494,11 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <span className="text-xs font-medium text-muted-foreground">
-              Scene
-              {isRefining ? ' (refining)' : styleImage ? ' (from style)' : ''}
+              {isRefining
+                ? t('dashboard.products.photoshoot.sceneRefining')
+                : styleImage
+                  ? t('dashboard.products.photoshoot.sceneFromStyle')
+                  : t('dashboard.products.photoshoot.scene')}
             </span>
             <Select
               value={sceneType}
@@ -493,7 +511,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
               <SelectContent>
                 {SCENE_TYPES.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {s.label}
+                    {sceneLabel(s.id)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -501,7 +519,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
           </div>
           <div className="space-y-1.5">
             <span className="text-xs font-medium text-muted-foreground">
-              Aspect ratio
+              {t('dashboard.products.photoshoot.aspectRatio')}
             </span>
             <Select value={aspectRatio} onValueChange={setAspectRatio}>
               <SelectTrigger className="w-full">
@@ -510,7 +528,9 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
               <SelectContent>
                 {ASPECT_RATIOS.map((r) => (
                   <SelectItem key={r.id} value={r.id}>
-                    {r.label}
+                    {t(`dashboard.products.photoshoot.aspectRatios.${r.id}`, {
+                      defaultValue: r.label,
+                    })}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -520,19 +540,17 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
 
         {isRefining ? (
           <p className="text-[11px] text-muted-foreground">
-            Refining your last result — your instruction is applied while
-            keeping the rest of the image.
+            {t('dashboard.products.photoshoot.refiningHint')}
           </p>
         ) : styleImage ? (
           <p className="text-[11px] text-muted-foreground">
-            Using your style image as the scene — the product is placed into it
-            and branded.
+            {t('dashboard.products.photoshoot.styleHint')}
           </p>
         ) : null}
 
         <div className="flex items-start gap-3">
           <ReferenceSlot
-            label="Style (A)"
+            label={t('dashboard.products.photoshoot.style')}
             value={styleImage}
             onChange={setStyleImage}
           />
@@ -546,7 +564,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
 
         <div className="space-y-1.5">
           <span className="text-xs font-medium text-muted-foreground">
-            Product image (B)
+            {t('dashboard.products.photoshoot.productImage')}
           </span>
           <div className="flex flex-wrap gap-2">
             {gallery.map((src, i) => (
@@ -554,7 +572,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
                 key={`${src}-${i}`}
                 type="button"
                 onClick={() => setProductImage(src)}
-                aria-label={`Use product image ${i + 1}`}
+                aria-label={t('dashboard.products.photoshoot.useProductImage', { number: i + 1 })}
                 className={cn(
                   'size-12 overflow-hidden rounded-brand border-2 transition-colors',
                   productImage === src
@@ -574,8 +592,8 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
           rows={2}
           placeholder={
             isRefining
-              ? "Describe the change (e.g. 'make the background darker', 'bigger logo')"
-              : "Optional: extra direction (e.g. 'on a marble surface, morning light')"
+              ? t('dashboard.products.photoshoot.refinePlaceholder')
+              : t('dashboard.products.photoshoot.promptPlaceholder')
           }
         />
 
@@ -585,7 +603,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
               checked={buildOnLast}
               onCheckedChange={(c) => setBuildOnLast(c === true)}
             />
-            <span>Build on last result (refine it instead of starting fresh)</span>
+            <span>{t('dashboard.products.photoshoot.buildOnLast')}</span>
           </label>
         )}
 
@@ -596,10 +614,10 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
         >
           <Sparkles className="size-4" />
           {generating
-            ? 'Generating…'
+            ? t('dashboard.products.photoshoot.generating')
             : isRefining
-              ? 'Refine image'
-              : 'Generate image'}
+              ? t('dashboard.products.photoshoot.refineImage')
+              : t('dashboard.products.photoshoot.generateImage')}
         </Button>
       </div>
 
@@ -609,11 +627,13 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
         onOpenChange={(open) => !open && setPreviewUrl(null)}
       >
         <DialogContent className="max-w-3xl border-none bg-transparent p-0 shadow-none">
-          <DialogTitle className="sr-only">Generated image preview</DialogTitle>
+          <DialogTitle className="sr-only">
+            {t('dashboard.products.photoshoot.previewTitle')}
+          </DialogTitle>
           {previewUrl && (
             <img
               src={previewUrl}
-              alt="Generated product preview"
+              alt={t('dashboard.products.photoshoot.previewAlt')}
               className="max-h-[85vh] w-full rounded-brand object-contain"
             />
           )}

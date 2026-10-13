@@ -12,16 +12,23 @@ import {
   XCircle,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/context/AuthContext'
 import { useDashboardStats } from '@/hooks/use-dashboard'
+import { currentLocale } from '@/i18n'
 import type { DashboardStats } from '@/types/dashboard'
 
+/** Same BCP-47 tags as `@/utils/format`, so figures follow the chosen language. */
+function intlLocale() {
+  return currentLocale() === 'de' ? 'de-DE' : 'en-GB'
+}
+
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(intlLocale(), {
     style: 'currency',
     currency: 'EUR',
     maximumFractionDigits: 0,
@@ -65,38 +72,41 @@ function cnAccent(accent?: string) {
 }
 
 function StatsGrid({ stats }: { stats: DashboardStats }) {
+  const { t } = useTranslation()
   const { totals, priceRange } = stats
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <StatCard label="Products" value={totals.products} icon={Package} />
-      <StatCard label="Categories" value={totals.categories} icon={Tags} />
+      <StatCard label={t('dashboard.company.home.products')} value={totals.products} icon={Package} />
+      <StatCard label={t('dashboard.company.home.categories')} value={totals.categories} icon={Tags} />
       <StatCard
-        label="Featured"
+        label={t('dashboard.company.home.featured')}
         value={totals.featured}
         icon={Star}
         accent="bg-amber-500/10 text-amber-600"
       />
       <StatCard
-        label="Units in stock"
-        value={totals.totalStock.toLocaleString()}
+        label={t('dashboard.company.home.unitsInStock')}
+        value={totals.totalStock.toLocaleString(intlLocale())}
         icon={Boxes}
-        hint={`Inventory value ${formatCurrency(totals.inventoryValue)}`}
+        hint={t('dashboard.company.home.inventoryValue', {
+          value: formatCurrency(totals.inventoryValue),
+        })}
       />
       <StatCard
-        label="Low stock"
+        label={t('dashboard.company.home.lowStock')}
         value={totals.lowStock}
         icon={AlertTriangle}
         accent="bg-amber-500/10 text-amber-600"
-        hint="Fewer than 10 units"
+        hint={t('dashboard.company.home.lowStockHint')}
       />
       <StatCard
-        label="Out of stock"
+        label={t('dashboard.company.home.outOfStock')}
         value={totals.outOfStock}
         icon={XCircle}
         accent="bg-destructive/10 text-destructive"
       />
       <StatCard
-        label="Avg. price"
+        label={t('dashboard.company.home.avgPrice')}
         value={formatCurrency(priceRange.avg)}
         icon={Wallet}
         hint={`${formatCurrency(priceRange.min)} – ${formatCurrency(priceRange.max)}`}
@@ -106,6 +116,7 @@ function StatsGrid({ stats }: { stats: DashboardStats }) {
 }
 
 export function DashboardHomePage() {
+  const { t } = useTranslation()
   const { data, isLoading, error } = useDashboardStats()
   // Managing the catalogue is big little things' own job.
   const canManageCatalogue = useAuth().can('manage_all')
@@ -113,9 +124,9 @@ export function DashboardHomePage() {
   return (
     <div className="space-y-8">
       <header className="space-y-1">
-        <h1 className="font-display text-2xl font-bold">Overview</h1>
+        <h1 className="font-display text-2xl font-bold">{t('dashboard.company.home.title')}</h1>
         <p className="text-sm text-muted-foreground">
-          Requests waiting on you, and a snapshot of the shared catalogue.
+          {t('dashboard.company.home.subtitle')}
         </p>
       </header>
 
@@ -140,18 +151,18 @@ export function DashboardHomePage() {
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-              Your requests
+              {t('dashboard.company.home.yourRequests')}
             </h2>
             <Link
               to="/dashboard/orders"
               className="text-xs text-primary hover:underline"
             >
-              See all
+              {t('dashboard.company.home.seeAll')}
             </Link>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
-              label="Awaiting a quote"
+              label={t('dashboard.company.home.awaitingQuote')}
               value={data.requests.new}
               icon={Inbox}
               accent={
@@ -159,19 +170,27 @@ export function DashboardHomePage() {
                   ? 'bg-primary/10 text-primary'
                   : undefined
               }
-              hint={data.requests.new > 0 ? 'Needs a reply' : 'Nothing waiting'}
+              hint={
+                data.requests.new > 0
+                  ? t('dashboard.company.home.needsReply')
+                  : t('dashboard.company.home.nothingWaiting')
+              }
             />
-            <StatCard label="Quoted" value={data.requests.quoted} icon={FileText} />
             <StatCard
-              label="Confirmed"
+              label={t('dashboard.company.home.quoted')}
+              value={data.requests.quoted}
+              icon={FileText}
+            />
+            <StatCard
+              label={t('dashboard.company.home.confirmed')}
               value={data.requests.confirmed}
               icon={CheckCircle2}
             />
             <StatCard
-              label="Open value"
+              label={t('dashboard.company.home.openValue')}
               value={formatCurrency(data.requests.openValue)}
               icon={Coins}
-              hint="Everything not cancelled"
+              hint={t('dashboard.company.home.openValueHint')}
             />
           </div>
 
@@ -185,13 +204,15 @@ export function DashboardHomePage() {
                   <span className="min-w-0 flex-1 truncate">{r.contactName}</span>
                   {r.neededBy && (
                     <span className="text-xs text-muted-foreground">
-                      delivery {r.neededBy}
+                      {t('dashboard.company.home.delivery', { date: r.neededBy })}
                     </span>
                   )}
                   <span className="tabular-nums">
                     {formatCurrency(r.total)}
                   </span>
-                  <span className="text-xs text-muted-foreground">{r.status}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t(`status.${r.status}`, { defaultValue: r.status })}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -206,12 +227,12 @@ export function DashboardHomePage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">By category</CardTitle>
+                <CardTitle className="text-base">{t('dashboard.company.home.byCategory')}</CardTitle>
               </CardHeader>
               <CardContent className="max-h-72 space-y-3 overflow-y-auto">
                 {data.categoryBreakdown.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    No categories yet.
+                    {t('dashboard.company.home.noCategories')}
                   </p>
                 )}
                 {data.categoryBreakdown.map((c) => {
@@ -239,20 +260,22 @@ export function DashboardHomePage() {
 
             <Card>
               <CardHeader className="flex-row items-center justify-between">
-                <CardTitle className="text-base">Recently added</CardTitle>
+                <CardTitle className="text-base">
+                  {t('dashboard.company.home.recentlyAdded')}
+                </CardTitle>
                 {canManageCatalogue && (
                   <Link
                     to="/dashboard/products"
                     className="text-xs font-medium text-primary hover:underline"
                   >
-                    Manage products
+                    {t('dashboard.company.home.manageProducts')}
                   </Link>
                 )}
               </CardHeader>
               <CardContent className="max-h-72 space-y-3 overflow-y-auto">
                 {data.recentProducts.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    No products yet.
+                    {t('dashboard.company.home.noProducts')}
                   </p>
                 )}
                 {data.recentProducts.map((p) => (
@@ -276,7 +299,7 @@ export function DashboardHomePage() {
                         variant="secondary"
                         className="mt-0.5 text-[10px]"
                       >
-                        {p.stock} in stock
+                        {t('dashboard.company.home.inStock', { count: p.stock })}
                       </Badge>
                     </div>
                   </div>

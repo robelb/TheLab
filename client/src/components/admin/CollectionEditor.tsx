@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AddProductDialog } from '@/components/AddProductDialog'
 import { CollectionBoxesTable } from '@/components/admin/CollectionBoxesTable'
 import { CollectionProductsTable } from '@/components/admin/CollectionProductsTable'
@@ -36,6 +37,7 @@ const brandTabClass =
  * products underneath, whether a visitor may build their own, and the copy.
  */
 export function CollectionEditor({ collection }: { collection: Collection }) {
+  const { t } = useTranslation()
   const updateCollection = useUpdateCollection()
   // A separate instance so the box list's own saving state doesn't disable
   // the headline form, and vice versa.
@@ -98,7 +100,7 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
       notifySaved(message)
     } catch (err) {
       setFeatured(previous)
-      notifyError(err, 'Could not save the boxes')
+      notifyError(err, t('dashboard.admin.collectionEditor.saveBoxesFailed'))
     }
   }
 
@@ -109,13 +111,13 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
     const held = next[index]
     next[index] = next[target]
     next[target] = held
-    void saveBoxes(next, 'Running order saved')
+    void saveBoxes(next, t('dashboard.admin.collectionEditor.orderSaved'))
   }
 
   function removeBox(box: Product) {
     void saveBoxes(
       featured.filter((p) => p.id !== box.id),
-      `${box.name} removed from the boxes shown first`,
+      t('dashboard.admin.collectionEditor.boxRemoved', { name: box.name }),
     )
   }
 
@@ -129,12 +131,16 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
       })
       notifySaved(
         next
-          ? `/c/${collection.slug}: visitors can customise products`
-          : `/c/${collection.slug}: no product customisation`,
+          ? t('dashboard.admin.collectionEditor.customizationOn', {
+              slug: collection.slug,
+            })
+          : t('dashboard.admin.collectionEditor.customizationOff', {
+              slug: collection.slug,
+            }),
       )
     } catch (err) {
       setAllowCustomization(previous)
-      notifyError(err, 'Could not change the customisation setting')
+      notifyError(err, t('dashboard.admin.collectionEditor.customizationFailed'))
     }
   }
 
@@ -148,12 +154,16 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
       })
       notifySaved(
         next
-          ? `/c/${collection.slug}: visitors can build their own box`
-          : `/c/${collection.slug}: ready-made boxes only`,
+          ? t('dashboard.admin.collectionEditor.boxBuildingOn', {
+              slug: collection.slug,
+            })
+          : t('dashboard.admin.collectionEditor.boxBuildingOff', {
+              slug: collection.slug,
+            }),
       )
     } catch (err) {
       setAllowBoxBuilding(previous)
-      notifyError(err, 'Could not change the box building setting')
+      notifyError(err, t('dashboard.admin.collectionEditor.boxBuildingFailed'))
     }
   }
 
@@ -171,11 +181,16 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
           defaultLocale: locale,
         },
       })
-      notifySaved(`/c/${collection.slug} headline saved`)
+      notifySaved(
+        t('dashboard.admin.collectionEditor.headlineSaved', {
+          slug: collection.slug,
+        }),
+      )
     } catch (err) {
-      const message = apiErrorMessage(err, 'Could not save this page')
+      const fallback = t('dashboard.admin.collectionEditor.saveFailed')
+      const message = apiErrorMessage(err, fallback)
       setError(message)
-      notifyError(err, 'Could not save this page')
+      notifyError(err, fallback)
     }
   }
 
@@ -193,7 +208,7 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
     try {
       await setMembers.mutateAsync({ add: picked.map((p) => p.id) })
     } catch (err) {
-      notifyError(err, 'Could not add those boxes')
+      notifyError(err, t('dashboard.admin.collectionEditor.addBoxesFailed'))
       throw err
     }
 
@@ -201,8 +216,10 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
     await saveBoxes(
       [...featured, ...picked],
       picked.length === 1
-        ? `${picked[0].name} added to the boxes shown first`
-        : `${picked.length} boxes added to the boxes shown first`,
+        ? t('dashboard.admin.collectionEditor.boxAdded', { name: picked[0].name })
+        : t('dashboard.admin.collectionEditor.boxesAdded', {
+            count: picked.length,
+          }),
     )
   }
 
@@ -211,10 +228,10 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'content' | 'copy')}>
         <TabsList>
           <TabsTrigger value="content" className={brandTabClass}>
-            What is on the page
+            {t('dashboard.admin.collectionEditor.tabs.content')}
           </TabsTrigger>
           <TabsTrigger value="copy" className={brandTabClass}>
-            Headline &amp; language
+            {t('dashboard.admin.collectionEditor.tabs.copy')}
           </TabsTrigger>
         </TabsList>
 
@@ -234,14 +251,14 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
                   htmlFor={`build-${collection.id}`}
                   className="font-medium"
                 >
-                  Visitors can build their own box
+                  {t('dashboard.admin.collectionEditor.buildLabel')}
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   {!allowBoxBuilding
-                    ? 'Ready-made boxes only — no box builder on this page.'
+                    ? t('dashboard.admin.collectionEditor.buildOff')
                     : allowCustomization
-                      ? 'The page offers the full box builder, with design tools.'
-                      : 'The page offers the step-by-step builder: products, greeting card, packaging, stickers.'}
+                      ? t('dashboard.admin.collectionEditor.buildFull')
+                      : t('dashboard.admin.collectionEditor.buildSteps')}
                 </p>
               </div>
             </div>
@@ -258,12 +275,12 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
                   htmlFor={`custom-${collection.id}`}
                   className="font-medium"
                 >
-                  Visitors can customise products
+                  {t('dashboard.admin.collectionEditor.customizeLabel')}
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   {allowCustomization
-                    ? 'Products and boxes can be branded in the design editor.'
-                    : 'No design editor and no customise buttons for anything reached from this page.'}
+                    ? t('dashboard.admin.collectionEditor.customizeOn')
+                    : t('dashboard.admin.collectionEditor.customizeOff')}
                 </p>
               </div>
             </div>
@@ -285,7 +302,7 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor={`title-de-${collection.id}`}>
-                Headline (German)
+                {t('dashboard.admin.collectionForm.headlineDe')}
               </Label>
               <Input
                 id={`title-de-${collection.id}`}
@@ -295,18 +312,18 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor={`title-en-${collection.id}`}>
-                Headline (English)
+                {t('dashboard.admin.collectionForm.headlineEn')}
               </Label>
               <Input
                 id={`title-en-${collection.id}`}
                 value={titleEn}
                 onChange={(e) => setTitleEn(e.target.value)}
-                placeholder="Falls back to the German one"
+                placeholder={t('dashboard.admin.collectionEditor.headlineEnPlaceholder')}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor={`sub-de-${collection.id}`}>
-                Subheading (German)
+                {t('dashboard.admin.collectionForm.subheadingDe')}
               </Label>
               <Input
                 id={`sub-de-${collection.id}`}
@@ -316,7 +333,7 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor={`sub-en-${collection.id}`}>
-                Subheading (English)
+                {t('dashboard.admin.collectionForm.subheadingEn')}
               </Label>
               <Input
                 id={`sub-en-${collection.id}`}
@@ -326,7 +343,7 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor={`locale-${collection.id}`}>
-                Language visitors get
+                {t('dashboard.admin.collectionForm.locale')}
               </Label>
               <Select
                 value={locale}
@@ -336,12 +353,12 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="de">Deutsch</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="de">{t('common.german')}</SelectItem>
+                  <SelectItem value="en">{t('common.english')}</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Unless the link ends in ?lang=…
+                {t('dashboard.admin.collectionEditor.localeHint')}
               </p>
             </div>
           </div>
@@ -358,11 +375,13 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
               disabled={!dirty || updateCollection.isPending}
               onClick={save}
             >
-              {updateCollection.isPending ? 'Saving…' : 'Save changes'}
+              {updateCollection.isPending
+                ? t('dashboard.admin.common.saving')
+                : t('dashboard.admin.collectionEditor.saveChanges')}
             </Button>
             {dirty && (
               <span className="text-xs text-muted-foreground">
-                Unsaved changes to the headline or language.
+                {t('dashboard.admin.collectionEditor.unsaved')}
               </span>
             )}
           </div>
@@ -375,7 +394,7 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
         existingIds={featuredIds}
         onAddMany={addFeatured}
         maxSelect={MAX_FEATURED - featured.length}
-        title="Which boxes should lead this page?"
+        title={t('dashboard.admin.collectionEditor.pickBoxesTitle')}
         kind="bundle"
       />
     </div>

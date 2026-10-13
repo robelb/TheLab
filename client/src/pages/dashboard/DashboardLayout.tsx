@@ -1,4 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { AppSidebar } from '@/components/dashboard/AppSidebar'
 import { VersionBadge } from '@/components/VersionBadge'
 import { Separator } from '@/components/ui/separator'
@@ -9,30 +11,31 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 
+/** `title` is the key under `dashboard.titles`. */
 const PAGE_TITLES: { match: (path: string) => boolean; title: string }[] = [
-  { match: (p) => p === '/dashboard', title: 'Overview' },
-  { match: (p) => p.startsWith('/dashboard/products'), title: 'Products' },
-  { match: (p) => p.startsWith('/dashboard/featured'), title: 'Featured products' },
-  { match: (p) => p.startsWith('/dashboard/campaign'), title: 'Campaign' },
-  { match: (p) => p.startsWith('/dashboard/branding'), title: 'Branding' },
-  { match: (p) => p.startsWith('/dashboard/orders'), title: 'Requests' },
-  { match: (p) => p.startsWith('/dashboard/team'), title: 'Team' },
-  { match: (p) => p.startsWith('/dashboard/company'), title: 'Company' },
-  { match: (p) => p.startsWith('/dashboard/admin/users'), title: 'All users' },
-  { match: (p) => p.startsWith('/dashboard/admin/companies'), title: 'All companies' },
+  { match: (p) => p === '/dashboard', title: 'overview' },
+  { match: (p) => p.startsWith('/dashboard/products'), title: 'products' },
+  { match: (p) => p.startsWith('/dashboard/featured'), title: 'featured' },
+  { match: (p) => p.startsWith('/dashboard/campaign'), title: 'campaign' },
+  { match: (p) => p.startsWith('/dashboard/branding'), title: 'branding' },
+  { match: (p) => p.startsWith('/dashboard/orders'), title: 'requests' },
+  { match: (p) => p.startsWith('/dashboard/team'), title: 'team' },
+  { match: (p) => p.startsWith('/dashboard/company'), title: 'company' },
+  { match: (p) => p.startsWith('/dashboard/admin/users'), title: 'users' },
+  { match: (p) => p.startsWith('/dashboard/admin/companies'), title: 'companies' },
   {
     match: (p) => /^\/dashboard\/admin\/collections\/.+/.test(p),
-    title: 'Collection',
+    title: 'collection',
   },
-  { match: (p) => p.startsWith('/dashboard/admin/collections'), title: 'Collections' },
-  { match: (p) => p.startsWith('/dashboard/admin/instructions'), title: 'AI instructions' },
-  { match: (p) => p.startsWith('/dashboard/admin/notifications'), title: 'Notifications' },
+  { match: (p) => p.startsWith('/dashboard/admin/collections'), title: 'collections' },
+  { match: (p) => p.startsWith('/dashboard/admin/instructions'), title: 'instructions' },
+  { match: (p) => p.startsWith('/dashboard/admin/notifications'), title: 'notifications' },
 ]
 
 export function DashboardLayout() {
   const { pathname } = useLocation()
-  const title =
-    PAGE_TITLES.find((p) => p.match(pathname))?.title ?? 'Dashboard'
+  const { t } = useTranslation()
+  const title = t(`dashboard.titles.${PAGE_TITLES.find((p) => p.match(pathname))?.title ?? 'dashboard'}`)
 
   return (
     <SidebarProvider>
@@ -48,6 +51,9 @@ export function DashboardLayout() {
           <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="font-display text-base font-semibold">{title}</h1>
           <VersionBadge />
+          <div className="ml-auto">
+            <LanguageSwitcher />
+          </div>
         </header>
         <div className="flex-1 p-4 sm:p-6 print:p-0">
           {/* Above the pages, so ticked rows survive moving between them. */}

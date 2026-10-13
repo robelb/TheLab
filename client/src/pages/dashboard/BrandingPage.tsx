@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { BrandSettingsForm } from '@/components/brand/BrandSettingsForm'
@@ -12,15 +13,18 @@ import type { Product } from '@/types/product'
 
 /** A stand-in product so the card reflects brand colors, fonts, and radius. */
 function usePreviewProduct(): Product {
+  const { t } = useTranslation()
   const { brand } = useBrand()
   return {
     id: 'preview',
-    name: `${brand.companyName} Tee`,
-    tagline: 'Live brand preview',
+    name: t('dashboard.company.branding.previewProduct.name', {
+      company: brand.companyName,
+    }),
+    tagline: t('dashboard.company.branding.previewProduct.tagline'),
     price: 49,
     currency: 'EUR',
     stock: 12,
-    category: 'Preview',
+    category: t('dashboard.company.branding.previewProduct.category'),
     image: 'https://cdn1.midocean.com/image/700X700/s00553-ce.jpg',
     customizedImage: null,
     description: '',
@@ -29,6 +33,7 @@ function usePreviewProduct(): Product {
 }
 
 export function BrandingPage() {
+  const { t } = useTranslation()
   const previewProduct = usePreviewProduct()
   const { brand } = useBrand()
   const { company } = useAuth()
@@ -48,11 +53,11 @@ export function BrandingPage() {
         brand: brandConfigToExtraction(brand),
       })
       setSavedAt(Date.now())
-      toast.success('Branding saved for everyone at your company')
+      toast.success(t('dashboard.company.branding.savedToast'))
     } catch (err) {
       const message =
         (err as { response?: { data?: { error?: string } } }).response?.data
-          ?.error ?? 'Could not save your branding'
+          ?.error ?? t('dashboard.company.branding.saveError')
       toast.error(message)
     }
   }
@@ -61,34 +66,37 @@ export function BrandingPage() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="font-display text-2xl font-bold">Branding</h1>
+          <h1 className="font-display text-2xl font-bold">
+            {t('dashboard.company.branding.title')}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Adjust your brand identity, colors, and typography. Changes preview
-            live here — save to apply them across the shop for everyone.
+            {t('dashboard.company.branding.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {savedAt && !saveBrand.isPending && (
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Check className="size-3.5" />
-              Saved
+              {t('dashboard.company.branding.saved')}
             </span>
           )}
           <Button
             type="button"
             onClick={() => void save()}
             disabled={!company || saveBrand.isPending}
-            title={company ? undefined : 'Sign in with a company account to save'}
+            title={
+              company ? undefined : t('dashboard.company.branding.signInToSave')
+            }
           >
             {saveBrand.isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Saving…
+                {t('dashboard.company.shared.saving')}
               </>
             ) : (
               <>
                 <Save className="size-4" />
-                Save branding
+                {t('dashboard.company.branding.save')}
               </>
             )}
           </Button>
@@ -100,7 +108,7 @@ export function BrandingPage() {
 
         <aside className="h-fit space-y-3 lg:sticky lg:top-24">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Live preview
+            {t('dashboard.company.branding.livePreview')}
           </p>
           {/* Overlay blocks navigation / add-to-cart — this is a preview only. */}
           <div className="relative max-w-[18rem]">
@@ -108,7 +116,7 @@ export function BrandingPage() {
             <div className="absolute inset-0 z-20" aria-hidden />
           </div>
           <p className="text-xs text-muted-foreground">
-            A sample card rendered with your current brand theme.
+            {t('dashboard.company.branding.previewHint')}
           </p>
         </aside>
       </div>

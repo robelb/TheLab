@@ -3,6 +3,11 @@ import type { BoxDetails, BoxLine } from '@/types/box'
 import { PICK_FEE_FIRST, PICK_FEE_NEXT, pickFee } from '@/lib/pricing'
 import { SHIPPING_RATES, zoneFor, type ShippingZone } from '@/lib/shipping'
 import { formatDate } from '@/utils/format'
+import i18n, { currentLocale } from '@/i18n'
+
+/** Looks up a key under `dashboard.orders` at call time, so a language switch applies. */
+const tr = (key: string, options?: Record<string, unknown>): string =>
+  i18n.t(`dashboard.orders.${key}`, options)
 
 /**
  * What the operations team still has to do on a request, worked out from the
@@ -47,8 +52,8 @@ export function orderSize(order: Order): string {
   const boxes = boxCount(order)
   const loose = order.items.reduce((sum, item) => sum + (item.box ? 0 : item.quantity), 0)
   const parts = [
-    boxes ? `${boxes} ${boxes === 1 ? 'box' : 'boxes'}` : '',
-    loose ? `${loose} ${loose === 1 ? 'item' : 'items'}` : '',
+    boxes ? tr('size.boxes', { count: boxes }) : '',
+    loose ? tr('size.items', { count: loose }) : '',
   ].filter(Boolean)
   return parts.join(' + ') || '—'
 }
@@ -76,34 +81,34 @@ export function orderTodos(order: Order, now = new Date()): OrderTodo[] {
   if (open && days !== null && days <= DUE_SOON_DAYS) {
     todos.push({
       key: 'dueSoon',
-      label: days < 0 ? 'Date passed' : `Due in ${days}d`,
+      label: days < 0 ? tr('todo.dueSoon.labelPassed') : tr('todo.dueSoon.label', { days }),
       detail:
         days < 0
-          ? `The delivery date was ${-days} days ago and the request is not confirmed yet.`
-          : `Needed in ${days} days and not confirmed yet.`,
+          ? tr('todo.dueSoon.detailPassed', { count: -days })
+          : tr('todo.dueSoon.detail', { count: days }),
       urgent: true,
     })
   }
   if (order.status === 'new') {
     todos.push({
       key: 'confirm',
-      label: 'Price & confirm',
-      detail: 'Check the price and shipping, then confirm to issue the invoice.',
+      label: tr('todo.confirm.label'),
+      detail: tr('todo.confirm.detail'),
     })
   }
   if (order.addressesLater) {
     todos.push({
       key: 'addresses',
-      label: 'Addresses',
-      detail: 'Recipient addresses for individually sent boxes are still to come.',
+      label: tr('todo.addresses.label'),
+      detail: tr('todo.addresses.detail'),
     })
   }
   const missingLogo = boxes.filter((box) => box.stickers && !box.stickerLogo?.url).length
   if (missingLogo) {
     todos.push({
       key: 'stickerLogo',
-      label: 'Sticker logo',
-      detail: `The logo for the stickers has not been sent${missingLogo > 1 ? ` (${missingLogo} boxes)` : ''}.`,
+      label: tr('todo.stickerLogo.label'),
+      detail: tr('todo.stickerLogo.detail', { count: missingLogo }),
     })
   }
   const missingMessage = boxes.filter(
@@ -112,8 +117,8 @@ export function orderTodos(order: Order, now = new Date()): OrderTodo[] {
   if (missingMessage) {
     todos.push({
       key: 'cardMessage',
-      label: 'Card message',
-      detail: `The greeting card text is still to come${missingMessage > 1 ? ` (${missingMessage} boxes)` : ''}.`,
+      label: tr('todo.cardMessage.label'),
+      detail: tr('todo.cardMessage.detail', { count: missingMessage }),
     })
   }
   const custom = boxes.flatMap((box) =>
@@ -124,15 +129,18 @@ export function orderTodos(order: Order, now = new Date()): OrderTodo[] {
   if (custom.length) {
     todos.push({
       key: 'customDesign',
-      label: 'Custom design',
-      detail: `Agree the artwork for: ${[...new Set(custom)].join(', ')}.`,
+      label: tr('todo.customDesign.label'),
+      detail: tr('todo.customDesign.detail', { items: [...new Set(custom)].join(', ') }),
     })
   }
   if (order.invoice && order.paymentStatus !== 'paid') {
     todos.push({
       key: 'payment',
-      label: 'Awaiting payment',
-      detail: `Invoice ${order.invoice.number} is due ${formatDate(order.invoice.dueAt)}.`,
+      label: tr('todo.payment.label'),
+      detail: tr('todo.payment.detail', {
+        number: order.invoice.number,
+        date: formatDate(order.invoice.dueAt),
+      }),
     })
   }
   return todos
@@ -157,20 +165,19 @@ export function matchesSearch(order: Order, query: string): boolean {
   ].some((value) => value?.toLowerCase().includes(q))
 }
 
-/** A country's name for an ISO code, in English for the dashboard. */
+/** A country's name for an ISO code, in the dashboard's language. */
 export function countryName(code: string | null | undefined): string {
   if (!code) return '—'
   try {
-    return new Intl.DisplayNames(['en'], { type: 'region' }).of(code.toUpperCase()) ?? code
+    return new Intl.DisplayNames([currentLocale()], { type: 'region' }).of(code.toUpperCase()) ?? code
   } catch {
     return code
   }
 }
 
-export const SHIPPING_LABEL: Record<string, string> = {
-  bulk: 'Bulk',
-  individual: 'Individual',
-  mixed: 'Mixed',
+/** Bulk, individual or mixed, as the shipping method reads in the current language. */
+export function shippingLabel(method: string): string {
+  return tr(`shippingMethod.${method}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -194,7 +201,6 @@ export interface Calc {
 type Money = (n: number) => string
 
 const round2 = (n: number) => Math.round(n * 100) / 100
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 /** Items picked into one box: every product unit, the card, the stickers. */
 export function picksOf(box: BoxDetails): number {
@@ -208,8 +214,13 @@ export function picksOf(box: BoxDetails): number {
 
 /** "€0.30 + 5 × €0.15" for 6 picks. */
 export function pickFeeWorking(picks: number, money: Money): string {
-  if (picks <= 1) return `${plural(picks, 'item', 'items')} · first item ${money(PICK_FEE_FIRST)}`
-  return `${picks} items · ${money(PICK_FEE_FIRST)} first + ${picks - 1} × ${money(PICK_FEE_NEXT)}`
+  if (picks <= 1) return tr('calc.pickFeeSingle', { count: picks, price: money(PICK_FEE_FIRST) })
+  return tr('calc.pickFeeMany', {
+    count: picks,
+    first: money(PICK_FEE_FIRST),
+    rest: picks - 1,
+    next: money(PICK_FEE_NEXT),
+  })
 }
 
 /**
@@ -225,25 +236,25 @@ export function pickFeeWorking(picks: number, money: Money): string {
 export function boxPriceCalc(item: OrderItem, money: Money): Calc | null {
   const box = item.box
   if (!box) return null
-  const boxes = plural(item.quantity, 'box', 'boxes')
+  const count = item.quantity
 
   if (item.pricingMode === 'bundle') {
     const rows: CalcRow[] = []
     if (item.tierPrice !== undefined && box.bundlePrice != null) {
-      rows.push({ label: 'Set price', amount: box.bundlePrice })
+      rows.push({ label: tr('calc.setPrice'), amount: box.bundlePrice })
       rows.push({
-        label: `Volume price for ${boxes}`,
+        label: tr('calc.volumePriceFor', { count }),
         amount: round2(item.unitPrice - box.bundlePrice),
       })
     } else {
       rows.push({
-        label: item.tierPrice !== undefined ? `Volume price for ${boxes}` : 'Set price',
+        label: item.tierPrice !== undefined ? tr('calc.volumePriceFor', { count }) : tr('calc.setPrice'),
         amount: item.unitPrice,
       })
     }
     return {
       rows,
-      note: 'Ready-made box taken as sold: contents and packing are included in its price, no pick fee on top.',
+      note: tr('calc.bundleNote'),
     }
   }
 
@@ -258,43 +269,32 @@ export function boxPriceCalc(item: OrderItem, money: Money): Calc | null {
 
   if (!item.pricingMode) {
     return {
-      rows: [{ label: 'Contents at list price', amount: list }],
-      note: 'Priced before pick fees and volume prices were added.',
+      rows: [{ label: tr('calc.contentsAtList'), amount: list }],
+      note: tr('calc.legacyNote'),
     }
   }
 
   const picks = picksOf(box)
   const fee = pickFee(picks)
   const rows: CalcRow[] = [
-    { label: 'Contents at list price', detail: plural(parts.length, 'part', 'parts'), amount: list },
-    { label: 'Pick fee', detail: pickFeeWorking(picks, money), amount: fee },
+    { label: tr('calc.contentsAtList'), detail: tr('calc.parts', { count: parts.length }), amount: list },
+    { label: tr('calc.pickFee'), detail: pickFeeWorking(picks, money), amount: fee },
   ]
   const adjustment = round2(item.unitPrice - list - fee)
   if (Math.abs(adjustment) >= 0.01) {
     rows.push({
-      label: adjustment < 0 ? 'Volume prices' : 'Adjustment',
+      label: adjustment < 0 ? tr('calc.volumePrices') : tr('calc.adjustment'),
       detail:
         adjustment < 0
-          ? `tiers for ${boxes} (units per box × boxes)`
-          : 'list prices changed since the box was built',
+          ? tr('calc.volumePricesDetail', { count })
+          : tr('calc.adjustmentDetail'),
       amount: adjustment,
     })
   }
   return { rows }
 }
 
-const ZONE_LABEL: Record<ShippingZone, string> = {
-  DE: 'Germany',
-  ZONE_1: 'EU zone 1',
-  ZONE_1_NON_EU: 'zone 1 (non-EU)',
-  ZONE_2: 'EU zone 2',
-  ZONE_2_NON_EU: 'zone 2 (non-EU)',
-  ZONE_3: 'EU zone 3',
-  ZONE_3_NON_EU: 'zone 3 (non-EU)',
-  ZONE_4: 'zone 4',
-  ZONE_5: 'zone 5',
-  ZONE_6: 'zone 6',
-}
+const zoneLabel = (zone: ShippingZone): string => tr(`zone.${zone}`)
 
 /** Where the boxes go, as the server worked the estimate out. */
 export function destinationOf(order: Order): string {
@@ -310,26 +310,28 @@ export function shippingCalc(order: Order, money: Money): Calc {
   const country = destinationOf(order)
   const zone = zoneFor(country)
   if (!zone) {
-    return { rows: [], note: `No price list rate for ${countryName(country)} — set by hand.` }
+    return { rows: [], note: tr('calc.noRate', { country: countryName(country) }) }
   }
   const rate = SHIPPING_RATES[zone]
-  const where = zone === 'DE' ? countryName(country) : `${countryName(country)} · ${ZONE_LABEL[zone]}`
+  const where = zone === 'DE' ? countryName(country) : `${countryName(country)} · ${zoneLabel(zone)}`
   const boxes = boxCount(order)
   const method = order.shippingMethod ?? 'bulk'
   const rows: CalcRow[] = []
 
-  const bulkRows = (n: number, label: string) => {
-    rows.push({ label: `${label} · base`, detail: where, amount: rate.bulkBase })
+  const bulkRows = (n: number) => {
+    rows.push({ label: tr('calc.bulkBase'), detail: where, amount: rate.bulkBase })
     rows.push({
-      label: `${label} · per box`,
-      detail: boxes === 0 ? `loose products, counted as 1 × ${money(rate.bulkPerBox)}` : `${plural(Math.max(1, n), 'box', 'boxes')} × ${money(rate.bulkPerBox)}`,
+      label: tr('calc.bulkPerBox'),
+      detail: boxes === 0
+        ? tr('calc.looseProducts', { price: money(rate.bulkPerBox) })
+        : tr('calc.boxesTimes', { count: Math.max(1, n), price: money(rate.bulkPerBox) }),
       amount: round2(rate.bulkPerBox * Math.max(1, n)),
     })
   }
   const individualRow = (n: number) =>
     rows.push({
-      label: 'Individual parcels',
-      detail: `${plural(n, 'box', 'boxes')} × ${money(rate.individualPerBox)}, each to its own address${method === 'individual' ? ` · ${where}` : ''}`,
+      label: tr('calc.individualParcels'),
+      detail: `${tr('calc.individualDetail', { count: n, price: money(rate.individualPerBox) })}${method === 'individual' ? ` · ${where}` : ''}`,
       amount: round2(rate.individualPerBox * n),
     })
 
@@ -340,16 +342,16 @@ export function shippingCalc(order: Order, money: Money): Calc {
       Math.max(1, order.shippingSplit?.bulkBoxes ?? 1),
       Math.max(1, boxes - 1),
     )
-    bulkRows(together, 'Bulk')
+    bulkRows(together)
     individualRow(boxes - together)
   } else {
-    bulkRows(boxes, 'Bulk')
+    bulkRows(boxes)
   }
 
   const listed = round2(rows.reduce((sum, r) => sum + r.amount, 0))
   const note =
     Math.abs(listed - order.shipping) >= 0.01
-      ? `The price list gives ${money(listed)}; ${money(order.shipping)} is what the request holds (changed on confirmation, or the rates have changed since).`
+      ? tr('calc.shippingDiffers', { listed: money(listed), held: money(order.shipping) })
       : undefined
   return { rows, note }
 }
@@ -380,7 +382,9 @@ export function subtotalCalc(order: Order, money: Money): Calc & { pickFees: Cal
     const unit = lineUnit(item)
     return {
       label: item.name,
-      detail: `${item.box ? plural(item.quantity, 'box', 'boxes') : `${item.quantity}`} × ${money(unit)}`,
+      detail: item.box
+        ? tr('calc.boxesTimes', { count: item.quantity, price: money(unit) })
+        : `${item.quantity} × ${money(unit)}`,
       amount: round2(unit * item.quantity),
     }
   })
@@ -393,9 +397,9 @@ export function subtotalCalc(order: Order, money: Money): Calc & { pickFees: Cal
     rows,
     pickFees: fees.length
       ? {
-          label: 'Pick fees included above (not added again)',
+          label: tr('calc.pickFeesIncluded'),
           detail: fees
-            .map((f) => `${plural(f.boxes, 'box', 'boxes')} × ${money(f.fee)}`)
+            .map((f) => tr('calc.boxesTimes', { count: f.boxes, price: money(f.fee) }))
             .join(' + '),
           amount: total,
         }

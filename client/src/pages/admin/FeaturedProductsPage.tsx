@@ -1,5 +1,6 @@
 import { Loader2, Search, Star, StarOff } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, Navigate } from 'react-router-dom'
 import { ProductImage } from '@/components/ProductImage'
 import { CategoryFilter } from '@/components/dashboard/CategoryFilter'
@@ -40,6 +41,7 @@ type View = 'featured' | 'not-featured'
  * with checkboxes for bulk changes and a one-click toggle per row.
  */
 export function FeaturedProductsPage() {
+  const { t } = useTranslation()
   const { can } = useAuth()
   const [view, setView] = useState<View>('featured')
   const [page, setPage] = useState(1)
@@ -78,14 +80,16 @@ export function FeaturedProductsPage() {
     try {
       await toggleOne.mutateAsync({ ids: [product.id], isFeatured })
       notifySaved(
-        isFeatured ? `${product.name} featured` : `${product.name} unfeatured`,
+        isFeatured
+          ? t('dashboard.admin.featured.featuredToast', { name: product.name })
+          : t('dashboard.admin.featured.unfeaturedToast', { name: product.name }),
       )
     } catch (err) {
       notifyError(
         err,
         isFeatured
-          ? `Could not feature ${product.name}`
-          : `Could not unfeature ${product.name}`,
+          ? t('dashboard.admin.featured.featureFailed', { name: product.name })
+          : t('dashboard.admin.featured.unfeatureFailed', { name: product.name }),
       )
     }
   }
@@ -93,10 +97,11 @@ export function FeaturedProductsPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="font-display text-2xl font-bold">Featured products</h1>
+        <h1 className="font-display text-2xl font-bold">
+          {t('dashboard.admin.featured.title')}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Featured products are pinned first in every shop and get the
-          company's logo when a company onboards.
+          {t('dashboard.admin.featured.subtitle')}
         </p>
       </header>
 
@@ -104,11 +109,11 @@ export function FeaturedProductsPage() {
         <TabsList>
           <TabsTrigger value="featured">
             <Star className="size-4" />
-            Featured
+            {t('dashboard.admin.featured.tabFeatured')}
           </TabsTrigger>
           <TabsTrigger value="not-featured">
             <StarOff className="size-4" />
-            Not featured
+            {t('dashboard.admin.featured.tabNotFeatured')}
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -122,7 +127,7 @@ export function FeaturedProductsPage() {
               setSearch(e.target.value)
               setPage(1)
             }}
-            placeholder="Search products…"
+            placeholder={t('dashboard.admin.featured.searchPlaceholder')}
             className="pl-9"
           />
         </div>
@@ -156,13 +161,15 @@ export function FeaturedProductsPage() {
                   checked={selection.pageState}
                   onCheckedChange={selection.togglePage}
                   disabled={showSkeleton || products.length === 0}
-                  aria-label="Select every product on this page"
+                  aria-label={t('dashboard.admin.common.selectAllOnPage')}
                 />
               </TableHead>
-              <TableHead>Product</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead className="text-right">Action</TableHead>
+              <TableHead>{t('dashboard.admin.common.product')}</TableHead>
+              <TableHead>{t('dashboard.admin.common.category')}</TableHead>
+              <TableHead>{t('dashboard.admin.common.price')}</TableHead>
+              <TableHead className="text-right">
+                {t('dashboard.admin.featured.action')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -200,10 +207,10 @@ export function FeaturedProductsPage() {
                   className="py-10 text-center text-muted-foreground"
                 >
                   {debouncedSearch.trim() || categories.length > 0
-                    ? 'No products match these filters.'
+                    ? t('dashboard.admin.featured.noMatch')
                     : view === 'featured'
-                      ? 'Nothing is featured yet — pick some from “Not featured”.'
-                      : 'Every product is featured.'}
+                      ? t('dashboard.admin.featured.emptyFeatured')
+                      : t('dashboard.admin.featured.allFeatured')}
                 </TableCell>
               </TableRow>
             )}
@@ -223,7 +230,9 @@ export function FeaturedProductsPage() {
                       <Checkbox
                         checked={selection.selected.has(p.id)}
                         onCheckedChange={() => selection.toggle(p.id)}
-                        aria-label={`Select ${p.name}`}
+                        aria-label={t('dashboard.admin.common.selectItem', {
+                          name: p.name,
+                        })}
                       />
                     </TableCell>
                     <TableCell>
@@ -243,7 +252,9 @@ export function FeaturedProductsPage() {
                               {p.name}
                             </Link>
                             {p.isFeatured && (
-                              <Badge className="text-[10px]">Featured</Badge>
+                              <Badge className="text-[10px]">
+                                {t('dashboard.admin.featured.badge')}
+                              </Badge>
                             )}
                           </div>
                           <p className="truncate text-xs text-muted-foreground">
@@ -274,7 +285,9 @@ export function FeaturedProductsPage() {
                           ) : (
                             <Star className="size-4" />
                           )}
-                          {p.isFeatured ? 'Unfeature' : 'Feature'}
+                          {p.isFeatured
+                            ? t('dashboard.admin.featured.unfeature')
+                            : t('dashboard.admin.featured.feature')}
                         </Button>
                       </div>
                     </TableCell>

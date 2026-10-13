@@ -14,6 +14,7 @@ import {
   Users,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { BrandLogo } from '@/components/BrandLogo'
 import {
   Sidebar,
@@ -34,35 +35,37 @@ import type { Capability } from '@/lib/roles'
 interface NavItem {
   to: string
   end: boolean
+  /** Key under `dashboard.nav`. */
   label: string
   icon: typeof LayoutDashboard
   capability: Capability
 }
 
 const navItems: NavItem[] = [
-  { to: '/', end: true, label: 'Shop', icon: Store, capability: 'manage_company' },
-  { to: '/dashboard', end: true, label: 'Overview', icon: LayoutDashboard, capability: 'manage_company' },
-  { to: '/dashboard/orders', end: false, label: 'Orders', icon: Inbox, capability: 'manage_company' },
+  { to: '/', end: true, label: 'shop', icon: Store, capability: 'manage_company' },
+  { to: '/dashboard', end: true, label: 'overview', icon: LayoutDashboard, capability: 'manage_company' },
+  { to: '/dashboard/orders', end: false, label: 'orders', icon: Inbox, capability: 'manage_company' },
   // The catalogue is big little things' own; companies do not edit it.
-  { to: '/dashboard/products', end: false, label: 'Products', icon: Package, capability: 'manage_all' },
-  { to: '/dashboard/featured', end: false, label: 'Featured', icon: Star, capability: 'manage_all' },
-  { to: '/dashboard/campaign', end: false, label: 'Campaign', icon: Megaphone, capability: 'manage_company' },
-  { to: '/dashboard/branding', end: false, label: 'Branding', icon: Palette, capability: 'manage_company' },
-  { to: '/dashboard/team', end: false, label: 'Team', icon: Users, capability: 'manage_company' },
-  { to: '/dashboard/company', end: false, label: 'Company', icon: Building2, capability: 'manage_company' },
+  { to: '/dashboard/products', end: false, label: 'products', icon: Package, capability: 'manage_all' },
+  { to: '/dashboard/featured', end: false, label: 'featured', icon: Star, capability: 'manage_all' },
+  { to: '/dashboard/campaign', end: false, label: 'campaign', icon: Megaphone, capability: 'manage_company' },
+  { to: '/dashboard/branding', end: false, label: 'branding', icon: Palette, capability: 'manage_company' },
+  { to: '/dashboard/team', end: false, label: 'team', icon: Users, capability: 'manage_company' },
+  { to: '/dashboard/company', end: false, label: 'company', icon: Building2, capability: 'manage_company' },
 ]
 
 const adminItems: NavItem[] = [
-  { to: '/dashboard/admin/users', end: false, label: 'All Users', icon: Users, capability: 'manage_all' },
-  { to: '/dashboard/admin/companies', end: false, label: 'All Companies', icon: Building2, capability: 'manage_all' },
-  { to: '/dashboard/admin/collections', end: false, label: 'Collections', icon: Link2, capability: 'manage_all' },
-  { to: '/dashboard/admin/instructions', end: false, label: 'AI Instructions', icon: ScrollText, capability: 'manage_all' },
-  { to: '/dashboard/admin/notifications', end: false, label: 'Notifications', icon: Mail, capability: 'manage_all' },
+  { to: '/dashboard/admin/users', end: false, label: 'users', icon: Users, capability: 'manage_all' },
+  { to: '/dashboard/admin/companies', end: false, label: 'companies', icon: Building2, capability: 'manage_all' },
+  { to: '/dashboard/admin/collections', end: false, label: 'collections', icon: Link2, capability: 'manage_all' },
+  { to: '/dashboard/admin/instructions', end: false, label: 'instructions', icon: ScrollText, capability: 'manage_all' },
+  { to: '/dashboard/admin/notifications', end: false, label: 'notifications', icon: Mail, capability: 'manage_all' },
 ]
 
 export function AppSidebar() {
   const { pathname } = useLocation()
   const { logout, can } = useAuth()
+  const { t } = useTranslation()
 
   const isActive = (to: string, end: boolean) =>
     end ? pathname === to : pathname === to || pathname.startsWith(`${to}/`)
@@ -83,7 +86,7 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Manage</SidebarGroupLabel>
+          <SidebarGroupLabel>{t('dashboard.nav.manage')}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {visibleNav.map(({ to, end, label, icon: Icon }) => (
@@ -91,11 +94,11 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={isActive(to, end)}
-                    tooltip={label}
+                    tooltip={t(`dashboard.nav.${label}`)}
                   >
                     <Link to={to}>
                       <Icon />
-                      <span>{label}</span>
+                      <span>{t(`dashboard.nav.${label}`)}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -106,7 +109,7 @@ export function AppSidebar() {
 
         {visibleAdmin.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel>Admin</SidebarGroupLabel>
+            <SidebarGroupLabel>{t('dashboard.nav.admin')}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {visibleAdmin.map(({ to, end, label, icon: Icon }) => (
@@ -114,11 +117,11 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive(to, end)}
-                      tooltip={label}
+                      tooltip={t(`dashboard.nav.${label}`)}
                     >
                       <Link to={to}>
                         <Icon />
-                        <span>{label}</span>
+                        <span>{t(`dashboard.nav.${label}`)}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -132,9 +135,9 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={logout} tooltip="Sign out">
+            <SidebarMenuButton onClick={logout} tooltip={t('common.signOut')}>
               <LogOut />
-              <span>Sign out</span>
+              <span>{t('common.signOut')}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Minus, Plus, Trash2 } from 'lucide-react'
 import { AddProductDialog } from '@/components/AddProductDialog'
 import { Button } from '@/components/ui/button'
@@ -58,6 +59,7 @@ export function BundleContentsEditor({
   bundlePrice,
   currency,
 }: BundleContentsEditorProps) {
+  const { t } = useTranslation()
   const [pickerOpen, setPickerOpen] = useState(false)
   const { supplies, isLoading } = useBoxSupplies()
 
@@ -106,7 +108,7 @@ export function BundleContentsEditor({
     <div className="space-y-5">
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label>Products in the box</Label>
+          <Label>{t('dashboard.products.bundle.productsInBox')}</Label>
           <Button
             type="button"
             size="sm"
@@ -114,13 +116,13 @@ export function BundleContentsEditor({
             onClick={() => setPickerOpen(true)}
           >
             <Plus className="size-4" />
-            Add product
+            {t('dashboard.products.bundle.addProduct')}
           </Button>
         </div>
 
         {value.items.length === 0 ? (
           <p className="rounded-brand border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
-            Nothing in this box yet.
+            {t('dashboard.products.bundle.empty')}
           </p>
         ) : (
           <ul className="divide-y divide-border/40 rounded-brand border border-border/40">
@@ -147,7 +149,7 @@ export function BundleContentsEditor({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 rounded-none"
-                    aria-label="Fewer"
+                    aria-label={t('dashboard.products.bundle.fewer')}
                     onClick={() => setQuantity(item.productId, item.quantity - 1)}
                   >
                     <Minus className="size-3.5" />
@@ -160,7 +162,7 @@ export function BundleContentsEditor({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 rounded-none"
-                    aria-label="More"
+                    aria-label={t('dashboard.products.bundle.more')}
                     onClick={() => setQuantity(item.productId, item.quantity + 1)}
                   >
                     <Plus className="size-3.5" />
@@ -171,7 +173,7 @@ export function BundleContentsEditor({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-muted-foreground"
-                  aria-label={`Remove ${item.name}`}
+                  aria-label={t('dashboard.products.bundle.remove', { name: item.name })}
                   onClick={() => removeProduct(item.productId)}
                 >
                   <Trash2 className="size-4" />
@@ -186,14 +188,14 @@ export function BundleContentsEditor({
           why they are chosen here rather than assumed. */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="bundle-packaging">Box</Label>
+          <Label htmlFor="bundle-packaging">{t('dashboard.products.bundle.box')}</Label>
           <Select
             value={value.packagingId ?? ''}
             onValueChange={(v) => onChange({ ...value, packagingId: v })}
             disabled={isLoading}
           >
             <SelectTrigger id="bundle-packaging" className="w-full">
-              <SelectValue placeholder="Choose a box" />
+              <SelectValue placeholder={t('dashboard.products.bundle.boxPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
               {supplies.packaging.map((p) => (
@@ -206,14 +208,14 @@ export function BundleContentsEditor({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="bundle-filling">Filling</Label>
+          <Label htmlFor="bundle-filling">{t('dashboard.products.bundle.filling')}</Label>
           <Select
             value={value.fillingId ?? ''}
             onValueChange={(v) => onChange({ ...value, fillingId: v })}
             disabled={isLoading}
           >
             <SelectTrigger id="bundle-filling" className="w-full">
-              <SelectValue placeholder="Choose filling" />
+              <SelectValue placeholder={t('dashboard.products.bundle.fillingPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
               {supplies.filling.map((p) => (
@@ -228,19 +230,23 @@ export function BundleContentsEditor({
 
       <dl className="space-y-1 rounded-brand border border-border/40 bg-muted/10 p-3 text-sm">
         <div className="flex justify-between">
-          <dt className="text-muted-foreground">Parts add up to</dt>
+          <dt className="text-muted-foreground">{t('dashboard.products.bundle.partsTotal')}</dt>
           <dd className="tabular-nums">{formatPrice(partsTotal, currency)}</dd>
         </div>
         <div className="flex justify-between font-medium">
-          <dt>Sold for</dt>
+          <dt>{t('dashboard.products.bundle.soldFor')}</dt>
           <dd className="tabular-nums">{formatPrice(bundlePrice, currency)}</dd>
         </div>
         {partsTotal > 0 && bundlePrice > 0 && (
           <p className="pt-1 text-xs text-muted-foreground">
             {bundlePrice < partsTotal
-              ? `Customers save ${formatPrice(partsTotal - bundlePrice, currency)} against buying the parts.`
-              : `This box costs ${formatPrice(bundlePrice - partsTotal, currency)} more than its parts.`}{' '}
-            Change anything inside it and it is priced per item instead.
+              ? t('dashboard.products.bundle.saving', {
+                  amount: formatPrice(partsTotal - bundlePrice, currency),
+                })
+              : t('dashboard.products.bundle.premium', {
+                  amount: formatPrice(bundlePrice - partsTotal, currency),
+                })}{' '}
+            {t('dashboard.products.bundle.perItemNote')}
           </p>
         )}
       </dl>
@@ -253,7 +259,7 @@ export function BundleContentsEditor({
           addProduct(product)
           setPickerOpen(false)
         }}
-        title="Add to this box"
+        title={t('dashboard.products.bundle.pickerTitle')}
         plainImages
         kind="single"
         bestSellersFirst

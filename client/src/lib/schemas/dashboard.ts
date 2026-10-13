@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { ASSIGNABLE_ROLES } from '@/lib/roles'
 import { normalizeDomainInput } from '@/lib/domainSchema'
-import { emailRule, optionalText, requiredText, tooLongEn } from './common'
+import type { TFunction } from 'i18next'
+import { emailRule, optionalText, requiredText, tooLongEn, tooLongIn } from './common'
 
 /**
  * The dashboard's forms. English, like the rest of the dashboard; the limits
@@ -103,48 +104,61 @@ const numberText = (message: string, check: (n: number) => boolean) =>
     .trim()
     .refine((v) => v !== '' && Number.isFinite(Number(v)) && check(Number(v)), message)
 
-const productFields = z.object({
-  name: required(300, 'Give the product a name.'),
-  tagline: optional(200),
-  price: numberText('Enter a price of 0 or more, e.g. 12.90.', (n) => n >= 0 && n <= 1_000_000),
-  currency: z
-    .string()
-    .trim()
-    .transform((v) => v.toUpperCase())
-    .refine((v) => /^[A-Z]{3}$/.test(v), 'Use a 3-letter currency code, e.g. EUR.'),
-  stock: numberText('Enter a whole number of 0 or more.', (n) => Number.isInteger(n) && n >= 0),
-  categoryId: z.string().min(1, 'Choose a category.'),
-  images: z.array(z.string()).min(1, 'Add at least one image. It is what shoppers see first.'),
-  description: optional(5000),
-  details: optional(5000),
-  isFeatured: z.boolean(),
-  sku: optional(64),
-  tags: z.string().refine((v) => {
-    const tags = v.split(',').map((t) => t.trim()).filter(Boolean)
-    return tags.length <= 20 && tags.every((t) => t.length <= 64)
-  }, 'Up to 20 occasions, each under 64 characters.'),
-  labels: z.array(z.enum(['vegan', 'organic'])),
-  minQuantity: numberText(
-    'Enter a whole number from 1 upwards.',
-    (n) => Number.isInteger(n) && n >= 1 && n <= 100_000,
-  ),
-})
+/**
+ * The product editor's schema, in the reader's language — built per render
+ * with `t`, like the storefront's schemas, so switching language re-words the
+ * errors already on screen.
+ */
+export function makeProductSchema(t: TFunction) {
+  const v = (key: string) => t(`dashboard.products.validation.${key}`)
+  const tooLong = tooLongIn(t)
+  const requiredT = (max: number, message: string) =>
+    requiredText(max, { required: message, tooLong })
+  const optionalT = (max: number) => optionalText(max, tooLong)
 
-// Its own schema, joined with `and`, so this shows together with the other
-// errors — an object refinement would only run once every field had passed.
-const productContents = z
-  .object({
-    isBundle: z.boolean(),
-    contents: z.object({ items: z.array(z.unknown()) }).passthrough(),
-  })
-  .superRefine((v, ctx) => {
-    if (v.isBundle && v.contents.items.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['contents'],
-        message: 'A box needs at least one product in it.',
-      })
-    }
+  const productFields = z.object({
+    name: requiredT(300, v('nameRequired')),
+    tagline: optionalT(200),
+    price: numberText(v('price'), (n) => n >= 0 && n <= 1_000_000),
+    currency: z
+      .string()
+      .trim()
+      .transform((c) => c.toUpperCase())
+      .refine((c) => /^[A-Z]{3}$/.test(c), v('currency')),
+    stock: numberText(v('stock'), (n) => Number.isInteger(n) && n >= 0),
+    categoryId: z.string().min(1, v('category')),
+    images: z.array(z.string()).min(1, v('images')),
+    description: optionalT(5000),
+    details: optionalT(5000),
+    isFeatured: z.boolean(),
+    sku: optionalT(64),
+    tags: z.string().refine((value) => {
+      const tags = value.split(',').map((tag) => tag.trim()).filter(Boolean)
+      return tags.length <= 20 && tags.every((tag) => tag.length <= 64)
+    }, v('tags')),
+    labels: z.array(z.enum(['vegan', 'organic'])),
+    minQuantity: numberText(
+      v('minQuantity'),
+      (n) => Number.isInteger(n) && n >= 1 && n <= 100_000,
+    ),
   })
 
-export const productSchema = productFields.and(productContents)
+  // Its own schema, joined with `and`, so this shows together with the other
+  // errors — an object refinement would only run once every field had passed.
+  const productContents = z
+    .object({
+      isBundle: z.boolean(),
+      contents: z.object({ items: z.array(z.unknown()) }).passthrough(),
+    })
+    .superRefine((value, ctx) => {
+      if (value.isBundle && value.contents.items.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['contents'],
+          message: v('contents'),
+        })
+      }
+    })
+
+  return productFields.and(productContents)
+}
