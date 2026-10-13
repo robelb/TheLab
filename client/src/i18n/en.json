@@ -103,7 +103,10 @@
     "bundleChanged": "Customised — priced per item",
     "vat": "VAT {{rate}} %",
     "shippingVatAtCheckout": "Shipping and VAT are worked out at checkout, from your invoice country and shipping method.",
-    "totalNet": "Subtotal (net)"
+    "totalNet": "Subtotal (net)",
+    "unavailable": "No longer available — please remove it from your cart.",
+    "removeUnavailable": "Remove the items that are no longer available to continue.",
+    "cardTextFollows": "Card text to follow"
   },
   "checkout": {
     "title": "Request your order",
@@ -194,7 +197,16 @@
     },
     "vatZeroEu": "intra-Community supply",
     "vatZeroNonEu": "export",
-    "shipIndividualLoose": "Single products in your cart travel with a bulk shipment, so sending every box individually isn't available. Choose mixed to send some boxes to individual recipients."
+    "shipIndividualLoose": "Single products in your cart travel with a bulk shipment, so sending every box individually isn't available. Choose mixed to send some boxes to individual recipients.",
+    "errors": {
+      "unavailable": "A product in your request is no longer available. Please check your cart.",
+      "unavailableInCart": "Something in your cart is no longer available. Please remove it before sending your request.",
+      "lineUnavailable": "No longer available",
+      "belowMinimum": "A product is below its minimum order quantity. Please check the quantities in your cart.",
+      "collectionUnavailable": "This collection is no longer available. Your cart and your details are still here — please send your request again.",
+      "checkDetails": "Please check your details and try again.",
+      "backToCart": "Back to the cart"
+    }
   },
   "status": {
     "new": "New",
@@ -544,7 +556,8 @@
       "add_other": "Add {{count}} products",
       "volumePricing": "volume pricing",
       "inBox": "Already in your box",
-      "more": "Show more"
+      "more": "Show more",
+      "searching": "Searching…"
     },
     "card": {
       "title": "Choose a greeting card",
@@ -752,10 +765,10 @@
         "parts_one": "{{count}} part",
         "parts_other": "{{count}} parts",
         "pickFee": "Pick fee",
-        "pickFeeSingle_one": "{{count}} item · first item {{price}}",
-        "pickFeeSingle_other": "{{count}} items · first item {{price}}",
-        "pickFeeMany_one": "{{count}} item · {{first}} first + {{rest}} × {{next}}",
-        "pickFeeMany_other": "{{count}} items · {{first}} first + {{rest}} × {{next}}",
+        "pickFeeSingle_one": "{{count}} item · ({{price}} first item) × {{markup}}",
+        "pickFeeSingle_other": "{{count}} items · ({{price}} first item) × {{markup}}",
+        "pickFeeMany_one": "{{count}} item · ({{first}} first + {{rest}} × {{next}}) × {{markup}}",
+        "pickFeeMany_other": "{{count}} items · ({{first}} first + {{rest}} × {{next}}) × {{markup}}",
         "volumePrices": "Volume prices",
         "volumePricesDetail_one": "tiers for {{count}} box (units per box × boxes)",
         "volumePricesDetail_other": "tiers for {{count}} boxes (units per box × boxes)",
@@ -814,7 +827,10 @@
           "todo": "To do"
         },
         "gross": "gross",
-        "estNet": "est. net"
+        "estNet": "est. net",
+        "loadFailedTitle": "Requests could not be loaded",
+        "loadFailedBody": "This is a connection or server problem, not an empty inbox.",
+        "retry": "Try again"
       },
       "emails": {
         "title": "Emails",
@@ -879,7 +895,9 @@
         },
         "vatRate": "VAT %",
         "vatRateUsual": "Usual for {{country}}: {{rate}} %",
-        "vatRateInvalid": "Enter a rate from 0 to 100."
+        "vatRateInvalid": "Enter a rate from 0 to 100.",
+        "retryNote": "This order was already confirmed, but its invoice was not issued. The stored price stands and can no longer be changed here; issue the invoice now.",
+        "issueInvoice": "Issue & send invoice"
       },
       "detail": {
         "placement": {
@@ -1060,6 +1078,18 @@
           "privacy": "Privacy",
           "accepted": "Accepted {{date}}",
           "notRecorded": "Not recorded"
+        },
+        "cancelDialog": {
+          "title": "Withdraw request {{reference}}?",
+          "description": "It is marked cancelled and drops out of the to-dos. The customer is not notified automatically.",
+          "keep": "Keep request",
+          "confirm": "Withdraw request"
+        },
+        "paymentDialog": {
+          "titlePaid": "Mark invoice {{number}} as paid?",
+          "titleUnpaid": "Mark invoice {{number}} as unpaid?",
+          "descriptionPaid": "Only once {{amount}} has arrived in the account.",
+          "descriptionUnpaid": "It shows as awaiting payment again."
         }
       },
       "details": {
@@ -1089,7 +1119,14 @@
         "cancel": "Cancel",
         "save": "Save",
         "saved": "{{reference}} updated",
-        "failed": "The changes could not be saved."
+        "failed": "The changes could not be saved.",
+        "descriptionConfirmed": "Fill in what the customer sent after confirming: logos, card messages, addresses, artwork.",
+        "invoiceLocked": "The invoice address can no longer be changed: it is printed on the issued invoice.",
+        "cardMessage": "Greeting card message",
+        "cardMessagePlaceholder": "The text for the card, as the customer sent it",
+        "cardMessageCount": "{{count}} / {{max}}",
+        "customDesign": "Custom design",
+        "designAgreed": "Artwork agreed with the customer for: {{items}}"
       }
     },
     "products": {
@@ -1651,7 +1688,10 @@
         "reopen": "Reopen",
         "confirmDelete": "Delete /c/{{slug}}? Any ad pointing at it will land on a \"no longer available\" page.",
         "deleted": "/c/{{slug}} deleted",
-        "deleteFailed": "Could not delete the collection"
+        "deleteFailed": "Could not delete the collection",
+        "loadFailedTitle": "Collections could not be loaded",
+        "loadFailedBody": "This is a connection or server problem; the collection itself is fine.",
+        "retry": "Try again"
       },
       "collectionForm": {
         "headlineDe": "Headline (German)",
@@ -1744,7 +1784,12 @@
         "submit": "Create and add boxes",
         "created": "/c/{{slug}} created",
         "createdDetail": "Now add the boxes and products it should show.",
-        "createFailed": "Could not create the collection"
+        "createFailed": "Could not create the collection",
+        "validation": {
+          "slugRequired": "Enter a URL segment using letters or digits, e.g. weihnachten.",
+          "tagRequired": "Enter the occasion tag the products carry, e.g. christmas.",
+          "titleDeRequired": "Enter the German headline. It is what visitors see first."
+        }
       },
       "featured": {
         "title": "Featured products",

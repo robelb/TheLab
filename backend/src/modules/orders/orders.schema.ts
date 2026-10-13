@@ -296,6 +296,11 @@ export const confirmOrderSchema = z.object({
  *   came by email, a corrected VAT ID or address. Merged into what is there.
  * - `addressesLater`: false once the recipient addresses have arrived.
  * - `stickerLogos`: the logo for the stickers of a box line, by its position.
+ * - `cardMessages`: the greeting-card text of a box line, sent by email.
+ * - `designAgreed`: the artwork for custom-design items is agreed.
+ *
+ * Only `billing` is locked once the order is confirmed (it is on the
+ * invoice); the rest is production detail and can arrive any time.
  */
 export const orderDetailsSchema = z
   .object({
@@ -315,9 +320,24 @@ export const orderDetailsSchema = z
       )
       .max(100)
       .optional(),
+    cardMessages: z
+      .array(
+        z.object({
+          index: z.number().int().min(0).max(99),
+          message: z.string().max(GREETING_MAX_LENGTH),
+        }),
+      )
+      .max(100)
+      .optional(),
+    designAgreed: z.boolean().optional(),
   })
   .refine(
-    (b) => b.billing !== undefined || b.addressesLater !== undefined || b.stickerLogos?.length,
+    (b) =>
+      b.billing !== undefined ||
+      b.addressesLater !== undefined ||
+      b.designAgreed !== undefined ||
+      b.stickerLogos?.length ||
+      b.cardMessages?.length,
     'Nothing to change',
   )
 

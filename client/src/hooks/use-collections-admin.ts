@@ -15,6 +15,7 @@ import {
   type CollectionInput,
   type CollectionProductsParams,
 } from '@/api/collections-admin'
+import type { Collection } from '@/api/collections'
 import { collectionKeys } from '@/hooks/use-collections'
 
 const adminKey = ['collections', 'admin'] as const
@@ -38,10 +39,18 @@ function useInvalidate() {
 }
 
 export function useCreateCollection() {
+  const client = useQueryClient()
   const invalidate = useInvalidate()
   return useMutation({
     mutationFn: (input: CollectionInput) => createCollection(input),
-    onSuccess: invalidate,
+    onSuccess: (created) => {
+      // In the list straight away, so its page — opened next — finds it
+      // before the refetch below comes back.
+      client.setQueryData<Collection[]>(adminKey, (list) =>
+        list ? [...list.filter((c) => c.id !== created.id), created] : [created],
+      )
+      invalidate()
+    },
   })
 }
 

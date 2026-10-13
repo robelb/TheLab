@@ -22,7 +22,15 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { GREETING_MAX_LENGTH } from '@/types/box'
-import { ArrowLeft, ChevronDown, Palette, Pencil, Trash2 } from 'lucide-react'
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  Palette,
+  Pencil,
+  ShoppingBag,
+  Trash2,
+} from 'lucide-react'
 import { bundleToBoxDetails } from '@/lib/box'
 import { useFunnel } from '@/context/FunnelContext'
 
@@ -56,6 +64,13 @@ export function ProductPage() {
   // A ready-made box's greeting card message, written before it goes in the cart.
   const [cardMessage, setCardMessage] = useState('')
   const [cardOpen, setCardOpen] = useState(false)
+  // A moment of "Added" on the box's button, as every other add-to-cart gives.
+  const [bundleAdded, setBundleAdded] = useState(false)
+  useEffect(() => {
+    if (!bundleAdded) return
+    const timer = window.setTimeout(() => setBundleAdded(false), 2000)
+    return () => window.clearTimeout(timer)
+  }, [bundleAdded])
   // Related products link here too, so the page stays mounted across ids:
   // a new product starts again from its own minimum.
   useEffect(() => {
@@ -118,7 +133,20 @@ export function ProductPage() {
     const box = bundleToBoxDetails(product!, { cardMessage })
     if (!box) return
     addItem(product!, quantity, box)
+    setBundleAdded(true)
+    posthog?.capture('bundle added to cart', {
+      bundle_id: product!.id,
+      bundle_sku: product!.sku,
+      bundle_name: product!.name,
+      quantity,
+      price: product!.price,
+      currency: product!.currency,
+      has_message: Boolean(cardMessage.trim()),
+      collection: collectionSlug,
+    })
   }
+  // Taken out of sale reads like sold out to a shopper; checkout refuses it too.
+  const unavailable = product.stock === 0 || product.active === false
 
   const coverImage = getProductDisplayImage(product, brandGeneration)
   /** The exact print artwork stands in for the design — see `ProductDesign`. */
@@ -387,11 +415,24 @@ export function ProductPage() {
                 <Button
                   type="button"
                   size="lg"
-                  className="flex-1"
-                  disabled={product.stock === 0}
+                  className="flex-1 uppercase tracking-wider"
+                  disabled={unavailable}
                   onClick={addBundleToCart}
+                  aria-live="polite"
                 >
-                  {t('product.addToCart')}
+                  {bundleAdded ? (
+                    <>
+                      <Check className="size-4" />
+                      {t('card.added')}
+                    </>
+                  ) : unavailable ? (
+                    t('card.outOfStock')
+                  ) : (
+                    <>
+                      <ShoppingBag className="size-4" />
+                      {t('product.addToCart')}
+                    </>
+                  )}
                 </Button>
               ) : (
                 <AddToCartButton

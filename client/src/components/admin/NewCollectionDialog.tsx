@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -31,7 +31,7 @@ import {
   notifySaved,
 } from '@/lib/notify'
 import { useZodForm } from '@/lib/form'
-import { newCollectionSchema, toSlug } from '@/lib/schemas/dashboard'
+import { makeNewCollectionSchema, toSlug } from '@/lib/schemas/dashboard'
 
 /** The first free variant of a taken slug: christmas-2, christmas-3, … */
 function freeSlug(base: string, taken: Set<string>): string {
@@ -65,7 +65,8 @@ export function NewCollectionDialog({
   const { data: existing } = useAllCollections()
 
   const empty = { slug: '', tag: '', titleDe: '', titleEn: '', locale: 'de' as 'de' | 'en' }
-  const f = useZodForm({ schema: newCollectionSchema, initialValues: empty, idPrefix: 'new-' })
+  const schema = useMemo(() => makeNewCollectionSchema(t), [t])
+  const f = useZodForm({ schema, initialValues: empty, idPrefix: 'new-' })
   const { slug, locale } = f.values
   const [error, setError] = useState<string | null>(null)
   // A problem with the URL segment specifically — shown under that field.

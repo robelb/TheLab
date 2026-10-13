@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { useConfirmOrder } from '@/hooks/use-orders'
 import { notifyError, notifySaved } from '@/lib/notify'
 import type { Order, OrderBilling } from '@/api/orders'
+import { lineUnit } from '@/lib/orderOps'
 import { vatRateFor } from '@/lib/shipping'
 import { todayIso } from '@/lib/schemas/common'
 import { formatPrice } from '@/utils/format'
@@ -81,11 +82,23 @@ function round(value: number): number {
   return Math.round(value * 100) / 100
 }
 
+/**
+ * An amount as typed, German or English style, rounded to cents (what the
+ * server stores). With a comma, dots group thousands and the comma is the
+ * decimal: "1.450,50" → 1450.5, "12,5" → 12.5. Without one, "1.450" (dots in
+ * groups of three) is 1450, and "12.50" is 12.5.
+ */
 function parseAmount(raw: string): number | null {
-  const normalised = raw.trim().replace(/\s/g, '').replace(',', '.')
-  if (!normalised) return null
+  const compact = raw.trim().replace(/[\s€%]/g, '')
+  if (!compact) return null
+  const normalised = compact.includes(',')
+    ? compact.replace(/\./g, '').replace(',', '.')
+    : /^\d{1,3}(\.\d{3})+$/.test(compact)
+      ? compact.replace(/\./g, '')
+      : compact
+  if (!/^(\d+(\.\d*)?|\.\d+)$/.test(normalised)) return null
   const value = Number(normalised)
-  return Number.isFinite(value) && value >= 0 ? value : null
+  return Number.isFinite(value) && value >= 0 ? round(value) : null
 }
 
 /**
@@ -107,16 +120,24 @@ export function ConfirmOrderDialog({
 }) {
   const { t } = useTranslation()
   const confirm = useConfirmOrder()
+  // Confirmed before, but the invoice was never issued (that step failed).
+  // The price is already stored and the server ignores new prices, so only
+  // issuing the invoice is offered, at the stored price.
+  const retry = Boolean(order.confirmedAt) && !order.invoice
+  // Old box lines were stored at €0 and are priced from their contents, the
+  // same figure the request page shows. Once confirmed, the stored price stands.
   const [prices, setPrices] = useState<string[]>(() =>
-    order.items.map((item) => item.unitPrice.toFixed(2)),
+    order.items.map((item) => (retry ? item.unitPrice : lineUnit(item)).toFixed(2)),
   )
   const [shipping, setShipping] = useState(order.shipping.toFixed(2))
   // German VAT at home, none for other invoice countries — changeable here.
   const usualVatRate = vatRateFor(order.billing?.country ?? 'DE')
-  const [vatRate, setVatRate] = useState(String(usualVatRate))
+  const [vatRate, setVatRate] = useState(() =>
+    String(retry && order.vatRate != null ? order.vatRate : usualVatRate),
+  )
   const [dueDate, setDueDate] = useState(() => isoInDays(DEFAULT_PAYMENT_TERM_DAYS))
   // Only asked for when the request came without one (older shop orders).
-  const needsBilling = !order.billing
+  const needsBilling = !order.billing && !retry
   const [billing, setBilling] = useState<BillingDraft>(() => billingDraftFrom(order))
 
   const parsed = prices.map(parseAmount)
@@ -234,6 +255,12 @@ export function ConfirmOrderDialog({
           <DialogDescription>{t('dashboard.orders.confirm.description')}</DialogDescription>
         </DialogHeader>
 
+        {retry && (
+          <p className="rounded-brand border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800">
+            {t('dashboard.orders.confirm.retryNote')}
+          </p>
+        )}
+
         <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
           {order.items.map((item, i) => (
             <div
@@ -245,13 +272,14 @@ export function ConfirmOrderDialog({
                 <p className="text-xs text-muted-foreground">
                   {t('dashboard.orders.confirm.estimated', {
                     count: item.quantity,
-                    price: m(item.unitPrice),
+                    price: m(retry ? item.unitPrice : lineUnit(item)),
                   })}
                 </p>
               </div>
               <Input
                 aria-label={t('dashboard.orders.confirm.unitPriceFor', { name: item.name })}
                 inputMode="decimal"
+                disabled={retry}
                 value={prices[i]}
                 onChange={(e) =>
                   setPrices((prev) => prev.map((p, j) => (j === i ? e.target.value : p)))
@@ -268,6 +296,7 @@ export function ConfirmOrderDialog({
             <Input
               id="confirm-shipping"
               inputMode="decimal"
+              disabled={retry}
               value={shipping}
               onChange={(e) => setShipping(e.target.value)}
               className={parsedShipping === null ? 'border-destructive' : undefined}
@@ -293,6 +322,7 @@ export function ConfirmOrderDialog({
             <Input
               id="confirm-vat"
               inputMode="decimal"
+              disabled={retry}
               value={vatRate}
               onChange={(e) => setVatRate(e.target.value)}
               className={vatValid ? undefined : 'border-destructive'}
@@ -412,7 +442,7 @@ export function ConfirmOrderDialog({
             ) : (
               <CheckCircle2 className="size-4" />
             )}
-            {t('dashboard.orders.confirm.submit')}
+            {retry ? t('dashboard.orders.confirm.issueInvoice') : t('dashboard.orders.confirm.submit')}
           </Button>
         </DialogFooter>
         {needsBilling && !billingValid && (

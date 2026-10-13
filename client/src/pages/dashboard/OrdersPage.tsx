@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Inbox, Search, X } from 'lucide-react'
+import { CircleAlert, Inbox, Loader2, RotateCw, Search, X } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -95,10 +95,14 @@ export function OrdersPage() {
   const admin = can('manage_all')
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const { data: orders, isLoading } = useOrders({})
+  const { data: orders, isLoading, error, refetch, isFetching } = useOrders({})
   const { data: collections } = useAllCollections()
 
-  const tab = (TABS.some((t) => t.key === params.get('tab')) ? params.get('tab') : 'action') as TabKey
+  // "Needs action" and the to-do chips are the operations team's work list;
+  // a company sees its requests without them, starting on all of them.
+  const tabs = admin ? TABS : TABS.filter((view) => view.key !== 'action')
+  const defaultTab: TabKey = admin ? 'action' : 'all'
+  const tab = (tabs.some((t) => t.key === params.get('tab')) ? params.get('tab') : defaultTab) as TabKey
   const q = params.get('q') ?? ''
   const origin = params.get('origin') ?? 'all'
   const shipping = params.get('ship') ?? 'all'
@@ -162,6 +166,25 @@ export function OrdersPage() {
     )
   }
 
+  // A failed load is not an empty inbox: say so, and offer to try again.
+  if (error && !orders) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-20 text-center">
+        <CircleAlert className="size-8 text-destructive" />
+        <h2 className="font-display text-xl font-semibold">
+          {t('dashboard.orders.list.loadFailedTitle')}
+        </h2>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          {t('dashboard.orders.list.loadFailedBody')}
+        </p>
+        <Button variant="outline" onClick={() => void refetch()} disabled={isFetching}>
+          {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
+          {t('dashboard.orders.list.retry')}
+        </Button>
+      </div>
+    )
+  }
+
   if (!orders?.length) {
     return (
       <div className="flex flex-col items-center gap-3 py-20 text-center">
@@ -180,13 +203,13 @@ export function OrdersPage() {
     <div className="space-y-4">
       {/* ── Views ──────────────────────────────────────────────────── */}
       <div className="flex flex-wrap gap-1 border-b border-border/40" role="tablist">
-        {TABS.map((view) => (
+        {tabs.map((view) => (
           <button
             key={view.key}
             type="button"
             role="tab"
             aria-selected={view.key === tab}
-            onClick={() => set('tab', view.key, 'action')}
+            onClick={() => set('tab', view.key, defaultTab)}
             className={cn(
               '-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition-colors',
               view.key === tab
@@ -283,7 +306,7 @@ export function OrdersPage() {
             variant="ghost"
             size="sm"
             onClick={() =>
-              setParams(tab === 'action' ? {} : { tab }, { replace: true })
+              setParams(tab === defaultTab ? {} : { tab }, { replace: true })
             }
           >
             <X className="size-4" />
@@ -309,7 +332,7 @@ export function OrdersPage() {
               <TableHead>{t('dashboard.orders.list.columns.delivery')}</TableHead>
               <TableHead className="text-right">{t('dashboard.orders.list.columns.total')}</TableHead>
               <TableHead>{t('dashboard.orders.list.columns.status')}</TableHead>
-              <TableHead>{t('dashboard.orders.list.columns.todo')}</TableHead>
+              {admin && <TableHead>{t('dashboard.orders.list.columns.todo')}</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -369,27 +392,29 @@ export function OrdersPage() {
                     )}
                   </div>
                 </TableCell>
-                <TableCell>
-                  <div className="flex max-w-[220px] flex-wrap gap-1">
-                    {todos.map((todo) => (
-                      <span
-                        key={todo.key}
-                        title={todo.detail}
-                        className={cn(
-                          'rounded-full border px-2 py-0.5 text-[11px] font-medium',
-                          todo.urgent
-                            ? 'border-destructive/40 bg-destructive/10 text-destructive'
-                            : 'border-amber-500/40 bg-amber-500/10 text-amber-700',
-                        )}
-                      >
-                        {todo.label}
-                      </span>
-                    ))}
-                    {todos.length === 0 && (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </div>
-                </TableCell>
+                {admin && (
+                  <TableCell>
+                    <div className="flex max-w-[220px] flex-wrap gap-1">
+                      {todos.map((todo) => (
+                        <span
+                          key={todo.key}
+                          title={todo.detail}
+                          className={cn(
+                            'rounded-full border px-2 py-0.5 text-[11px] font-medium',
+                            todo.urgent
+                              ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                              : 'border-amber-500/40 bg-amber-500/10 text-amber-700',
+                          )}
+                        >
+                          {todo.label}
+                        </span>
+                      ))}
+                      {todos.length === 0 && (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

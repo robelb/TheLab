@@ -53,6 +53,7 @@ const LABELS = {
     phone: 'Tel',
     email: 'E-Mail',
     web: 'Web',
+    bank: 'Bank',
     page: 'Seite',
   },
   en: {
@@ -84,6 +85,7 @@ const LABELS = {
     phone: 'Tel',
     email: 'E-Mail',
     web: 'Web',
+    bank: 'Bank',
     page: 'Page',
   },
 } as const
@@ -401,7 +403,12 @@ export async function renderInvoicePdf(invoice: Invoice): Promise<Buffer> {
       seller.email ? `${L.email}: ${seller.email}` : null,
       seller.website ? `${L.web}: ${seller.website}` : null,
     ],
-    [seller.bankName, seller.iban, seller.bic],
+    // Labelled, so the IBAN and BIC can be told apart and copied into a transfer.
+    [
+      seller.bankName ? `${L.bank}: ${seller.bankName}` : null,
+      seller.iban ? `IBAN: ${seller.iban}` : null,
+      seller.bic ? `BIC: ${seller.bic}` : null,
+    ],
   ].map((c) => c.filter(Boolean).join('\n'))
 
   const range = doc.bufferedPageRange()

@@ -2,13 +2,15 @@ import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { usePostHog } from '@posthog/react'
-import { ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { AlertTriangle, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useFunnel, useFunnelLink } from '@/context/FunnelContext'
 import { useCart } from '@/context/CartContext'
 import { useBrand } from '@/context/BrandContext'
 import {
+  boxAllLines,
   boxPieceCount,
+  cartLineCatalogueId,
   isBoxSku,
 } from '@/lib/box'
 import { getProductDisplayImage } from '@/lib/productImage'
@@ -30,7 +32,8 @@ export function CartPage() {
   // Somewhere to go from an empty basket that is not the whole shop.
   const browseUrl = shopHome
   const { brandGeneration } = useAuth()
-  const { items, updateQuantity, removeItem, subtotal, itemCount } = useCart()
+  const { items, updateQuantity, removeItem, subtotal, itemCount, hasUnavailable } =
+    useCart()
   const posthog = usePostHog()
 
   // Once per visit to the page: the step between "added" and "checkout
@@ -74,7 +77,11 @@ export function CartPage() {
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-start">
         <ul className="divide-y divide-border/40">
-          {items.map(({ product, quantity, box, design }) => {
+          {items.map((item) => {
+            const { product, quantity, box, design, unitPrice, lineTotal, unavailable } = item
+            // The catalogue product behind the line — a second copy of a
+            // ready-made box sits in the cart under an id of its own.
+            const catalogueId = cartLineCatalogueId(item)
             // A built box is a client-side line item, not a catalog product —
             // its detail page is the box builder, opened on this very box.
             // Boxes added before contents were tracked just open the builder.
@@ -87,12 +94,12 @@ export function CartPage() {
               box && (!focused || (allowBoxBuilding && !box.bundleId)),
             )
             const productUrl = focused && !canEditBox
-              ? funnelLink(`/product/${product.id}`)
+              ? funnelLink(`/product/${catalogueId}`)
               : box
                 ? editBoxUrl
                 : isBoxSku(product.sku)
                   ? '/build-box'
-                  : funnelLink(`/product/${product.id}`)
+                  : funnelLink(`/product/${catalogueId}`)
             // A branded line shows the artwork it will be printed with, not the
             // catalogue photo. Showing stock here meant the one thing the
             // shopper made was invisible at the moment they paid for it.
@@ -101,7 +108,7 @@ export function CartPage() {
               design?.image ??
               getProductDisplayImage(product, brandGeneration)
             const editDesignUrl = `/design/${encodeURIComponent(
-              product.id,
+              catalogueId,
             )}?to=product&return=/cart`
             return (
             <li
@@ -130,10 +137,29 @@ export function CartPage() {
                   <p className="text-sm text-muted-foreground">
                     {product.tagline}
                   </p>
+                  {/* Priced as the request will be: volume tiers by how
+                      many, a ready-made box at its own price. */}
                   <p className="font-semibold text-primary">
-                    {formatPrice(product.price * quantity, product.currency)}
+                    {formatPrice(lineTotal, product.currency)}
+                    {quantity > 1 && (
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                        {formatPrice(unitPrice, product.currency)} {t('common.each')}
+                      </span>
+                    )}
                   </p>
                 </div>
+
+                {/* Gone from the catalogue or taken out of sale: the request
+                    would be refused, so say so here, on the line to remove. */}
+                {unavailable && (
+                  <p
+                    role="alert"
+                    className="mt-3 flex items-start gap-2 rounded-brand border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+                  >
+                    <AlertTriangle className="mt-px size-3.5 shrink-0" />
+                    {t('cart.unavailable')}
+                  </p>
+                )}
 
                 {/* What a branded single product carries, said plainly: the
                     picture above is the artwork, and the brief goes with it. */}
@@ -158,7 +184,7 @@ export function CartPage() {
 
                 {/* A box is one line, so what it holds is spelled out here —
                     folded away by default so a cart of boxes stays scannable. */}
-                {box && box.lines.length > 0 && (
+                {box && boxAllLines(box).length > 0 && (
                   <details className="group mt-3 rounded-brand border border-border/40 bg-muted/5 p-3">
                     <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground">
                       <ChevronRight className="size-3.5 shrink-0 transition-transform group-open:rotate-90" />
@@ -235,12 +261,19 @@ export function CartPage() {
                                       : ''}
                                   </span>
                                 )}
+                                {/* The card's wording, or that it is still to
+                                    come — a card with nothing said about it
+                                    reads as if it were forgotten. */}
                                 {line === box.greetingCard &&
-                                  box.greetingCard?.message && (
+                                  (box.greetingCard?.message?.trim() ? (
                                     <span className="block truncate italic">
                                       “{box.greetingCard.message}”
                                     </span>
-                                  )}
+                                  ) : (
+                                    <span className="block truncate">
+                                      {t('cart.cardTextFollows')}
+                                    </span>
+                                  ))}
                                 {line === box.stickers && (
                                   <span className="block truncate">
                                     {box.stickerLogo
@@ -344,9 +377,18 @@ export function CartPage() {
               <span>{t('cart.totalNet')}</span>
               <span>{formatPrice(subtotal)}</span>
             </div>
-            <Button asChild className="mt-2 w-full" size="lg">
-              <Link to="/checkout">{t('cart.checkout')}</Link>
-            </Button>
+            {hasUnavailable ? (
+              <>
+                <Button className="mt-2 w-full" size="lg" disabled>
+                  {t('cart.checkout')}
+                </Button>
+                <p className="text-xs text-destructive">{t('cart.removeUnavailable')}</p>
+              </>
+            ) : (
+              <Button asChild className="mt-2 w-full" size="lg">
+                <Link to="/checkout">{t('cart.checkout')}</Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>

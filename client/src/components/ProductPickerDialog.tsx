@@ -61,6 +61,12 @@ export function ProductPickerDialog({
   })
   const products = catalogue.data?.pages.flatMap((page) => page.data) ?? []
   const total = catalogue.data?.pages[0]?.pagination.total ?? 0
+  // A new search keeps the last results up until its own arrive (see
+  // `useTaggedProducts`), which can take a few seconds — so say it is
+  // searching, from the first keystroke, rather than leave stale results
+  // looking like the answer.
+  const searching =
+    search.trim() !== q || (catalogue.isPlaceholderData && catalogue.isFetching)
 
   // Held as products, not ids, so a pick survives searching for something else.
   const [selected, setSelected] = useState<Map<string, Product>>(new Map())
@@ -121,17 +127,33 @@ export function ProductPickerDialog({
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('stepBuilder.picker.search')}
               aria-label={t('stepBuilder.picker.search')}
-              className="pl-9"
+              className="pl-9 pr-9"
             />
+            {searching && (
+              <Loader2
+                className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground"
+                aria-hidden
+              />
+            )}
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6"
+          aria-busy={searching || catalogue.isPending}
+        >
+          <p className="sr-only" aria-live="polite">
+            {searching ? t('stepBuilder.picker.searching') : ''}
+          </p>
           {catalogue.isPending ? (
             <div className="grid gap-4 md:grid-cols-2">
               {Array.from({ length: 6 }).map((_, i) => (
                 <Skeleton key={i} className="h-44 rounded-brand" />
               ))}
+            </div>
+          ) : products.length === 0 && searching ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
             </div>
           ) : products.length === 0 ? (
             <p className="py-16 text-center text-sm text-muted-foreground">
@@ -140,9 +162,21 @@ export function ProductPickerDialog({
                 : t('stepBuilder.picker.empty')}
             </p>
           ) : (
-            <>
-              <p className="mb-3 text-xs text-muted-foreground">
-                {t('stepBuilder.picker.count', { count: total })}
+            <div
+              className={cn(
+                'transition-opacity',
+                searching && 'pointer-events-none opacity-50',
+              )}
+            >
+              <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                {searching ? (
+                  <>
+                    <Loader2 className="size-3 animate-spin" />
+                    {t('stepBuilder.picker.searching')}
+                  </>
+                ) : (
+                  t('stepBuilder.picker.count', { count: total })
+                )}
               </p>
               <div className="grid gap-4 md:grid-cols-2">
                 {products.map((p) => (
@@ -170,7 +204,7 @@ export function ProductPickerDialog({
                   )
                 )}
               </div>
-            </>
+            </div>
           )}
         </div>
 

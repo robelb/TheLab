@@ -1,5 +1,6 @@
 import { GREETING_MAX_LENGTH, type BoxDetails, type BoxLine } from '@/types/box'
 import type { BundleComponent, Product } from '@/types/product'
+import { pickFee, unitPriceFor } from '@/lib/pricing'
 
 /** Marks a cart line as a client-side built box rather than a catalog product. */
 export const BOX_SKU_PREFIX = 'BOX-'
@@ -81,36 +82,167 @@ export function boxColorOptions(description?: string | null): string[] {
 }
 
 /**
- * What one cart line costs.
- *
- * A box is priced from its contents rather than from its own `price`, which is
- * a figure the builder assembles client-side and which the server ignores when
- * it records a request. Deriving it the same way everywhere is what stops a
- * line disagreeing with the total beside it.
+ * The live catalogue a cart is priced and checked against: what
+ * `/products/by-ids` returned, and which ids it was asked about. An id that
+ * was asked about and did not come back is gone from the catalogue; one that
+ * was not asked yet (the lookup is still loading) is simply not known.
  */
-export function cartLineTotal(line: {
-  price: number
+export interface LiveCatalogue {
+  products: ReadonlyMap<string, Product>
+  asked: ReadonlySet<string>
+}
+
+export interface CartLinePrice {
+  /** What one of the line costs — one box, for a box line. */
+  unit: number
+  /** `unit` times the line's quantity. */
+  total: number
+  /** How a box line is priced; absent for a single product. */
+  pricingMode?: 'bundle' | 'parts'
+}
+
+interface PricedLine {
+  product: Pick<Product, 'id' | 'price' | 'graduatedPrices' | 'kind'>
   quantity: number
-  box?: Pick<
-    BoxDetails,
-    | 'lines'
-    | 'packaging'
-    | 'filling'
-    | 'greetingCard'
-    | 'stickers'
-    | 'bundleId'
-    | 'bundlePrice'
-  > | null
-}): number {
-  if (!line.box) return line.price * line.quantity
-  // A ready-made box taken as sold is charged its own price, not the sum of
-  // what is in it — those two numbers are deliberately different. The moment
-  // the shopper changes anything, the builder clears `bundleId` and this falls
-  // back to the parts, which is what the server will price it at too.
-  if (line.box.bundleId && typeof line.box.bundlePrice === 'number') {
-    return line.box.bundlePrice * line.quantity
+  box?: BoxDetails | null
+}
+
+/** How many items go into one box: product units, the card, the sticker. */
+function picksOf(box: Pick<BoxDetails, 'lines' | 'greetingCard' | 'stickers'>): number {
+  return (
+    box.lines.reduce((sum, line) => sum + line.quantity, 0) +
+    (box.greetingCard?.quantity ?? 0) +
+    (box.stickers?.quantity ?? 0)
+  )
+}
+
+/**
+ * What one cart line costs, worked out the way the server prices the request
+ * (`lineTotal` in its orders service) — volume tiers included.
+ *
+ * - A single product: its catalogue price, tiered by the line's quantity.
+ * - A ready-made box kept as sold: the box's own price, tiered by how many
+ *   boxes.
+ * - Any other box: each part's price, tiered by its units per box times the
+ *   boxes, plus packing (`pickFee`) per box.
+ *
+ * Prices come from `live` wherever it has them. Until it does — the lookup is
+ * still loading, or failed — the line shows what it was added at.
+ */
+export function cartLinePrice(
+  line: PricedLine,
+  live: LiveCatalogue | undefined,
+): CartLinePrice {
+  const qty = line.quantity
+  const priced = (unit: number, pricingMode?: CartLinePrice['pricingMode']) => ({
+    unit,
+    total: unit * qty,
+    ...(pricingMode ? { pricingMode } : {}),
+  })
+  const known = (id: string) => Boolean(live?.asked.has(id))
+
+  if (!line.box) {
+    const id = baseProductId(line.product.id)
+    const source = (known(id) && live!.products.get(id)) || line.product
+    return priced(unitPriceFor(source.price, source.graduatedPrices, qty))
   }
-  return boxSubtotal(boxAllLines(line.box)) * line.quantity
+
+  const box = line.box
+  const parts = boxAllLines(box)
+  // What the line was added at, for while the catalogue is not known yet.
+  const stored = () =>
+    box.bundleId && line.product.kind === 'bundle'
+      ? priced(unitPriceFor(line.product.price, line.product.graduatedPrices, qty), 'bundle')
+      : box.bundleId && typeof box.bundlePrice === 'number'
+        ? priced(box.bundlePrice, 'bundle')
+        : priced(line.product.price, 'parts')
+
+  if (box.bundleId) {
+    if (!known(box.bundleId)) return stored()
+    const bundle = live!.products.get(box.bundleId)
+    // Only an actual bundle, still holding exactly this, has a price to
+    // honour; anything else — gone, or changed — is priced by its parts.
+    if (bundle?.kind === 'bundle' && bundle.components && sameComposition(parts, bundle.components)) {
+      return priced(unitPriceFor(bundle.price, bundle.graduatedPrices, qty), 'bundle')
+    }
+  }
+
+  if (parts.some((part) => !known(part.productId))) return stored()
+  const packing = pickFee(picksOf(box))
+  const unit =
+    packing +
+    parts.reduce((sum, part) => {
+      // A part gone from the catalogue is flagged on the line; until it is
+      // removed it shows at the price it was added at.
+      const source = live!.products.get(part.productId)
+      return (
+        sum +
+        unitPriceFor(
+          source?.price ?? part.price,
+          source?.graduatedPrices,
+          part.quantity * qty,
+        ) *
+          part.quantity
+      )
+    }, 0)
+  return priced(unit, 'parts')
+}
+
+/**
+ * Whether the server would refuse this line: its product — or any part of
+ * its box — is gone from the catalogue or taken out of sale. A ready-made
+ * box's own parts are the exception, as they are on the server
+ * (`refuseOutOfSale`): a box can hold parts that are not sold on their own.
+ * Only lines the catalogue lookup has answered for are judged.
+ */
+export function cartLineUnavailable(
+  line: Pick<PricedLine, 'product' | 'box'>,
+  live: LiveCatalogue | undefined,
+): boolean {
+  if (!live) return false
+  const gone = (id: string, allowInactive = false) => {
+    if (!live.asked.has(id)) return false
+    const product = live.products.get(id)
+    return !product || (product.active === false && !allowInactive)
+  }
+  if (!line.box) return gone(baseProductId(line.product.id))
+  const bundle = line.box.bundleId ? live.products.get(line.box.bundleId) : undefined
+  // A ready-made box still as sold is that catalogue box — out of sale, it is
+  // not sold (the server refuses it). Changed, only its parts count.
+  if (
+    bundle?.active === false &&
+    bundle.components &&
+    sameComposition(boxAllLines(line.box), bundle.components)
+  ) {
+    return true
+  }
+  const own = new Set((bundle?.components ?? []).map((c) => c.product.id))
+  return boxAllLines(line.box).some((part) => gone(part.productId, own.has(part.productId)))
+}
+
+/**
+ * The catalogue product a cart line stands for, for links: a ready-made box
+ * may sit in the cart under an id of its own (two of the same box with
+ * different card messages), so it is reached by its `bundleId`.
+ */
+export function cartLineCatalogueId(line: {
+  product: Pick<Product, 'id'>
+  box?: Pick<BoxDetails, 'bundleId'> | null
+}): string {
+  return line.box?.bundleId ?? baseProductId(line.product.id)
+}
+
+/**
+ * Separates a cart line's own id from the catalogue id it was made from: a
+ * second, different copy of something already in the cart is stored as
+ * `<product id>~<suffix>` so the two lines can be told apart.
+ */
+export const CART_VARIANT_SEPARATOR = '~'
+
+/** The catalogue id behind a cart line's id — see `CART_VARIANT_SEPARATOR`. */
+export function baseProductId(cartId: string): string {
+  const at = cartId.indexOf(CART_VARIANT_SEPARATOR)
+  return at === -1 ? cartId : cartId.slice(0, at)
 }
 
 /**

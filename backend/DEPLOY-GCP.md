@@ -18,6 +18,7 @@ pnpm sql sql/product-labels-manual.sql
 pnpm sql sql/fix-order-links.sql
 pnpm sql sql/catalogue-safety.sql
 pnpm sql sql/outbox-claims.sql
+pnpm sql sql/order-design-agreed.sql
 pnpm demo:disable
 ```
 
@@ -25,6 +26,14 @@ pnpm demo:disable
 for this step only.)
 
 ## 2. Build and deploy
+
+**Same region for the database and the API.** Every request makes several
+database queries one after another; with the API in Europe and the database
+in Neon's `us-east-1`, a checkout took 4–8 s in testing. Create the production
+Neon project in **AWS Europe (Frankfurt), `eu-central-1`** and deploy Cloud
+Run to **`europe-west3`** (Frankfurt) — each query then takes a few
+milliseconds instead of a few hundred.
+
 
 ```bash
 gcloud run deploy thelab-api \

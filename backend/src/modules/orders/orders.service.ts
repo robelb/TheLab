@@ -215,6 +215,23 @@ function isBundleOnly(items: Item[], id: string): boolean {
  */
 function refuseOutOfSale(items: Item[], catalogue: Catalogue, bundles: BundleFacts): void {
   for (const item of items) {
+    // A ready-made box still as sold is that catalogue box: out of sale, it
+    // is not sold. Changed in the builder, it is the shopper's own box and
+    // only its parts count (below).
+    const bundleId = item.box?.bundleId
+    const components = bundleId ? bundles.components.get(bundleId) : undefined
+    if (
+      bundleId &&
+      catalogue.get(bundleId)?.active === false &&
+      components &&
+      sameComposition(boxParts(item.box!), components)
+    ) {
+      throw new OrderError(
+        'A product in your request is no longer available. Please remove it from the cart and send the request again.',
+        409,
+        'unavailable_product',
+      )
+    }
     const ids = item.box ? boxParts(item.box).map((p) => p.productId) : [item.productId]
     const ownParts = new Set(
       (item.box?.bundleId ? bundles.components.get(item.box.bundleId) ?? [] : []).map(
@@ -490,6 +507,8 @@ export interface OrderDto {
   shippingSplit: Row['shippingSplit']
   /** Recipient addresses for individually sent boxes are still to come. */
   addressesLater: boolean
+  /** When the artwork for custom-design items was agreed; null while open. */
+  designAgreedAt: string | null
   recipients: Row['recipients']
   invoice: InvoiceSummary | null
 }
@@ -533,6 +552,7 @@ function toDto(row: Row, invoice: InvoiceSummary | null = null): OrderDto {
     shippingMethod: row.shippingMethod,
     shippingSplit: row.shippingSplit,
     addressesLater: row.addressesLater,
+    designAgreedAt: row.designAgreedAt?.toISOString() ?? null,
     recipients: row.recipients,
     invoice,
   }
@@ -1049,8 +1069,8 @@ export async function confirmOrder(params: {
  * Fill in what the customer promised to send later — a PO number, a corrected
  * invoice address, the recipient addresses arriving, the sticker logo.
  *
- * Only before confirming: the invoice is made out from these, and an issued
- * invoice is never changed.
+ * The invoice address only before confirming — the invoice is made out from
+ * it and an issued invoice is never changed. The rest any time.
  */
 export async function updateOrderDetails(params: {
   orderId: string
@@ -1058,16 +1078,20 @@ export async function updateOrderDetails(params: {
 }): Promise<OrderDto | null> {
   const row = await loadRow(null, params.orderId)
   if (!row) return null
-  if (row.confirmedAt || row.status === 'confirmed') {
+  const { billing: patch, addressesLater, stickerLogos, cardMessages, designAgreed } = params.body
+  // The invoice address is printed on the invoice, so it is fixed once that is
+  // issued. Logos, addresses, card text and artwork are production details and
+  // keep arriving after confirmation.
+  const confirmed = Boolean(row.confirmedAt || row.status === 'confirmed')
+  if (patch && confirmed) {
     throw new OrderError(
-      'This order is confirmed and its invoice issued; it can no longer be changed.',
+      'This order is confirmed and its invoice issued; the invoice address can no longer be changed.',
       409,
       'confirmed',
     )
   }
 
   const set: Partial<typeof orders.$inferInsert> = {}
-  const { billing: patch, addressesLater, stickerLogos } = params.body
 
   if (patch) {
     const merged = { ...(row.billing ?? {}), ...patch } as Partial<NonNullable<Row['billing']>>
@@ -1088,10 +1112,11 @@ export async function updateOrderDetails(params: {
   }
 
   if (addressesLater !== undefined) set.addressesLater = addressesLater
+  if (designAgreed !== undefined) set.designAgreedAt = designAgreed ? new Date() : null
 
-  if (stickerLogos?.length) {
+  if (stickerLogos?.length || cardMessages?.length) {
     const items = row.items.map((item) => ({ ...item }))
-    for (const { index, logo } of stickerLogos) {
+    for (const { index, logo } of stickerLogos ?? []) {
       // Stored as the request sent it; only the stickers matter here.
       const box = items[index]?.box as { stickers?: unknown } | null | undefined
       if (!box?.stickers) {
@@ -1099,14 +1124,25 @@ export async function updateOrderDetails(params: {
       }
       items[index] = { ...items[index], box: { ...box, stickerLogo: logo } }
     }
+    for (const { index, message } of cardMessages ?? []) {
+      const box = items[index]?.box as { greetingCard?: Record<string, unknown> | null } | null | undefined
+      if (!box?.greetingCard) {
+        throw new OrderError(`Line ${index + 1} has no greeting card.`, 422, 'no_card')
+      }
+      items[index] = {
+        ...items[index],
+        box: { ...box, greetingCard: { ...box.greetingCard, message: message.trim() } },
+      }
+    }
     set.items = items
   }
 
   const [updated] = await db
     .update(orders)
     .set({ ...set, updatedAt: new Date() })
-    // Confirmed in the meantime: its invoice already went out as it was.
-    .where(and(eq(orders.id, row.id), isNull(orders.confirmedAt)))
+    // An invoice address change only while still unconfirmed: its invoice
+    // would otherwise already have gone out as it was.
+    .where(patch ? and(eq(orders.id, row.id), isNull(orders.confirmedAt)) : eq(orders.id, row.id))
     .returning()
   if (!updated) {
     throw new OrderError('This order was confirmed in the meantime.', 409, 'confirmed')

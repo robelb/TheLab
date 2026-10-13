@@ -26,6 +26,26 @@ export function todayIso(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
+/**
+ * Today as `YYYY-MM-DD` in Germany (Europe/Berlin), whatever the visitor's own
+ * time zone. The server checks a requested delivery date against the German
+ * calendar day, so the checkout has to offer and accept the same days: late
+ * in the evening in New York it is already tomorrow in Berlin.
+ */
+export function todayInBerlin(): string {
+  try {
+    // en-CA formats as YYYY-MM-DD.
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Berlin',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date())
+  } catch {
+    return todayIso()
+  }
+}
+
 /** Messages a rule needs — in the shopper's language, or plain English. */
 export interface Messages {
   required: string

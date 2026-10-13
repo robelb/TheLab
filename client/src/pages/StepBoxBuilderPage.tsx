@@ -18,15 +18,23 @@ import {
   Wand2,
   X,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { usePostHog } from '@posthog/react'
 import { LOGO_FILE_ACCEPT, uploadLogoFile } from '@/api/uploads'
 import { ProductImage } from '@/components/ProductImage'
 import { ProductPickerDialog } from '@/components/ProductPickerDialog'
+import { QuantityStepper } from '@/components/QuantityStepper'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/context/AuthContext'
@@ -49,7 +57,7 @@ import {
 } from '@/lib/box'
 import { parseDesigns, type ProductDesign } from '@/lib/boxDraft'
 import { apiErrorMessage as errorMessage } from '@/lib/notify'
-import { pickFee, unitPriceFor } from '@/lib/pricing'
+import { MAX_LINE_QUANTITY, pickFee, unitPriceFor } from '@/lib/pricing'
 import {
   BUILDER_STEPS,
   EMPTY_STEP_DRAFT,
@@ -151,8 +159,14 @@ export function StepBoxBuilderPage() {
     (canDesign && id ? draft.designs[id] : null) ?? null
   /** What a product looks like in this box: its design, or the plain photo. */
   const imageOf = (p: Product) => designOf(p.id)?.image ?? p.image
-  const openDesigner = (id: string) =>
-    navigate(`/design/${encodeURIComponent(id)}?return=${encodeURIComponent('/build-box')}`)
+  // Coming back from the editor resumes a box being edited from the cart: the
+  // `editing` marker is what keeps it bound to its cart line (see below).
+  const openDesigner = (id: string) => {
+    const back = draft.editingItemId
+      ? `/build-box?editing=${encodeURIComponent(draft.editingItemId)}`
+      : '/build-box'
+    navigate(`/design/${encodeURIComponent(id)}?return=${encodeURIComponent(back)}`)
+  }
 
   // ── Let the AI pick (shop only) ──────────────────────────────────────────
   const [brief, setBrief] = useState('')
@@ -247,9 +261,13 @@ export function StepBoxBuilderPage() {
 
   // Every box is padded with filling, so one is always chosen: the cheapest
   // on offer until they pick another. A stale choice falls back the same way.
+  // Not for a box opened from a ready-made one (or restored from the cart as
+  // one): it keeps exactly what it was sold with — no filling if it had none —
+  // or slipping one in would quietly cost it its set price.
   useEffect(() => {
     if (suppliesLoading) return
     setDraft((d) => {
+      if (d.bundleId) return d
       const cheapest = supplies.filling.reduce<Product | null>(
         (best, p) => (!best || p.price < best.price ? p : best),
         null,
@@ -262,7 +280,22 @@ export function StepBoxBuilderPage() {
   }, [supplies.filling, suppliesLoading])
 
   // ── Editing a box from the cart (`?edit=<cart line id>`) ──────────────────
+  // Once restored, the URL carries `?editing=<cart line id>` instead, so a
+  // reload or a trip to the design editor stays bound to that line. Opening
+  // the builder any other way starts a new box: the line it was editing is
+  // left alone, rather than overwritten by whatever is built next.
   const editParam = searchParams.get('edit')
+  const editingParam = searchParams.get('editing')
+  const bundleParam = searchParams.get('bundle')
+  useEffect(() => {
+    if (editParam || bundleParam) return
+    setDraft((d) =>
+      d.editingItemId && d.editingItemId !== editingParam
+        ? { ...d, editingItemId: null }
+        : d,
+    )
+  }, [editParam, editingParam, bundleParam])
+
   useEffect(() => {
     if (!editParam) return
     const item = cartItems.find((i) => i.product.id === editParam)
@@ -278,6 +311,9 @@ export function StepBoxBuilderPage() {
         cardMessage: box.greetingCard?.message ?? '',
         packagingId: box.packaging?.productId ?? null,
         fillingId: box.filling?.productId ?? null,
+        // A ready-made box taken as sold keeps its set price while it is
+        // still that box — see `bundleIntact`.
+        bundleId: box.bundleId ?? null,
         designs: parseDesigns(box.designs),
         stickerId: box.stickers?.productId ?? null,
         stickerLogo: box.stickerLogo ?? null,
@@ -293,13 +329,22 @@ export function StepBoxBuilderPage() {
         heroKey: box.campaignId ? heroKeyFor(restored) : null,
       })
     }
-    setSearchParams({}, { replace: true })
+    const editingId = box && item ? item.product.id : null
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('edit')
+        if (editingId) next.set('editing', editingId)
+        else next.delete('editing')
+        return next
+      },
+      { replace: true },
+    )
   }, [editParam, cartItems, collectionSlug, setSearchParams])
 
   // ── Opening a ready-made box (`?bundle=<product id>`) ─────────────────────
   // "Customise this box" on a ready-made one lands here with everything it
   // holds already chosen. Its own price holds until the contents change.
-  const bundleParam = searchParams.get('bundle')
   const { data: bundle } = useProduct(bundleParam ?? draft.bundleId ?? undefined)
   useEffect(() => {
     if (!bundleParam || !bundle?.components?.length) return
@@ -616,9 +661,21 @@ export function StepBoxBuilderPage() {
     navigate('/cart')
   }
 
+  // A fresh box, not the cart line that was being edited: adding it must not
+  // overwrite that line.
   const startOver = () => {
-    setDraft({ ...EMPTY_STEP_DRAFT, collectionSlug, editingItemId: draft.editingItemId })
+    setDraft({ ...EMPTY_STEP_DRAFT, collectionSlug })
     setRenderError(null)
+    if (editingParam) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('editing')
+          return next
+        },
+        { replace: true },
+      )
+    }
   }
 
   // ── Layout ───────────────────────────────────────────────────────────────
@@ -793,7 +850,15 @@ export function StepBoxBuilderPage() {
             sticker={sticker}
             perBox={perBox}
             boxes={draft.boxes}
-            onBoxes={(boxes) => update({ boxes: Math.max(1, Math.min(10_000, boxes)) })}
+            onBoxes={(action) =>
+              setDraft((d) => {
+                const boxes = typeof action === 'function' ? action(d.boxes) : action
+                return {
+                  ...d,
+                  boxes: Math.max(1, Math.min(MAX_LINE_QUANTITY, Math.floor(boxes) || 1)),
+                }
+              })
+            }
             orderTotal={orderTotal}
             currency={currency}
             onEdit={goTo}
@@ -1416,7 +1481,7 @@ function ReviewStep({
   sticker: Product | null
   perBox: number
   boxes: number
-  onBoxes: (boxes: number) => void
+  onBoxes: Dispatch<SetStateAction<number>>
   orderTotal: number
   currency: string
   onEdit: (step: BuilderStep) => void
@@ -1592,38 +1657,15 @@ function ReviewStep({
             <label htmlFor="box-count" className="text-sm font-medium">
               {t('stepBuilder.review.boxes')}
             </label>
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-8"
-                aria-label={t('stepBuilder.review.fewer')}
-                onClick={() => onBoxes(boxes - 1)}
-                disabled={boxes <= 1}
-              >
-                <Minus className="size-3.5" />
-              </Button>
-              <Input
-                id="box-count"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                value={boxes}
-                onChange={(e) => onBoxes(Number(e.target.value) || 1)}
-                className="h-8 w-20 text-center tabular-nums"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-8"
-                aria-label={t('stepBuilder.review.more')}
-                onClick={() => onBoxes(boxes + 1)}
-              >
-                <Plus className="size-3.5" />
-              </Button>
-            </div>
+            {/* Typed into as well as stepped; clearing the field to type a
+                new number no longer snaps it back to one. */}
+            <QuantityStepper
+              id="box-count"
+              value={boxes}
+              onChange={onBoxes}
+              min={1}
+              max={MAX_LINE_QUANTITY}
+            />
           </div>
           <div className="flex items-end justify-between gap-3 border-t border-border/40 pt-3">
             <div>

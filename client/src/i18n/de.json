@@ -103,7 +103,10 @@
     "bundleChanged": "Angepasst — Preis pro Artikel",
     "vat": "zzgl. MwSt. {{rate}} %",
     "shippingVatAtCheckout": "Versand und MwSt. berechnen wir an der Kasse – je nach Rechnungsland und Versandart.",
-    "totalNet": "Zwischensumme (netto)"
+    "totalNet": "Zwischensumme (netto)",
+    "unavailable": "Nicht mehr erhältlich – bitte entfernen Sie diesen Artikel aus dem Warenkorb.",
+    "removeUnavailable": "Bitte entfernen Sie die nicht mehr erhältlichen Artikel, um fortzufahren.",
+    "cardTextFollows": "Kartentext folgt"
   },
   "checkout": {
     "title": "Bestellung anfragen",
@@ -194,7 +197,16 @@
     },
     "vatZeroEu": "innergemeinschaftliche Lieferung",
     "vatZeroNonEu": "Ausfuhrlieferung",
-    "shipIndividualLoose": "Einzelne Produkte in Ihrem Warenkorb werden im Sammelversand verschickt, daher ist Einzelversand für alle Boxen nicht möglich. Wählen Sie „Gemischt“, um einige Boxen einzeln zu versenden."
+    "shipIndividualLoose": "Einzelne Produkte in Ihrem Warenkorb werden im Sammelversand verschickt, daher ist Einzelversand für alle Boxen nicht möglich. Wählen Sie „Gemischt“, um einige Boxen einzeln zu versenden.",
+    "errors": {
+      "unavailable": "Ein Produkt in Ihrer Anfrage ist nicht mehr erhältlich. Bitte prüfen Sie Ihren Warenkorb.",
+      "unavailableInCart": "Etwas in Ihrem Warenkorb ist nicht mehr erhältlich. Bitte entfernen Sie es, bevor Sie Ihre Anfrage senden.",
+      "lineUnavailable": "Nicht mehr erhältlich",
+      "belowMinimum": "Ein Produkt liegt unter seiner Mindestbestellmenge. Bitte prüfen Sie die Mengen in Ihrem Warenkorb.",
+      "collectionUnavailable": "Diese Kollektion ist nicht mehr verfügbar. Ihr Warenkorb und Ihre Angaben bleiben erhalten – bitte senden Sie Ihre Anfrage erneut.",
+      "checkDetails": "Bitte prüfen Sie Ihre Angaben und versuchen Sie es erneut.",
+      "backToCart": "Zum Warenkorb"
+    }
   },
   "status": {
     "new": "Neu",
@@ -544,7 +556,8 @@
       "add_other": "{{count}} Produkte hinzufügen",
       "volumePricing": "Staffelpreise",
       "inBox": "Bereits in Ihrer Box",
-      "more": "Mehr anzeigen"
+      "more": "Mehr anzeigen",
+      "searching": "Suche läuft …"
     },
     "card": {
       "title": "Grußkarte auswählen",
@@ -752,10 +765,10 @@
         "parts_one": "{{count}} Position",
         "parts_other": "{{count}} Positionen",
         "pickFee": "Pickgebühr",
-        "pickFeeSingle_one": "{{count}} Artikel · erster Artikel {{price}}",
-        "pickFeeSingle_other": "{{count}} Artikel · erster Artikel {{price}}",
-        "pickFeeMany_one": "{{count}} Artikel · {{first}} erster + {{rest}} × {{next}}",
-        "pickFeeMany_other": "{{count}} Artikel · {{first}} erster + {{rest}} × {{next}}",
+        "pickFeeSingle_one": "{{count}} Artikel · ({{price}} erster Artikel) × {{markup}}",
+        "pickFeeSingle_other": "{{count}} Artikel · ({{price}} erster Artikel) × {{markup}}",
+        "pickFeeMany_one": "{{count}} Artikel · ({{first}} erster + {{rest}} × {{next}}) × {{markup}}",
+        "pickFeeMany_other": "{{count}} Artikel · ({{first}} erster + {{rest}} × {{next}}) × {{markup}}",
         "volumePrices": "Staffelpreise",
         "volumePricesDetail_one": "Staffeln für {{count}} Box (Stück pro Box × Boxen)",
         "volumePricesDetail_other": "Staffeln für {{count}} Boxen (Stück pro Box × Boxen)",
@@ -814,7 +827,10 @@
           "todo": "Offene Punkte"
         },
         "gross": "brutto",
-        "estNet": "ca. netto"
+        "estNet": "ca. netto",
+        "loadFailedTitle": "Anfragen konnten nicht geladen werden",
+        "loadFailedBody": "Es liegt ein Verbindungs- oder Serverproblem vor – die Liste ist nicht leer.",
+        "retry": "Erneut versuchen"
       },
       "emails": {
         "title": "E-Mails",
@@ -879,7 +895,9 @@
         },
         "vatRate": "USt. %",
         "vatRateUsual": "Üblich für {{country}}: {{rate}} %",
-        "vatRateInvalid": "Bitte einen Satz von 0 bis 100 eingeben."
+        "vatRateInvalid": "Bitte einen Satz von 0 bis 100 eingeben.",
+        "retryNote": "Diese Bestellung wurde bereits bestätigt, die Rechnung aber nicht erstellt. Der gespeicherte Preis gilt und lässt sich hier nicht mehr ändern; stellen Sie jetzt die Rechnung aus.",
+        "issueInvoice": "Rechnung ausstellen & senden"
       },
       "detail": {
         "placement": {
@@ -1060,6 +1078,18 @@
           "privacy": "Datenschutz",
           "accepted": "Akzeptiert am {{date}}",
           "notRecorded": "Nicht erfasst"
+        },
+        "cancelDialog": {
+          "title": "Anfrage {{reference}} stornieren?",
+          "description": "Sie wird als storniert markiert und verschwindet aus den Aufgaben. Der Kunde wird nicht automatisch benachrichtigt.",
+          "keep": "Anfrage behalten",
+          "confirm": "Anfrage stornieren"
+        },
+        "paymentDialog": {
+          "titlePaid": "Rechnung {{number}} als bezahlt markieren?",
+          "titleUnpaid": "Rechnung {{number}} als offen markieren?",
+          "descriptionPaid": "Erst, wenn {{amount}} auf dem Konto eingegangen ist.",
+          "descriptionUnpaid": "Sie wird dann wieder als offen geführt."
         }
       },
       "details": {
@@ -1089,7 +1119,14 @@
         "cancel": "Abbrechen",
         "save": "Speichern",
         "saved": "{{reference}} aktualisiert",
-        "failed": "Die Änderungen konnten nicht gespeichert werden."
+        "failed": "Die Änderungen konnten nicht gespeichert werden.",
+        "descriptionConfirmed": "Ergänzen Sie, was der Kunde nach der Bestätigung geschickt hat: Logos, Kartentexte, Adressen, Druckvorlagen.",
+        "invoiceLocked": "Die Rechnungsadresse lässt sich nicht mehr ändern: Sie steht auf der ausgestellten Rechnung.",
+        "cardMessage": "Text der Grußkarte",
+        "cardMessagePlaceholder": "Der Text für die Karte, wie der Kunde ihn geschickt hat",
+        "cardMessageCount": "{{count}} / {{max}}",
+        "customDesign": "Eigenes Design",
+        "designAgreed": "Druckvorlage mit dem Kunden abgestimmt für: {{items}}"
       }
     },
     "products": {
@@ -1651,7 +1688,10 @@
         "reopen": "Wieder öffnen",
         "confirmDelete": "/c/{{slug}} löschen? Anzeigen, die hierher verweisen, landen dann auf einer Seite „Nicht mehr verfügbar“.",
         "deleted": "/c/{{slug}} gelöscht",
-        "deleteFailed": "Die Kollektion konnte nicht gelöscht werden"
+        "deleteFailed": "Die Kollektion konnte nicht gelöscht werden",
+        "loadFailedTitle": "Kollektionen konnten nicht geladen werden",
+        "loadFailedBody": "Es liegt ein Verbindungs- oder Serverproblem vor; die Kollektion selbst ist in Ordnung.",
+        "retry": "Erneut versuchen"
       },
       "collectionForm": {
         "headlineDe": "Überschrift (Deutsch)",
@@ -1744,7 +1784,12 @@
         "submit": "Anlegen und Boxen hinzufügen",
         "created": "/c/{{slug}} angelegt",
         "createdDetail": "Fügen Sie jetzt die Boxen und Produkte hinzu, die angezeigt werden sollen.",
-        "createFailed": "Die Kollektion konnte nicht angelegt werden"
+        "createFailed": "Die Kollektion konnte nicht angelegt werden",
+        "validation": {
+          "slugRequired": "Geben Sie ein URL-Segment aus Buchstaben oder Ziffern ein, z. B. weihnachten.",
+          "tagRequired": "Geben Sie den Anlass-Tag der Produkte ein, z. B. christmas.",
+          "titleDeRequired": "Geben Sie die deutsche Überschrift ein. Sie sehen Besucher zuerst."
+        }
       },
       "featured": {
         "title": "Hervorgehobene Produkte",

@@ -5,7 +5,7 @@ import {
   isPhoneNumber,
   optionalText,
   requiredText,
-  todayIso,
+  todayInBerlin,
   tooLongIn,
 } from './common'
 import {
@@ -66,7 +66,7 @@ export function makeCheckoutSchema(t: TFunction, boxes: number) {
     neededBy: z
       .string()
       .trim()
-      .refine((v) => v === '' || v >= todayIso(), t('validation.neededByPast')),
+      .refine((v) => v === '' || v >= todayInBerlin(), t('validation.neededByPast')),
     notes: optionalText(2000, tooLong),
     privacyAccepted: z.boolean().refine((v) => v, t('checkout.privacyRequired')),
   })

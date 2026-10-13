@@ -134,6 +134,8 @@ export interface Order {
   shippingSplit?: { bulkBoxes: number; individualBoxes: number } | null
   /** Recipient addresses for individually sent boxes are still to come. */
   addressesLater?: boolean
+  /** When the artwork for custom-design items was agreed; null while open. */
+  designAgreedAt?: string | null
   invoice?: InvoiceSummary | null
 }
 
@@ -217,6 +219,10 @@ export interface OrderDetailsBody {
   addressesLater?: boolean
   /** The sticker logo of a box line, by its position; null removes it. */
   stickerLogos?: { index: number; logo: { url: string; name?: string | null } | null }[]
+  /** The greeting-card text of a box line, by its position (max 500 characters). */
+  cardMessages?: { index: number; message: string }[]
+  /** True once the artwork for custom-design items is agreed; false reopens it. */
+  designAgreed?: boolean
 }
 
 export async function updateOrderDetails(id: string, body: OrderDetailsBody): Promise<Order> {

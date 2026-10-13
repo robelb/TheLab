@@ -81,22 +81,25 @@ export function toSlug(value: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-export const newCollectionSchema = z.object({
-  // Cleaned first, then checked: what is validated is what the URL will be.
-  slug: z
-    .string()
-    .transform(toSlug)
-    .pipe(
-      z
-        .string()
-        .min(1, 'Enter a URL segment using letters or digits, e.g. weihnachten.')
-        .max(80, tooLongEn(80)),
-    ),
-  tag: required(64, 'Enter the occasion tag the products carry, e.g. christmas.'),
-  titleDe: required(200, 'Enter the German headline. It is what visitors see first.'),
-  titleEn: optional(200),
-  locale: z.enum(['de', 'en']),
-})
+/**
+ * The new-collection form, in the reader's language — built with `t` like
+ * `makeProductSchema` below, so a language switch re-words the errors.
+ */
+export function makeNewCollectionSchema(t: TFunction) {
+  const v = (key: string) => t(`dashboard.admin.newCollection.validation.${key}`)
+  const tooLong = tooLongIn(t)
+  return z.object({
+    // Cleaned first, then checked: what is validated is what the URL will be.
+    slug: z
+      .string()
+      .transform(toSlug)
+      .pipe(z.string().min(1, v('slugRequired')).max(80, tooLong(80))),
+    tag: requiredText(64, { required: v('tagRequired'), tooLong }),
+    titleDe: requiredText(200, { required: v('titleDeRequired'), tooLong }),
+    titleEn: optionalText(200, tooLong),
+    locale: z.enum(['de', 'en']),
+  })
+}
 
 const numberText = (message: string, check: (n: number) => boolean) =>
   z

@@ -15,6 +15,16 @@ import {
   Pencil,
   Printer,
 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { copyText } from '@/lib/clipboard'
 import { Button } from '@/components/ui/button'
@@ -227,12 +237,9 @@ function DesignBlock({
  */
 function SupplyHeading({ label, line }: { label: string; line: BoxLine }) {
   const { t } = useTranslation()
-  return (
-    <Link
-      to={`/dashboard/products/${line.productId}`}
-      className="group flex items-center gap-3"
-      title={t('dashboard.orders.detail.openProduct', { name: line.name })}
-    >
+  const { can } = useAuth()
+  const body = (
+    <>
       {line.image ? (
         <img
           src={line.image}
@@ -250,6 +257,18 @@ function SupplyHeading({ label, line }: { label: string; line: BoxLine }) {
           {line.name}
         </span>
       </span>
+    </>
+  )
+  // The product editor is for our team only; it sends anyone else back to the
+  // dashboard, so company admins get the heading without a link.
+  if (!can('manage_all')) return <div className="flex items-center gap-3">{body}</div>
+  return (
+    <Link
+      to={`/dashboard/products/${line.productId}`}
+      className="group flex items-center gap-3"
+      title={t('dashboard.orders.detail.openProduct', { name: line.name })}
+    >
+      {body}
     </Link>
   )
 }
@@ -648,6 +667,9 @@ export function OrderDetailPage() {
   const admin = can('manage_all')
   const [confirming, setConfirming] = useState(false)
   const [editing, setEditing] = useState(false)
+  // Withdrawing and the payment toggle are asked about first.
+  const [askCancel, setAskCancel] = useState(false)
+  const [askPayment, setAskPayment] = useState(false)
 
   if (isLoading) {
     return (
@@ -676,6 +698,41 @@ export function OrderDetailPage() {
   }
 
   const todos = orderTodos(order)
+
+  const changeStatus = (status: OrderStatus) =>
+    setStatus.mutate(
+      { id: order.id, status },
+      {
+        onSuccess: (updated) =>
+          notifySaved(
+            t('dashboard.orders.detail.toast.marked', {
+              reference: order.reference,
+              status: t(`dashboard.orders.status.${updated.status}`),
+            }),
+            // Worth saying: this is the signal the ads side scores on.
+            updated.status === 'quoted'
+              ? t('dashboard.orders.detail.toast.sentToFeed')
+              : undefined,
+          ),
+        onError: (err) => notifyError(err, t('dashboard.orders.detail.toast.statusFailed')),
+      },
+    )
+
+  const nextPayment = order.paymentStatus === 'paid' ? 'unpaid' : 'paid'
+  const togglePayment = () =>
+    setPayment.mutate(
+      { id: order.id, paymentStatus: nextPayment },
+      {
+        onSuccess: (updated) =>
+          notifySaved(
+            t('dashboard.orders.detail.toast.marked', {
+              reference: order.reference,
+              status: t(`dashboard.orders.payment.${updated.paymentStatus ?? 'unpaid'}`),
+            }),
+          ),
+        onError: (err) => notifyError(err, t('dashboard.orders.detail.toast.paymentFailed')),
+      },
+    )
   const shipping = shippingCalc(order, (n) => formatPrice(n, order.currency))
   const subtotal = subtotalCalc(order, (n) => formatPrice(n, order.currency))
   const days = daysUntilDelivery(order)
@@ -747,24 +804,8 @@ export function OrderDetailPage() {
           <Select
             value={order.status}
             onValueChange={(status) =>
-              setStatus.mutate(
-                { id: order.id, status: status as OrderStatus },
-                {
-                  onSuccess: (updated) =>
-                    notifySaved(
-                      t('dashboard.orders.detail.toast.marked', {
-                        reference: order.reference,
-                        status: t(`dashboard.orders.status.${updated.status}`),
-                      }),
-                      // Worth saying: this is the signal the ads side scores on.
-                      updated.status === 'quoted'
-                        ? t('dashboard.orders.detail.toast.sentToFeed')
-                        : undefined,
-                    ),
-                  onError: (err) =>
-                    notifyError(err, t('dashboard.orders.detail.toast.statusFailed')),
-                },
-              )
+              // Withdrawing is asked about first; the customer is not told.
+              status === 'cancelled' ? setAskCancel(true) : changeStatus(status as OrderStatus)
             }
             // An invoiced order's status is settled until a credit note exists.
             disabled={setStatus.isPending || Boolean(order.invoice)}
@@ -787,7 +828,27 @@ export function OrderDetailPage() {
               ))}
             </SelectContent>
           </Select>
-          {admin && !order.invoice && order.status !== 'cancelled' && (
+          <AlertDialog open={askCancel} onOpenChange={setAskCancel}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {t('dashboard.orders.detail.cancelDialog.title', { reference: order.reference })}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t('dashboard.orders.detail.cancelDialog.description')}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t('dashboard.orders.detail.cancelDialog.keep')}</AlertDialogCancel>
+                <AlertDialogAction variant="destructive" onClick={() => changeStatus('cancelled')}>
+                  {t('dashboard.orders.detail.cancelDialog.confirm')}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          {/* Production details keep arriving after the invoice, so this stays
+              open; the dialog itself locks the invoice address once confirmed. */}
+          {admin && order.status !== 'cancelled' && (
             <>
               <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
                 <Pencil className="size-4" />
@@ -799,6 +860,10 @@ export function OrderDetailPage() {
                 open={editing}
                 onOpenChange={setEditing}
               />
+            </>
+          )}
+          {admin && !order.invoice && order.status !== 'cancelled' && (
+            <>
               <Button size="sm" onClick={() => setConfirming(true)}>
                 <CheckCircle2 className="size-4" />
                 {t('dashboard.orders.detail.confirmOrder')}
@@ -817,31 +882,43 @@ export function OrderDetailPage() {
                 size="sm"
                 variant="outline"
                 disabled={setPayment.isPending}
-                onClick={() =>
-                  setPayment.mutate(
-                    {
-                      id: order.id,
-                      paymentStatus: order.paymentStatus === 'paid' ? 'unpaid' : 'paid',
-                    },
-                    {
-                      onSuccess: (updated) =>
-                        notifySaved(
-                          t('dashboard.orders.detail.toast.marked', {
-                            reference: order.reference,
-                            status: t(`dashboard.orders.payment.${updated.paymentStatus ?? 'unpaid'}`),
-                          }),
-                        ),
-                      onError: (err) =>
-                        notifyError(err, t('dashboard.orders.detail.toast.paymentFailed')),
-                    },
-                  )
-                }
+                onClick={() => setAskPayment(true)}
               >
                 {setPayment.isPending && <Loader2 className="size-4 animate-spin" />}
                 {order.paymentStatus === 'paid'
                   ? t('dashboard.orders.detail.markUnpaid')
                   : t('dashboard.orders.detail.markPaid')}
               </Button>
+              <AlertDialog open={askPayment} onOpenChange={setAskPayment}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {nextPayment === 'paid'
+                        ? t('dashboard.orders.detail.paymentDialog.titlePaid', {
+                            number: order.invoice.number,
+                          })
+                        : t('dashboard.orders.detail.paymentDialog.titleUnpaid', {
+                            number: order.invoice.number,
+                          })}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {nextPayment === 'paid'
+                        ? t('dashboard.orders.detail.paymentDialog.descriptionPaid', {
+                            amount: formatPrice(order.invoice.gross, order.invoice.currency),
+                          })
+                        : t('dashboard.orders.detail.paymentDialog.descriptionUnpaid')}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t('dashboard.orders.details.cancel')}</AlertDialogCancel>
+                    <AlertDialogAction onClick={togglePayment}>
+                      {nextPayment === 'paid'
+                        ? t('dashboard.orders.detail.markPaid')
+                        : t('dashboard.orders.detail.markUnpaid')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               <Button size="sm" variant="outline" onClick={() => void openInvoice(order)}>
                 <FileDown className="size-4" />
                 {t('dashboard.orders.detail.invoicePdf')}
@@ -885,8 +962,8 @@ export function OrderDetailPage() {
         </div>
       </header>
 
-      {/* ── What is still open ─────────────────────────────────────── */}
-      {todos.length > 0 && (
+      {/* ── What is still open (the team's checklist) ─────────────── */}
+      {admin && todos.length > 0 && (
         <section className="rounded-brand border border-amber-500/40 bg-amber-500/5 p-4">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-800">
             {t('dashboard.orders.detail.todo')}

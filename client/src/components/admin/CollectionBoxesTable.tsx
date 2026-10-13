@@ -12,6 +12,21 @@ import {
 import { formatPrice } from '@/utils/format'
 import type { Product } from '@/types/product'
 import { ProductImage } from '@/components/ProductImage'
+import { useProduct } from '@/hooks/use-product'
+
+/**
+ * How many parts a box holds. The collection list carries each box's parts,
+ * but one just picked from the catalogue does not (the catalogue list leaves
+ * them out), so that one is read on its own — and shown as unknown meanwhile
+ * rather than as an empty box.
+ */
+function BoxContentsCount({ box }: { box: Product }) {
+  const { t } = useTranslation()
+  const { data } = useProduct(box.components ? undefined : box.id)
+  const components = box.components ?? data?.components
+  if (!components) return <span aria-hidden>—</span>
+  return <>{t('dashboard.admin.collectionBoxes.items', { count: components.length })}</>
+}
 
 /**
  * The boxes a landing page leads with, in the order they appear.
@@ -122,9 +137,7 @@ export function CollectionBoxesTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {t('dashboard.admin.collectionBoxes.items', {
-                      count: box.components?.length ?? 0,
-                    })}
+                    <BoxContentsCount box={box} />
                   </TableCell>
                   <TableCell className="tabular-nums">
                     {formatPrice(box.price, box.currency)}

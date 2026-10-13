@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Copy, ExternalLink, Trash2 } from 'lucide-react'
+import { ArrowLeft, Copy, ExternalLink, Loader2, RotateCw, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { CollectionEditor } from '@/components/admin/CollectionEditor'
 import { useAuth } from '@/context/AuthContext'
@@ -28,7 +28,7 @@ export function CollectionDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { can } = useAuth()
-  const { data: collections, isPending } = useAllCollections()
+  const { data: collections, isPending, isFetching, error, refetch } = useAllCollections()
   const updateCollection = useUpdateCollection()
   const removeCollection = useDeleteCollection()
   const [copied, setCopied] = useState(false)
@@ -37,12 +37,39 @@ export function CollectionDetailPage() {
 
   const collection = collections?.find((c) => c.id === id)
 
-  if (isPending) {
+  // Also while the list refetches without it — e.g. right after creating it,
+  // before the fresh list has come back.
+  if (isPending || (!collection && isFetching)) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-9 w-48" />
         <Skeleton className="h-28 w-full" />
         <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
+
+  // A failed load is not a deleted collection: say so, and offer to retry.
+  if (!collection && error) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-20 text-center">
+        <h1 className="font-display text-xl font-semibold">
+          {t('dashboard.admin.collectionDetail.loadFailedTitle')}
+        </h1>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          {t('dashboard.admin.collectionDetail.loadFailedBody')}
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => void refetch()} disabled={isFetching}>
+            {isFetching ? <Loader2 className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
+            {t('dashboard.admin.collectionDetail.retry')}
+          </Button>
+          <Button asChild variant="ghost">
+            <Link to="/dashboard/admin/collections">
+              {t('dashboard.admin.collectionDetail.backToList')}
+            </Link>
+          </Button>
+        </div>
       </div>
     )
   }

@@ -65,6 +65,8 @@ export const orders = pgTable(
      * for a hundred employees rarely has the list to hand at checkout.
      */
     addressesLater: boolean('addresses_later').notNull().default(false),
+    /** When the artwork for its custom-design items was agreed with the customer. */
+    designAgreedAt: timestamp('design_agreed_at', { withTimezone: true }),
     /** Where individually shipped boxes go. Empty until the addresses arrive. */
     recipients: jsonb('recipients')
       .$type<OrderRecipient[]>()

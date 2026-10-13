@@ -1,6 +1,6 @@
 import type { Order, OrderItem } from '@/api/orders'
 import type { BoxDetails, BoxLine } from '@/types/box'
-import { PICK_FEE_FIRST, PICK_FEE_NEXT, pickFee } from '@/lib/pricing'
+import { PICK_FEE_FIRST, PICK_FEE_MARKUP, PICK_FEE_NEXT, pickFee } from '@/lib/pricing'
 import { SHIPPING_RATES, zoneFor, type ShippingZone } from '@/lib/shipping'
 import { formatDate } from '@/utils/format'
 import i18n, { currentLocale } from '@/i18n'
@@ -35,6 +35,16 @@ export interface OrderTodo {
 
 /** Supplies whose artwork is agreed with the customer after the request. */
 const isCustomDesign = (name: string | undefined) => /eigenes design/i.test(name ?? '')
+
+/** Names of the custom-design supplies in a request, each once. */
+export function customDesignItems(order: Order): string[] {
+  const names = boxesOf(order).flatMap((box) =>
+    [box.packaging, box.greetingCard, box.stickers]
+      .filter((line) => line && isCustomDesign(line.name))
+      .map((line) => line!.name),
+  )
+  return [...new Set(names)]
+}
 
 export function boxesOf(order: Order): BoxDetails[] {
   return order.items
@@ -89,7 +99,8 @@ export function orderTodos(order: Order, now = new Date()): OrderTodo[] {
       urgent: true,
     })
   }
-  if (order.status === 'new') {
+  // A quoted request still has to be confirmed before its invoice goes out.
+  if (open) {
     todos.push({
       key: 'confirm',
       label: tr('todo.confirm.label'),
@@ -121,16 +132,12 @@ export function orderTodos(order: Order, now = new Date()): OrderTodo[] {
       detail: tr('todo.cardMessage.detail', { count: missingMessage }),
     })
   }
-  const custom = boxes.flatMap((box) =>
-    [box.packaging, box.greetingCard, box.stickers]
-      .filter((line) => line && isCustomDesign(line.name))
-      .map((line) => line!.name),
-  )
-  if (custom.length) {
+  const custom = customDesignItems(order)
+  if (custom.length && !order.designAgreedAt) {
     todos.push({
       key: 'customDesign',
       label: tr('todo.customDesign.label'),
-      detail: tr('todo.customDesign.detail', { items: [...new Set(custom)].join(', ') }),
+      detail: tr('todo.customDesign.detail', { items: custom.join(', ') }),
     })
   }
   if (order.invoice && order.paymentStatus !== 'paid') {
@@ -212,14 +219,23 @@ export function picksOf(box: BoxDetails): number {
   )
 }
 
-/** "€0.30 + 5 × €0.15" for 6 picks. */
+/**
+ * "(€0.30 + 5 × €0.15) × 1.9" for 6 picks — the fulfilment cost and our
+ * markup on it. For the team only; shoppers only ever see the result.
+ */
 export function pickFeeWorking(picks: number, money: Money): string {
-  if (picks <= 1) return tr('calc.pickFeeSingle', { count: picks, price: money(PICK_FEE_FIRST) })
+  const markup = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }).format(
+    PICK_FEE_MARKUP,
+  )
+  if (picks <= 1) {
+    return tr('calc.pickFeeSingle', { count: picks, price: money(PICK_FEE_FIRST), markup })
+  }
   return tr('calc.pickFeeMany', {
     count: picks,
     first: money(PICK_FEE_FIRST),
     rest: picks - 1,
     next: money(PICK_FEE_NEXT),
+    markup,
   })
 }
 

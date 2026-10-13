@@ -13,15 +13,19 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { uploadLogoFile } from '@/api/uploads'
 import { useUpdateOrderDetails } from '@/hooks/use-orders'
 import { notifyError, notifySaved } from '@/lib/notify'
-import { countryName } from '@/lib/orderOps'
+import { countryName, customDesignItems } from '@/lib/orderOps'
 import { INVOICE_COUNTRIES } from '@/lib/shipping'
 import type { Order, OrderBilling, OrderDetailsBody } from '@/api/orders'
 import type { StickerLogo } from '@/types/box'
 
 type BillingForm = Required<{ [K in keyof OrderBilling]: string }>
+
+/** The server's limit on a greeting-card message. */
+const CARD_MESSAGE_MAX = 500
 
 function billingForm(b: OrderBilling | null | undefined): BillingForm {
   return {
@@ -40,8 +44,9 @@ function billingForm(b: OrderBilling | null | undefined): BillingForm {
 
 /**
  * Fill in what the customer sends after the request: a PO number, a corrected
- * invoice address, "the recipient addresses have arrived", the sticker logo.
- * Only before the order is confirmed — the invoice is made out from these.
+ * invoice address, "the recipient addresses have arrived", the sticker logo,
+ * the card text, "the artwork is agreed". The invoice address only until the
+ * order is confirmed — it is printed on the issued invoice; the rest any time.
  */
 export function OrderDetailsDialog({
   order,
@@ -56,7 +61,20 @@ export function OrderDetailsDialog({
   const save = useUpdateOrderDetails()
   const initial = billingForm(order.billing)
   const [billing, setBilling] = useState<BillingForm>(initial)
+  // Same rule as the server: once confirmed, the invoice address is fixed.
+  const billingLocked = Boolean(order.confirmedAt) || order.status === 'confirmed'
   const [addressesIn, setAddressesIn] = useState(!order.addressesLater)
+  // Box lines with a greeting card, and the text each carries (or is getting).
+  const cardLines = order.items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.box?.greetingCard)
+  const [messages, setMessages] = useState<Record<number, string>>(() =>
+    Object.fromEntries(
+      cardLines.map(({ item, index }) => [index, item.box?.greetingCard?.message ?? '']),
+    ),
+  )
+  const customItems = customDesignItems(order)
+  const [designAgreed, setDesignAgreed] = useState(Boolean(order.designAgreedAt))
   // Box lines that carry stickers, with the logo each has (or is getting).
   const stickerLines = order.items
     .map((item, index) => ({ item, index }))
@@ -92,19 +110,40 @@ export function OrderDetailsDialog({
 
   const submit = () => {
     const body: OrderDetailsBody = {}
-    const changed = (Object.keys(billing) as (keyof BillingForm)[]).filter(
-      (key) => billing[key].trim() !== initial[key].trim(),
-    )
+    const keys = Object.keys(billing) as (keyof BillingForm)[]
+    const changed = billingLocked
+      ? []
+      : keys.filter((key) => billing[key].trim() !== initial[key].trim())
     if (changed.length) {
-      body.billing = Object.fromEntries(changed.map((key) => [key, billing[key].trim()]))
+      // With no invoice address yet, the server needs the whole of it (the
+      // country included, which the form only defaults); otherwise just what
+      // changed, merged into what is there.
+      const send = order.billing ? changed : keys
+      body.billing = Object.fromEntries(send.map((key) => [key, billing[key].trim()]))
     }
     if (addressesIn === Boolean(order.addressesLater)) body.addressesLater = !addressesIn
     const logoChanges = stickerLines
       .filter(({ item, index }) => (item.box?.stickerLogo?.url ?? null) !== (logos[index]?.url ?? null))
       .map(({ index }) => ({ index, logo: logos[index] ?? null }))
     if (logoChanges.length) body.stickerLogos = logoChanges
+    const messageChanges = cardLines
+      .filter(
+        ({ item, index }) =>
+          (messages[index] ?? '').trim() !== (item.box?.greetingCard?.message ?? '').trim(),
+      )
+      .map(({ index }) => ({ index, message: (messages[index] ?? '').trim() }))
+    if (messageChanges.length) body.cardMessages = messageChanges
+    if (customItems.length && designAgreed !== Boolean(order.designAgreedAt)) {
+      body.designAgreed = designAgreed
+    }
 
-    if (!body.billing && body.addressesLater === undefined && !body.stickerLogos) {
+    if (
+      !body.billing &&
+      body.addressesLater === undefined &&
+      !body.stickerLogos &&
+      !body.cardMessages &&
+      body.designAgreed === undefined
+    ) {
       onOpenChange(false)
       return
     }
@@ -139,40 +178,50 @@ export function OrderDetailsDialog({
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t('dashboard.orders.details.title', { reference: order.reference })}</DialogTitle>
-          <DialogDescription>{t('dashboard.orders.details.description')}</DialogDescription>
+          <DialogDescription>
+            {billingLocked
+              ? t('dashboard.orders.details.descriptionConfirmed')
+              : t('dashboard.orders.details.description')}
+          </DialogDescription>
         </DialogHeader>
 
         <section className="space-y-3">
           <h3 className="text-sm font-semibold">{t('dashboard.orders.details.invoice')}</h3>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {field('poNumber', t('dashboard.orders.details.poNumber'), { optional: true })}
-            {field('vatId', t('dashboard.orders.details.vatId'), { optional: true })}
-            {field('company', t('dashboard.orders.details.company'))}
-            {field('name', t('dashboard.orders.details.name'), { optional: true })}
-            {field('street', t('dashboard.orders.details.street'))}
-            {field('line2', t('dashboard.orders.details.line2'), { optional: true })}
-            {field('zip', t('dashboard.orders.details.zip'))}
-            {field('city', t('dashboard.orders.details.city'))}
-            <div className="space-y-1.5">
-              <Label htmlFor="details-country">{t('dashboard.orders.details.country')}</Label>
-              <select
-                id="details-country"
-                value={billing.country}
-                onChange={set('country')}
-                className="h-10 w-full rounded-brand border border-input bg-background px-3 text-sm"
-              >
-                {INVOICE_COUNTRIES.map((code) => (
-                  <option key={code} value={code}>
-                    {countryName(code)}
-                  </option>
-                ))}
-              </select>
+          {billingLocked ? (
+            <p className="rounded-brand border border-border/40 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              {t('dashboard.orders.details.invoiceLocked')}
+            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {field('poNumber', t('dashboard.orders.details.poNumber'), { optional: true })}
+              {field('vatId', t('dashboard.orders.details.vatId'), { optional: true })}
+              {field('company', t('dashboard.orders.details.company'))}
+              {field('name', t('dashboard.orders.details.name'), { optional: true })}
+              {field('street', t('dashboard.orders.details.street'))}
+              {field('line2', t('dashboard.orders.details.line2'), { optional: true })}
+              {field('zip', t('dashboard.orders.details.zip'))}
+              {field('city', t('dashboard.orders.details.city'))}
+              <div className="space-y-1.5">
+                <Label htmlFor="details-country">{t('dashboard.orders.details.country')}</Label>
+                <select
+                  id="details-country"
+                  value={billing.country}
+                  onChange={set('country')}
+                  className="h-10 w-full rounded-brand border border-input bg-background px-3 text-sm"
+                >
+                  {INVOICE_COUNTRIES.map((code) => (
+                    <option key={code} value={code}>
+                      {countryName(code)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {field('email', t('dashboard.orders.details.email'), { optional: true })}
             </div>
-            {field('email', t('dashboard.orders.details.email'), { optional: true })}
-          </div>
+          )}
         </section>
 
-        {order.shippingMethod && order.shippingMethod !== 'bulk' && (
+        {(order.addressesLater || (order.shippingMethod && order.shippingMethod !== 'bulk')) && (
           <section className="space-y-2 border-t border-border/40 pt-4">
             <h3 className="text-sm font-semibold">{t('dashboard.orders.details.recipients')}</h3>
             <div className="flex items-center gap-2">
@@ -244,6 +293,53 @@ export function OrderDetailsDialog({
               className="hidden"
               onChange={(e) => void onFile(e.target.files?.[0])}
             />
+          </section>
+        )}
+
+        {cardLines.length > 0 && (
+          <section className="space-y-3 border-t border-border/40 pt-4">
+            <h3 className="text-sm font-semibold">{t('dashboard.orders.details.cardMessage')}</h3>
+            {cardLines.map(({ item, index }) => {
+              const value = messages[index] ?? ''
+              return (
+                <div key={index} className="space-y-1.5">
+                  <Label htmlFor={`details-card-${index}`} className="font-normal">
+                    {item.name}
+                  </Label>
+                  <Textarea
+                    id={`details-card-${index}`}
+                    rows={3}
+                    maxLength={CARD_MESSAGE_MAX}
+                    value={value}
+                    placeholder={t('dashboard.orders.details.cardMessagePlaceholder')}
+                    onChange={(e) => setMessages((m) => ({ ...m, [index]: e.target.value }))}
+                  />
+                  <p className="text-right text-xs tabular-nums text-muted-foreground">
+                    {t('dashboard.orders.details.cardMessageCount', {
+                      count: value.length,
+                      max: CARD_MESSAGE_MAX,
+                    })}
+                  </p>
+                </div>
+              )
+            })}
+          </section>
+        )}
+
+        {customItems.length > 0 && (
+          <section className="space-y-2 border-t border-border/40 pt-4">
+            <h3 className="text-sm font-semibold">{t('dashboard.orders.details.customDesign')}</h3>
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="details-design-agreed"
+                className="mt-0.5"
+                checked={designAgreed}
+                onCheckedChange={(c) => setDesignAgreed(c === true)}
+              />
+              <Label htmlFor="details-design-agreed" className="font-normal leading-snug">
+                {t('dashboard.orders.details.designAgreed', { items: customItems.join(', ') })}
+              </Label>
+            </div>
           </section>
         )}
 

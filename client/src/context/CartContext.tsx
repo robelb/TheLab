@@ -10,8 +10,18 @@ import {
 } from 'react'
 import { usePostHog } from '@posthog/react'
 import { useProductsByIds } from '@/hooks/use-products'
-import { boxAllLines } from '@/lib/box'
+import {
+  baseProductId,
+  boxAllLines,
+  CART_VARIANT_SEPARATOR,
+  cartLineCatalogueId,
+  cartLinePrice,
+  cartLineUnavailable,
+  isBoxSku,
+  type LiveCatalogue,
+} from '@/lib/box'
 import type { ProductDesign } from '@/lib/boxDraft'
+import { MAX_LINE_QUANTITY } from '@/lib/pricing'
 import type { BoxDetails, BoxLine } from '@/types/box'
 import type { Product } from '@/types/product'
 
@@ -28,8 +38,49 @@ export interface CartItem {
   design?: ProductDesign
 }
 
+/**
+ * A cart line as the shop shows it: what is stored, plus what it costs now
+ * and whether it can still be ordered — both worked out against the live
+ * catalogue, the way the server will.
+ */
+export interface CartLine extends CartItem {
+  /** One of the line — one box, for a box line — with volume tiers applied. */
+  unitPrice: number
+  lineTotal: number
+  /** Gone from the catalogue or taken out of sale: the server would refuse it. */
+  unavailable: boolean
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Whether two boxes are the same thing to send: same ready-made box (or none),
+ * same contents, same card and message, same designs and sticker logo. Only
+ * then can a second one simply raise the first one's quantity.
+ */
+function sameBox(a: BoxDetails, b: BoxDetails): boolean {
+  const key = (box: BoxDetails) =>
+    JSON.stringify({
+      bundleId: box.bundleId ?? null,
+      parts: boxAllLines(box)
+        .map((line) => `${line.productId}:${line.quantity}:${line.customizedImage ?? ''}`)
+        .sort(),
+      card: box.greetingCard?.productId ?? null,
+      message: (box.greetingCard?.message ?? '').trim(),
+      stickerLogo: box.stickerLogo?.url ?? null,
+      packagingPrompt: box.packagingPrompt ?? null,
+      campaignId: box.campaignId ?? null,
+    })
+  return key(a) === key(b)
+}
+
+/** A cart id of its own for a second, different copy of the same catalogue box. */
+function variantId(productId: string): string {
+  return `${productId}${CART_VARIANT_SEPARATOR}${crypto.randomUUID().slice(0, 8)}`
+}
+
 interface CartContextValue {
-  items: CartItem[]
+  items: CartLine[]
   addItem: (
     product: Product,
     quantity?: number,
@@ -53,6 +104,8 @@ interface CartContextValue {
   clearCart: () => void
   itemCount: number
   subtotal: number
+  /** Some line can no longer be ordered — checkout waits until it is removed. */
+  hasUnavailable: boolean
 }
 
 /** Exported so signing out can forget it — see `AuthContext.logout`. */
@@ -93,7 +146,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const item = itemsRef.current.find((i) => i.product.id === productId)
       if (!item) return
       posthog?.capture(event, {
-        product_id: item.product.id,
+        product_id: cartLineCatalogueId(item),
         product_name: item.product.name,
         product_sku: item.product.sku,
         price: item.product.price,
@@ -113,39 +166,68 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Re-read the live (company-scoped) products and refresh the image fields so
   // the customized variant is what every cart surface renders. Products listed
   // inside a box are snapshots too, so they're refreshed the same way.
-  const storedIds = useMemo(() => {
+  //
+  // The same read prices every line (volume tiers, a ready-made box's own
+  // price) and says which lines the server would refuse. Only catalogue ids
+  // are asked for: a built box's own id is the builder's, and a second copy
+  // of a ready-made box sits under an id of its own (see `addItem`).
+  const catalogueIds = useMemo(() => {
     const ids = new Set<string>()
     for (const item of items) {
-      ids.add(item.product.id)
-      if (item.box) for (const line of boxAllLines(item.box)) ids.add(line.productId)
+      if (!item.box) ids.add(baseProductId(item.product.id))
+      else {
+        if (item.box.bundleId) ids.add(item.box.bundleId)
+        for (const line of boxAllLines(item.box)) ids.add(line.productId)
+      }
     }
     return [...ids]
   }, [items])
+  const storedIds = useMemo(() => catalogueIds.filter((id) => UUID.test(id)), [catalogueIds])
   const { data: liveProducts } = useProductsByIds(storedIds)
 
-  const hydratedItems = useMemo(() => {
-    if (!liveProducts?.length) return items
-    const byId = new Map(liveProducts.map((p) => [p.id, p]))
+  // Held on to while a changed cart is looked up again, so prices and notices
+  // do not flicker each time something is added. An id the current answer was
+  // not asked about counts as not known yet rather than gone.
+  const [live, setLive] = useState<LiveCatalogue | undefined>(undefined)
+  const [seenLive, setSeenLive] = useState<Product[] | undefined>(undefined)
+  if (liveProducts && liveProducts !== seenLive) {
+    setSeenLive(liveProducts)
+    setLive({
+      products: new Map(liveProducts.map((p) => [p.id, p])),
+      // Anything that is not a catalogue id was never going to be found, which
+      // is what the server will make of it too.
+      asked: new Set(catalogueIds),
+    })
+  }
+
+  const hydratedItems = useMemo<CartLine[]>(() => {
+    const byId = live?.products ?? new Map<string, Product>()
 
     const freshImages = (
       snapshot: { image: string; customizedImage: string | null },
-      id: string,
+      id: string | null | undefined,
     ) => {
-      const live = byId.get(id)
+      const fresh = id ? byId.get(id) : undefined
       if (
-        !live ||
-        (live.image === snapshot.image &&
-          live.customizedImage === snapshot.customizedImage)
+        !fresh ||
+        (fresh.image === snapshot.image &&
+          fresh.customizedImage === snapshot.customizedImage)
       ) {
         return null
       }
-      return { image: live.image, customizedImage: live.customizedImage }
+      return { image: fresh.image, customizedImage: fresh.customizedImage }
     }
 
-    let changed = false
-    const next = items.map((item) => {
-      // Images only — price, name and the rest stay as captured at add time.
-      const productImages = freshImages(item.product, item.product.id)
+    return items.map((item) => {
+      // Images only — name and the rest stay as captured at add time. A
+      // ready-made box added as one is refreshed from that box; one put
+      // together in the builder keeps its own photo.
+      const catalogueId = item.box
+        ? isBoxSku(item.product.sku)
+          ? null
+          : item.box.bundleId
+        : baseProductId(item.product.id)
+      const productImages = freshImages(item.product, catalogueId)
 
       let box = item.box
       if (box) {
@@ -170,36 +252,51 @@ export function CartProvider({ children }: { children: ReactNode }) {
         if (boxChanged) box = { ...box, lines, packaging, filling }
       }
 
-      if (!productImages && box === item.box) return item
-      changed = true
+      const product = productImages
+        ? {
+            ...item.product,
+            ...productImages,
+            images: catalogueId ? byId.get(catalogueId)?.images : item.product.images,
+          }
+        : item.product
+      const price = cartLinePrice(item, live)
       return {
         ...item,
-        product: productImages
-          ? {
-              ...item.product,
-              ...productImages,
-              images: byId.get(item.product.id)?.images,
-            }
-          : item.product,
+        product,
         box,
+        unitPrice: price.unit,
+        lineTotal: price.total,
+        unavailable: cartLineUnavailable(item, live),
       }
     })
-
-    return changed ? next : items
-  }, [items, liveProducts])
+  }, [items, live])
 
   const addItem = useCallback(
     (product: Product, quantity = 1, box?: BoxDetails, design?: ProductDesign) => {
       setItems((prev) => {
-        const existing = prev.find((i) => i.product.id === product.id)
+        // The same thing again only raises its quantity. A box is the same
+        // only when everything about it is — the same ready-made box with
+        // another card message is a second line, or the message would be lost.
+        const existing = prev.find((i) =>
+          box
+            ? Boolean(i.box) &&
+              baseProductId(i.product.id) === product.id &&
+              sameBox(i.box!, box)
+            : !i.box && baseProductId(i.product.id) === product.id,
+        )
         if (existing) {
           return prev.map((i) =>
-            i.product.id === product.id
-              ? { ...i, quantity: i.quantity + quantity }
+            i === existing
+              ? { ...i, quantity: Math.min(MAX_LINE_QUANTITY, i.quantity + quantity) }
               : i,
           )
         }
-        return [...prev, { product, quantity, box, design }]
+        // Lines are keyed by product id, so a second, different copy of the
+        // same box gets one of its own. The server prices a box line from its
+        // box (its bundle, or its parts), never from this id.
+        const taken = prev.some((i) => i.product.id === product.id)
+        const line = taken ? { ...product, id: variantId(product.id) } : product
+        return [...prev, { product: line, quantity, box, design }]
       })
     },
     [],
@@ -209,9 +306,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     (productId: string, design: ProductDesign | null) => {
       setItems((prev) => {
         // A box line's artwork lives in the box, not here — leave it alone.
-        if (!prev.some((i) => i.product.id === productId && !i.box)) return prev
+        const mine = (i: CartItem) => !i.box && baseProductId(i.product.id) === productId
+        if (!prev.some(mine)) return prev
         return prev.map((i) =>
-          i.product.id === productId && !i.box
+          mine(i)
             ? { ...i, design: design ?? undefined }
             : i,
         )
@@ -235,10 +333,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setItems((prev) => prev.filter((i) => i.product.id !== productId))
         return
       }
-      trackLine('cart quantity changed', productId, { quantity })
+      const capped = Math.min(MAX_LINE_QUANTITY, quantity)
+      trackLine('cart quantity changed', productId, { quantity: capped })
       setItems((prev) =>
         prev.map((i) =>
-          i.product.id === productId ? { ...i, quantity } : i,
+          i.product.id === productId ? { ...i, quantity: capped } : i,
         ),
       )
     },
@@ -265,9 +364,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [items],
   )
 
+  // What the lines come to, each priced the way the server will price it.
   const subtotal = useMemo(
-    () => items.reduce((sum, i) => sum + i.product.price * i.quantity, 0),
-    [items],
+    () => hydratedItems.reduce((sum, i) => sum + i.lineTotal, 0),
+    [hydratedItems],
+  )
+  const hasUnavailable = useMemo(
+    () => hydratedItems.some((i) => i.unavailable),
+    [hydratedItems],
   )
 
   const value = useMemo(
@@ -281,6 +385,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       clearCart,
       itemCount,
       subtotal,
+      hasUnavailable,
     }),
     [
       hydratedItems,
@@ -292,6 +397,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       clearCart,
       itemCount,
       subtotal,
+      hasUnavailable,
     ],
   )
 

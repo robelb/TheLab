@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import type { ZodForm } from '@/lib/form'
 import type { CheckoutValues } from '@/lib/schemas/checkout'
-import { todayIso } from '@/lib/schemas/common'
+import { todayInBerlin } from '@/lib/schemas/common'
 import {
   countryOptions,
   INVOICE_COUNTRIES,
@@ -528,7 +528,7 @@ export function DeliverySection({
           value={neededBy.value}
           onChange={(value) => f.set('neededBy', value)}
           onBlur={neededBy.onBlur}
-          min={todayIso()}
+          min={todayInBerlin()}
           clearable
           aria-invalid={neededBy['aria-invalid']}
           aria-describedby={neededBy['aria-describedby']}

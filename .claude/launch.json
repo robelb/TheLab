@@ -21,6 +21,18 @@
         "dev"
       ],
       "port": 3009
+    },
+    {
+      "name": "api-e2e",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "MAIL_PROVIDER=log",
+        "pnpm",
+        "--dir",
+        "backend",
+        "dev"
+      ],
+      "port": 3009
     }
   ]
 }
