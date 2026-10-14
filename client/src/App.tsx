@@ -8,7 +8,7 @@ import { RequireAuth } from '@/components/RequireAuth'
 import { AttributionCapture } from '@/components/AttributionCapture'
 import { ThemeSync } from '@/components/ThemeSync'
 import { FunnelProvider } from '@/context/FunnelContext'
-import { RequireCustomization } from '@/components/RequireCustomization'
+import { RequireDesignAccess } from '@/components/RequireCustomization'
 import { HomePage } from '@/pages/HomePage'
 import { CollectionPage } from '@/pages/CollectionPage'
 import { BoxBuilderRoute } from '@/components/BoxBuilderRoute'
@@ -63,9 +63,9 @@ export default function App() {
                 <Route
                   path="/design/:productId"
                   element={
-                    <RequireCustomization>
+                    <RequireDesignAccess>
                       <DesignPage />
-                    </RequireCustomization>
+                    </RequireDesignAccess>
                   }
                 />
                 {/*

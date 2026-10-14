@@ -40,7 +40,8 @@ const isCustomDesign = (name: string | undefined) => /eigenes design/i.test(name
 export function customDesignItems(order: Order): string[] {
   const names = boxesOf(order).flatMap((box) =>
     [box.packaging, box.greetingCard, box.stickers]
-      .filter((line) => line && isCustomDesign(line.name))
+      // An "Eigenes Design" option, or a box or sticker designed in the editor.
+      .filter((line) => line && (isCustomDesign(line.name) || line.customPrint))
       .map((line) => line!.name),
   )
   return [...new Set(names)]

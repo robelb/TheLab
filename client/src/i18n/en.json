@@ -519,7 +519,8 @@
     "printed": "Printed",
     "embossed": "Embossed",
     "engraved": "Engraved",
-    "pictureCouldNotLoad": "That picture could not be loaded. Your design is safe — close this and open it again."
+    "pictureCouldNotLoad": "That picture could not be loaded. Your design is safe — close this and open it again.",
+    "logoSticker": "Logo sticker"
   },
   "validation": {
     "summary_one": "Almost there. Please check the highlighted field above.",
@@ -606,7 +607,7 @@
     },
     "packaging": {
       "title": "Choose the packaging",
-      "body": "Pick the packaging your box ships in. Every option shown is ready-made and ships as pictured.",
+      "body": "Pick the packaging your box ships in — a ready-made one, or print your own logo and design on it.",
       "pick": "Pick a packaging to continue.",
       "fillingIncluded": "Every box is padded with {{name}}.",
       "fillingTitle": "Filling material",
@@ -630,7 +631,12 @@
       "logoUploaded": "Logo uploaded",
       "logoFollows": "Logo to follow — we'll ask for it after your request",
       "tooLarge": "The file is larger than 10 MB. Please pick a smaller one or send it to us later.",
-      "uploadFailed": "The logo could not be uploaded. Try again or send it to us later."
+      "uploadFailed": "The logo could not be uploaded. Try again or send it to us later.",
+      "designTitle": "Design your sticker",
+      "designBody": "Place your logo and any wording on the sticker and see exactly how it will look.",
+      "designButton": "Design sticker",
+      "designed": "Your sticker design",
+      "designedBody": "Saved — this is what we print."
     },
     "review": {
       "title": "Your box",
@@ -959,7 +965,16 @@
           "photoreal": "Photoreal render — presentation only",
           "brief": "Brief:",
           "customLogo": "Used a custom logo for this design, not the company mark.",
-          "noPlacement": "No placement recorded — the artwork was generated from the brief rather than positioned by hand."
+          "noPlacement": "No placement recorded — the artwork was generated from the brief rather than positioned by hand.",
+          "source": "Base photo — placement is measured on this",
+          "openFull": "open full size",
+          "boardColour": "Board colour:",
+          "copyBrief": "Copy brief",
+          "logoFile": "Logo file used in the design",
+          "logoNotSaved": "The company logo was used; its file wasn't saved with this design. Ask the customer for it.",
+          "artworkFiles": "Uploaded artwork",
+          "boxTitle": "Box design — {{name}}",
+          "stickerTitle": "Sticker design"
         },
         "openProduct": "Open {{name}}",
         "copy": {

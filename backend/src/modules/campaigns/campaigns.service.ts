@@ -214,10 +214,11 @@ export interface KitSupplySelection {
   packagingImageUrl?: string
   /**
    * The logo sticker from the box builder, stuck on the packaging in the box
-   * photo. Photographed from its catalogue image for now; the shopper's own
-   * logo for it is not put on it yet.
+   * photo. Photographed from the shopper's design of it when there is one,
+   * else from its catalogue image.
    */
   stickerId?: string
+  stickerImageUrl?: string
   /** Per-product designs, keyed by product id, preferred over catalog photos. */
   productImages?: Record<string, string>
   /**
@@ -461,8 +462,9 @@ async function generateBoxHeroImage(
     supplies.stickerId
       ? getProductById(supplies.stickerId)
           .then(async (item) => {
-            if (!item?.image) return null
-            const image = await fetchImage(item.image, 'product', { maxEdge: BOX_HERO_REF_EDGE })
+            const source = supplies.stickerImageUrl ?? item?.image
+            if (!item || !source) return null
+            const image = await fetchImage(source, 'product', { maxEdge: BOX_HERO_REF_EDGE })
             return { name: item.name, image }
           })
           .catch((err) => {

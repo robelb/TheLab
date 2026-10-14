@@ -46,7 +46,21 @@ export interface ProductDesign {
    * it lands here the server can already fetch it by URL.
    */
   logoUrl?: string | null
+  /**
+   * The photograph the design was placed on. Placement percentages mean
+   * nothing without it, and reopening the editor resumes on it.
+   */
+  source?: string | null
+  /** The board colour picked for a box, by the name the catalogue gives it. */
+  color?: string | null
+  /** Which part of the box this design is for, so the order can say so. */
+  subject?: DesignSubject | null
 }
+
+/** What was designed: the box itself, its stickers, or a single product. */
+export type DesignSubject = 'packaging' | 'sticker' | 'product'
+
+const DESIGN_SUBJECTS: readonly DesignSubject[] = ['packaging', 'sticker', 'product']
 
 
 export function parseDesign(raw: unknown): ProductDesign | null {
@@ -62,6 +76,11 @@ export function parseDesign(raw: unknown): ProductDesign | null {
     prompt: typeof r.prompt === 'string' ? r.prompt : null,
     layout: parseLayout(r.layout),
     logoUrl: typeof r.logoUrl === 'string' ? r.logoUrl : null,
+    source: typeof r.source === 'string' ? r.source : null,
+    color: typeof r.color === 'string' ? r.color : null,
+    subject: DESIGN_SUBJECTS.includes(r.subject as DesignSubject)
+      ? (r.subject as DesignSubject)
+      : null,
   }
 }
 

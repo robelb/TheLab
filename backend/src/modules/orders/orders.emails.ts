@@ -82,6 +82,17 @@ function stickerLogoStatus(order: OrderDto): 'uploaded' | 'missing' | null {
   return boxes.every((box) => box?.stickerLogo?.url) ? 'uploaded' : 'missing'
 }
 
+/** Which parts of the boxes were designed by the customer: the box, the sticker. */
+function designedParts(order: OrderDto, de: boolean): string | null {
+  type DesignedBox = { packaging?: { customPrint?: boolean } | null; stickers?: { customPrint?: boolean } | null }
+  const boxes = order.items.map((item) => item.box as DesignedBox | null).filter(Boolean)
+  const parts = [
+    boxes.some((box) => box?.packaging?.customPrint) ? (de ? 'Box' : 'box') : null,
+    boxes.some((box) => box?.stickers?.customPrint) ? 'Sticker' : null,
+  ].filter(Boolean)
+  return parts.length ? parts.join(', ') : null
+}
+
 /** What to send us when the sticker logo comes after the request. */
 function logoRequest(de: boolean): string {
   return de
@@ -272,6 +283,14 @@ export function orderNotifyEmail(order: OrderDto): RenderedEmail {
               stickerLogoStatus(order) === 'uploaded'
                 ? de ? 'hochgeladen (im Dashboard)' : 'uploaded (see dashboard)'
                 : de ? 'folgt per E-Mail' : 'to follow by email',
+          },
+        ]
+      : []),
+    ...(designedParts(order, de)
+      ? [
+          {
+            label: de ? 'Eigenes Design' : 'Custom design',
+            value: `${designedParts(order, de)} — ${de ? 'Druckdaten im Dashboard' : 'print files in the dashboard'}`,
           },
         ]
       : []),

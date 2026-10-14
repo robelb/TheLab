@@ -85,7 +85,8 @@ export function CartPage() {
             // A built box is a client-side line item, not a catalog product —
             // its detail page is the box builder, opened on this very box.
             // Boxes added before contents were tracked just open the builder.
-            const editBoxUrl = `/build-box?edit=${encodeURIComponent(product.id)}`
+            // With its collection, or the builder opens it as a shop box.
+            const editBoxUrl = funnelLink(`/build-box?edit=${encodeURIComponent(product.id)}`)
             // A box built step by step reopens in that builder wherever box
             // building is on. A ready-made box in a focused campaign leads to
             // the box it came from, never to a builder — following the picture

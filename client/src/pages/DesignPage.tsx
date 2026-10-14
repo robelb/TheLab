@@ -45,7 +45,7 @@ import {
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ASPECT_RATIOS, KEEP_SCENE_ID, SCENE_TYPES } from '@/api/photoshoot'
-import { fileToDataUrl, uploadImages } from '@/api/uploads'
+import { fileToDataUrl, uploadImages, uploadLogoFile } from '@/api/uploads'
 import {
   PlacementCanvas,
   SelectedLayerControls,
@@ -92,7 +92,7 @@ import {
 import { useHistory } from '@/hooks/use-history'
 import { useUpdateProduct } from '@/hooks/use-product-mutations'
 import { useCustomizeProduct, useProductsByIds } from '@/hooks/use-products'
-import { boxColorOptions, isFullColourBox, PACKAGING_SLUG } from '@/lib/box'
+import { boxColorOptions, isFullColourBox, PACKAGING_SLUG, STICKERS_SLUG } from '@/lib/box'
 import { stepDesignFor, writeStepDesign } from '@/lib/stepDraft'
 import { readProductDesign, writeProductDesign } from '@/lib/productDesign'
 import { takeLegacyVersions, versionStamps } from '@/lib/designVersions'
@@ -267,17 +267,21 @@ export function DesignPage() {
    */
   const namingSubmitted = useRef(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [color, setColor] = useState<string | null>(null)
+  const [color, setColor] = useState<string | null>(saved?.color ?? null)
   // Default to leaving the photograph alone. The editor's job is the mark on
   // the product; restaging is a separate thing you ask for.
   const [sceneType, setSceneType] = useState<string>(KEEP_SCENE_ID)
   const [aspectRatio, setAspectRatio] = useState<string>(ASPECT_RATIOS[0].id)
-  const [baseImage, setBaseImage] = useState<string | null>(null)
+  const [baseImage, setBaseImage] = useState<string | null>(saved?.source ?? null)
   // A mark used instead of the company logo for this design. Held as a served
   // URL, not a data URL — see `ProductDesign.logoUrl`.
-  const [logoOverride, setLogoOverride] = useState<string | null>(
-    saved?.logoUrl ?? null,
-  )
+  // The builder hands over the logo already uploaded for the stickers, so a
+  // sticker is designed with the mark that will actually be printed.
+  const [logoOverride, setLogoOverride] = useState<string | null>(() => {
+    if (saved?.logoUrl) return saved.logoUrl
+    const handed = target === 'box' ? searchParams.get('logo') : null
+    return handed && /^https:\/\//.test(handed) ? handed : null
+  })
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingArt, setUploadingArt] = useState(false)
   /**
@@ -308,6 +312,7 @@ export function DesignPage() {
   const busy = customize.isPending || compose.isPending
 
   const isBox = product?.categorySlug === PACKAGING_SLUG
+  const isSticker = product?.categorySlug === STICKERS_SLUG
   const fullColour = isBox && isFullColourBox(product?.name, product?.description)
   const colors = isBox && !fullColour ? boxColorOptions(product?.description) : []
 
@@ -663,6 +668,41 @@ export function DesignPage() {
         : t('design.approveAndAdd')
   const subjectPhrase = target === 'box' ? 'in your box.' : 'on your product.'
 
+  /**
+   * The logo on this design as a file the print shop can download.
+   *
+   * An uploaded mark already is one. The company logo may be held as a data
+   * URL or raw SVG markup, which an order cannot carry around — so it is
+   * uploaded once, here, when the design is approved. Without it the order
+   * shows where the logo goes but not which logo.
+   */
+  const logoFileUrl = async (): Promise<string | null> => {
+    if (logoOverride) return logoOverride
+    if (!findLogoLayer(layout) || !logoValue) return null
+    if (logoKind === 'url') return logoValue
+    try {
+      const blob =
+        logoKind === 'svg'
+          ? new Blob([logoValue], { type: 'image/svg+xml' })
+          : await (await fetch(logoValue)).blob()
+      const ext = blob.type === 'image/svg+xml' ? 'svg' : (blob.type.split('/')[1] ?? 'png')
+      return await uploadLogoFile(new File([blob], `logo.${ext}`, { type: blob.type }))
+    } catch {
+      // The placement and artwork still make the order; the logo can be asked for.
+      return null
+    }
+  }
+
+  /** What every saved design records beyond its pictures. */
+  const designDetails = async () => ({
+    prompt: prompt.trim() || null,
+    layout: placed ? layout : null,
+    logoUrl: await logoFileUrl(),
+    source,
+    color: isBox ? color : null,
+    subject: isBox ? ('packaging' as const) : isSticker ? ('sticker' as const) : ('product' as const),
+  })
+
   const approve = async () => {
     if (!chosenImage || !confirmImage || !source) return
     const chosen = chosenImage
@@ -703,9 +743,7 @@ export function DesignPage() {
         image: chosen,
         flat: confirmImage,
         photoreal,
-        prompt: prompt.trim() || null,
-        layout: placed ? layout : null,
-        logoUrl: logoOverride,
+        ...(await designDetails()),
       }
       writeProductDesign(productId, design)
       // And into the basket, if this product is already in it. Someone who
@@ -725,9 +763,7 @@ export function DesignPage() {
       image: chosen,
       flat: confirmImage,
       photoreal,
-      prompt: prompt.trim() || null,
-      layout: placed ? layout : null,
-      logoUrl: logoOverride,
+      ...(await designDetails()),
     })
 
     navigate(returnTo)
@@ -921,7 +957,11 @@ export function DesignPage() {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{product.name}</p>
           <p className="text-xs text-muted-foreground">
-            {isBox ? t('design.printedGiftBox') : t('design.brandedProduct')}
+            {isBox
+              ? t('design.printedGiftBox')
+              : isSticker
+                ? t('design.logoSticker')
+                : t('design.brandedProduct')}
           </p>
         </div>
         {hasDesign && (

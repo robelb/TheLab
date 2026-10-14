@@ -111,6 +111,11 @@ const designSchema = z.object({
   prompt: z.string().max(4000).nullish(),
   layout: z.unknown().nullish(),
   logoUrl: z.string().trim().max(2048).nullish(),
+  /** The photograph it was placed on; the placement is relative to it. */
+  source: z.string().trim().max(2048).nullish(),
+  /** A box's board colour, by its catalogue name. */
+  color: z.string().trim().max(60).nullish(),
+  subject: z.enum(['packaging', 'sticker', 'product']).nullish(),
 })
 
 const itemSchema = z.object({

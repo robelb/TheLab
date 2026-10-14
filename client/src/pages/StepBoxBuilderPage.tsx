@@ -39,7 +39,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/context/AuthContext'
 import { useCart } from '@/context/CartContext'
-import { useFunnel } from '@/context/FunnelContext'
+import { useFunnel, useFunnelLink } from '@/context/FunnelContext'
 import {
   useCampaign,
   useCampaignBrandSignals,
@@ -104,7 +104,10 @@ export function StepBoxBuilderPage() {
   const { domain } = useAuth()
   const { shopHome, inFunnel, collectionSlug, collectionTag, allowCustomization } =
     useFunnel()
-  const canDesign = allowCustomization
+  // Letting the AI choose the products stays a customising feature; designing
+  // the box and its stickers is part of building one and is always offered.
+  const canAiPick = allowCustomization
+  const funnelLink = useFunnelLink()
   // The Christmas collection has its own wording; everywhere else is general.
   const christmas = collectionTag === 'christmas'
   const copy = (key: string) =>
@@ -158,17 +161,34 @@ export function StepBoxBuilderPage() {
   // ── Designs ──────────────────────────────────────────────────────────────
   // Made in the design editor, which writes them straight into the stored
   // draft; this page reads them back when it mounts again.
+  //
+  // Only the box and its stickers are designed here. Products go in as the
+  // catalogue shows them; a design left in an older draft for one is ignored.
   const designOf = (id: string | null | undefined): ProductDesign | null =>
-    (canDesign && id ? draft.designs[id] : null) ?? null
-  /** What a product looks like in this box: its design, or the plain photo. */
-  const imageOf = (p: Product) => designOf(p.id)?.image ?? p.image
+    id && (id === draft.packagingId || id === draft.stickerId)
+      ? (draft.designs[id] ?? null)
+      : null
+  const imageOf = (p: Product) => p.image
   // Coming back from the editor resumes a box being edited from the cart: the
   // `editing` marker is what keeps it bound to its cart line (see below).
-  const openDesigner = (id: string) => {
-    const back = draft.editingItemId
-      ? `/build-box?editing=${encodeURIComponent(draft.editingItemId)}`
-      : '/build-box'
-    navigate(`/design/${encodeURIComponent(id)}?return=${encodeURIComponent(back)}`)
+  // `logo` hands the sticker logo already uploaded to the editor, so the
+  // sticker is designed with the mark that will be printed on it.
+  //
+  // Both addresses carry the collection. Without it, coming back from the
+  // editor landed in the shop's builder — which, seeing a draft from another
+  // collection, started a new box and threw the design away.
+  const openDesigner = (id: string, logo?: string | null) => {
+    const back = funnelLink(
+      draft.editingItemId
+        ? `/build-box?editing=${encodeURIComponent(draft.editingItemId)}`
+        : '/build-box',
+    )
+    const logoParam = logo ? `&logo=${encodeURIComponent(logo)}` : ''
+    navigate(
+      funnelLink(
+        `/design/${encodeURIComponent(id)}?return=${encodeURIComponent(back)}${logoParam}`,
+      ),
+    )
   }
 
   // ── Let the AI pick (shop only) ──────────────────────────────────────────
@@ -249,19 +269,19 @@ export function StepBoxBuilderPage() {
     error: suppliesError,
     refetch: refetchSupplies,
   } = useBoxSupplies()
-  // "Eigenes Design" options are customising: a collection with customising
-  // off offers ready-made ones only. A saved choice of one then reads as
-  // unpicked, and the step asks again.
+  // The box and the stickers may be designed, so their "Eigenes Design"
+  // options are offered everywhere. A card or filling of one's own design is
+  // not part of building a box: those stay ready-made, and a saved choice of
+  // one reads as unpicked so the step asks again.
   const supplies = useMemo(() => {
-    if (allowCustomization) return allSupplies
     const ready = (list: Product[]) => list.filter((p) => !isCustomDesignSupply(p))
     return {
-      packaging: ready(allSupplies.packaging),
+      packaging: allSupplies.packaging,
       filling: ready(allSupplies.filling),
       cards: ready(allSupplies.cards),
-      stickers: ready(allSupplies.stickers),
+      stickers: allSupplies.stickers,
     }
-  }, [allSupplies, allowCustomization])
+  }, [allSupplies])
   const card = supplies.cards.find((p) => p.id === draft.cardId) ?? null
   const packaging = supplies.packaging.find((p) => p.id === draft.packagingId) ?? null
   const filling = supplies.filling.find((p) => p.id === draft.fillingId) ?? null
@@ -431,12 +451,9 @@ export function StepBoxBuilderPage() {
 
   // A designed product carries its design on the line, and `customPrint`
   // stops the cart's catalogue refresh from swapping it back to stock.
-  const productLines: BoxLine[] = products.map((p) => {
-    const line = toBoxLine(p, quantityOf(p.id))
-    const design = designOf(p.id)
-    return design ? { ...line, customizedImage: design.image, customPrint: true } : line
-  })
+  const productLines: BoxLine[] = products.map((p) => toBoxLine(p, quantityOf(p.id)))
   const packagingDesign = designOf(packaging?.id)
+  const stickerDesign = designOf(sticker?.id)
   const productsTotal = products.reduce(
     (sum, p) => sum + unitFor(p, quantityOf(p.id)) * quantityOf(p.id),
     0,
@@ -520,15 +537,10 @@ export function StepBoxBuilderPage() {
     if (draft.productIds.length === 0) return
     setRenderError(null)
     const key = heroKeyFor(draft)
-    // Every design rides along, so the photo shows the branded products and
-    // the printed box; anything undesigned is photographed plain, as its tile
-    // shows it.
-    const productImages: Record<string, string> = {}
-    for (const id of draft.productIds) {
-      const design = canDesign ? draft.designs[id] : undefined
-      if (design) productImages[id] = design.image
-    }
-    const boxDesign = canDesign && draft.packagingId ? draft.designs[draft.packagingId] : undefined
+    // A designed box is photographed as designed; the products always go in
+    // as their tiles show them.
+    const boxDesign = designOf(draft.packagingId)
+    const stickerArt = designOf(draft.stickerId)
     // The photo is a preview: the image model takes about fourteen pictures,
     // so a very full box is photographed with its first dozen products.
     const photoIds = draft.productIds.slice(0, PHOTO_MAX_PRODUCTS)
@@ -538,7 +550,7 @@ export function StepBoxBuilderPage() {
       ...(draft.fillingId ? { fillingId: draft.fillingId } : {}),
       ...(boxDesign ? { packagingImageUrl: boxDesign.image } : {}),
       ...(draft.stickerId ? { stickerId: draft.stickerId } : {}),
-      ...(Object.keys(productImages).length > 0 ? { productImages } : {}),
+      ...(draft.stickerId && stickerArt ? { stickerImageUrl: stickerArt.image } : {}),
       plainUnlessDesigned: true,
     }
     try {
@@ -562,7 +574,7 @@ export function StepBoxBuilderPage() {
       setRenderError(errorMessage(err, t('stepBuilder.review.photoFailed')))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, campaignId, domain, title, canDesign])
+  }, [draft, campaignId, domain, title])
 
   // The photo needs the products, the packaging and the sticker that goes on
   // it, so it starts as soon as the sticker is picked or skipped — the rest of
@@ -609,10 +621,10 @@ export function StepBoxBuilderPage() {
       : null,
     packagingPrompt: packagingDesign?.prompt ?? null,
     packagingLayout: packagingDesign?.layout ?? null,
-    // Only the designs of what is actually in the box: one made for a product
-    // since removed has nothing to be printed on.
+    // Everything the print shop needs for the box and the stickers: artwork,
+    // the photo it sits on, placement, colour, brief and the logo file.
     designs: Object.fromEntries(
-      [...draft.productIds, packaging?.id]
+      [packaging?.id, sticker?.id]
         .map((id) => [id, designOf(id)] as const)
         .filter((entry): entry is [string, ProductDesign] => Boolean(entry[0] && entry[1])),
     ),
@@ -620,9 +632,19 @@ export function StepBoxBuilderPage() {
     greetingCard: card
       ? { ...toBoxLine(card, 1), message: draft.cardMessage.trim() }
       : null,
-    stickers: sticker ? toBoxLine(sticker, 1) : null,
-    // No logo with stickers means it is sent after the request.
-    stickerLogo: sticker ? draft.stickerLogo : null,
+    stickers: sticker
+      ? {
+          ...toBoxLine(sticker, 1),
+          customizedImage: stickerDesign?.image ?? null,
+          customPrint: Boolean(stickerDesign),
+        }
+      : null,
+    // No logo with stickers means it is sent after the request. A sticker
+    // designed with a logo already has one.
+    stickerLogo: sticker
+      ? (draft.stickerLogo ??
+        (stickerDesign?.logoUrl ? { url: stickerDesign.logoUrl, name: null } : null))
+      : null,
   })
 
   const boxProduct = (id: string): Product => ({
@@ -761,10 +783,8 @@ export function StepBoxBuilderPage() {
             body={copy('products.body')}
             emptyHint={copy('products.emptyHint')}
             imageOf={imageOf}
-            designed={(id) => Boolean(designOf(id))}
-            onDesign={canDesign ? openDesigner : undefined}
             aiPick={
-              canDesign ? (
+              canAiPick ? (
                 <AiPick
                   brief={brief}
                   onBrief={setBrief}
@@ -834,7 +854,7 @@ export function StepBoxBuilderPage() {
             fillingPrice={filling ? unitFor(filling, 1) : undefined}
             onFilling={(p) => update({ fillingId: p.id })}
             design={packagingDesign}
-            onDesign={canDesign && packaging ? () => openDesigner(packaging.id) : undefined}
+            onDesign={packaging ? () => openDesigner(packaging.id) : undefined}
           />
         )}
 
@@ -858,10 +878,18 @@ export function StepBoxBuilderPage() {
                 onSelect: () => update({ stickerId: null, stickersDecided: true }),
               }}
             />
+            {/* The logo first: designing the sticker starts from it. */}
             {sticker && (
               <StickerLogoUpload
                 logo={draft.stickerLogo}
                 onChange={(stickerLogo) => update({ stickerLogo })}
+              />
+            )}
+            {sticker && (
+              <StickerDesign
+                sticker={sticker}
+                design={stickerDesign}
+                onDesign={() => openDesigner(sticker.id, draft.stickerLogo?.url)}
               />
             )}
           </div>
@@ -1120,8 +1148,6 @@ function ProductsStep({
   body,
   emptyHint,
   imageOf,
-  designed,
-  onDesign,
   aiPick,
 }: {
   products: Product[]
@@ -1134,9 +1160,6 @@ function ProductsStep({
   body: string
   emptyHint: string
   imageOf: (p: Product) => string
-  designed: (id: string) => boolean
-  /** Opens the design editor; only where customising is allowed. */
-  onDesign?: (id: string) => void
   aiPick: React.ReactNode
 }) {
   const { t } = useTranslation()
@@ -1193,18 +1216,6 @@ function ProductsStep({
                     alt={p.name}
                     className="absolute inset-0 h-full w-full object-contain p-3"
                   />
-                  {onDesign && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={designed(p.id) ? 'default' : 'secondary'}
-                      onClick={() => onDesign(p.id)}
-                      className="absolute bottom-2 left-2 h-7 px-2 text-xs shadow-sm"
-                    >
-                      <Wand2 className="size-3" />
-                      {designed(p.id) ? t('buildBox.editDesign') : t('buildBox.design')}
-                    </Button>
-                  )}
                 </div>
                 <div className="flex flex-1 flex-col gap-2 p-3">
                   <p className="line-clamp-2 text-sm font-medium leading-snug">{p.name}</p>
@@ -1718,6 +1729,50 @@ function ReviewStep({
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Designing the sticker: the shopper's logo and wording placed on it in the
+ * design editor, approved as a picture. What they approve is what the print
+ * shop receives — artwork, placement, logo file and brief.
+ */
+function StickerDesign({
+  sticker,
+  design,
+  onDesign,
+}: {
+  sticker: Product
+  design: ProductDesign | null
+  onDesign: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex max-w-2xl flex-wrap items-center gap-3 rounded-brand border border-border/40 bg-card/40 p-4">
+      <span className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-brand border border-border/40 bg-background">
+        <ProductImage
+          src={design?.image ?? sticker.image}
+          alt={sticker.name}
+          className="h-full w-full object-contain p-1"
+        />
+      </span>
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <p className="text-sm font-medium">
+          {design ? t('stepBuilder.stickers.designed') : t('stepBuilder.stickers.designTitle')}
+        </p>
+        <p className="text-sm text-foreground/70">
+          {design
+            ? design.prompt
+              ? t('stepBuilder.packaging.printed', { prompt: design.prompt })
+              : t('stepBuilder.stickers.designedBody')
+            : t('stepBuilder.stickers.designBody')}
+        </p>
+      </div>
+      <Button type="button" variant={design ? 'ghost' : 'outline'} onClick={onDesign}>
+        <Wand2 className="size-4" />
+        {design ? t('buildBox.changeDesign') : t('stepBuilder.stickers.designButton')}
+      </Button>
     </div>
   )
 }

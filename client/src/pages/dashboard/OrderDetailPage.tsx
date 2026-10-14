@@ -137,6 +137,14 @@ function PlacementTable({ layout }: { layout: PlacementLayout }) {
                       <span className="text-muted-foreground">{layer.color}</span>
                     )}
                   </span>
+                ) : layer.kind === 'image' && layer.imageUrl ? (
+                  <a href={layer.imageUrl} target="_blank" rel="noreferrer">
+                    <img
+                      src={layer.imageUrl}
+                      alt=""
+                      className="size-8 rounded-sm border border-border/40 bg-white object-contain"
+                    />
+                  </a>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
@@ -167,7 +175,34 @@ function PlacementTable({ layout }: { layout: PlacementLayout }) {
   )
 }
 
-/** Everything known about one design: the artwork, the brief, the placement. */
+/** One file of a design: a preview that opens the file itself, full size. */
+function DesignFile({ url, caption }: { url: string; caption: string }) {
+  const { t } = useTranslation()
+  return (
+    <figure className="space-y-1">
+      <a href={url} target="_blank" rel="noreferrer" className="block">
+        <img
+          src={url}
+          alt=""
+          className="max-h-56 rounded-brand border border-border/40 bg-white object-contain hover:opacity-90"
+        />
+      </a>
+      <figcaption className="text-[11px] text-muted-foreground">
+        {caption} ·{' '}
+        <a href={url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+          {t('dashboard.orders.detail.design.openFull')}
+        </a>
+      </figcaption>
+    </figure>
+  )
+}
+
+/**
+ * Everything known about one design — enough to print it without going back
+ * to the customer: the approved artwork, the photo it was placed on, the board
+ * colour, the logo file, any uploaded artwork, the wording and where each
+ * element sits.
+ */
 function DesignBlock({
   design,
   title,
@@ -178,48 +213,105 @@ function DesignBlock({
   const { t } = useTranslation()
   if (!design) return null
   const artwork = design.flat ?? design.image
+  const layers = design.layout?.layers ?? []
+  const hasLogoLayer = layers.some((l) => l.kind === 'logo')
+  const artworkFiles = [
+    ...new Set(
+      layers
+        .filter((l) => l.kind === 'image' && l.imageUrl)
+        .map((l) => l.imageUrl as string),
+    ),
+  ]
+  const logoIsImage = design.logoUrl ? IMAGE_FILE.test(design.logoUrl) : false
   return (
-    <div className="space-y-2 rounded-brand border border-border/40 p-3">
+    <div className="space-y-3 rounded-brand border border-border/40 p-3 break-inside-avoid">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {title}
       </p>
       <div className="flex flex-wrap gap-3">
         {artwork && (
-          <figure className="space-y-1">
-            <img
-              src={artwork}
-              alt=""
-              className="max-h-56 rounded-brand border border-border/40 object-contain"
-            />
-            <figcaption className="text-[11px] text-muted-foreground">
-              {t('dashboard.orders.detail.design.approved')}
-            </figcaption>
-          </figure>
+          <DesignFile url={artwork} caption={t('dashboard.orders.detail.design.approved')} />
         )}
-        {design.photoreal && (
-          <figure className="space-y-1">
-            <img
-              src={design.photoreal}
-              alt=""
-              className="max-h-56 rounded-brand border border-border/40 object-contain"
-            />
-            <figcaption className="text-[11px] text-muted-foreground">
-              {t('dashboard.orders.detail.design.photoreal')}
-            </figcaption>
-          </figure>
+        {design.photoreal && design.photoreal !== artwork && (
+          <DesignFile
+            url={design.photoreal}
+            caption={t('dashboard.orders.detail.design.photoreal')}
+          />
+        )}
+        {design.source && design.source !== artwork && (
+          <DesignFile url={design.source} caption={t('dashboard.orders.detail.design.source')} />
         )}
       </div>
-      {design.prompt && (
-        <p className="rounded-brand bg-muted/40 px-2 py-1.5 text-xs">
-          <span className="text-muted-foreground">{t('dashboard.orders.detail.design.brief')} </span>
-          {design.prompt}
-        </p>
+
+      <dl className="space-y-1.5 text-xs">
+        {design.color && (
+          <div className="flex gap-2">
+            <dt className="text-muted-foreground">{t('dashboard.orders.detail.design.boardColour')}</dt>
+            <dd className="capitalize">{design.color}</dd>
+          </div>
+        )}
+        {design.prompt && (
+          <div className="flex items-start gap-2">
+            <dt className="shrink-0 text-muted-foreground">{t('dashboard.orders.detail.design.brief')}</dt>
+            <dd className="min-w-0 flex-1 whitespace-pre-line">{design.prompt}</dd>
+            <CopyButton text={design.prompt} label={t('dashboard.orders.detail.design.copyBrief')} />
+          </div>
+        )}
+      </dl>
+
+      {design.logoUrl ? (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              {t('dashboard.orders.detail.design.logoFile')}
+            </p>
+            <CopyButton text={design.logoUrl} label={t('dashboard.orders.detail.logo.copyLink')} />
+          </div>
+          <a
+            href={design.logoUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-primary underline underline-offset-2"
+          >
+            {logoIsImage ? (
+              <img
+                src={design.logoUrl}
+                alt=""
+                className="size-16 rounded-brand border border-border/40 bg-white object-contain p-1"
+              />
+            ) : (
+              <FileText className="size-6 text-muted-foreground" />
+            )}
+            {t('dashboard.orders.detail.logo.download')}
+          </a>
+        </div>
+      ) : (
+        hasLogoLayer && (
+          <p className="text-xs text-muted-foreground">
+            {t('dashboard.orders.detail.design.logoNotSaved')}
+          </p>
+        )
       )}
-      {design.logoUrl && (
-        <p className="text-xs text-muted-foreground">
-          {t('dashboard.orders.detail.design.customLogo')}
-        </p>
+
+      {artworkFiles.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">
+            {t('dashboard.orders.detail.design.artworkFiles')}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {artworkFiles.map((url) => (
+              <a key={url} href={url} target="_blank" rel="noreferrer">
+                <img
+                  src={url}
+                  alt=""
+                  className="size-16 rounded-brand border border-border/40 bg-white object-contain p-1 hover:opacity-90"
+                />
+              </a>
+            ))}
+          </div>
+        </div>
       )}
+
       {design.layout ? (
         <PlacementTable layout={design.layout} />
       ) : (
@@ -371,6 +463,12 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
         item.box.stickers,
       ].filter((p): p is BoxLine => Boolean(p))
     : []
+  // The box and its stickers are what a shopper designs; each design is shown
+  // with the part it is for.
+  const packagingId = item.box?.packaging?.productId
+  const stickerId = item.box?.stickers?.productId
+  const packagingDesign = packagingId ? item.box?.designs?.[packagingId] : undefined
+  const stickerDesign = stickerId ? item.box?.designs?.[stickerId] : undefined
 
   /**
    * Priced the way the server prices it.
@@ -527,9 +625,26 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
                   </span>
                 </p>
               )}
+              {stickerDesign && (
+                <div className="mt-3">
+                  <DesignBlock
+                    design={stickerDesign}
+                    title={t('dashboard.orders.detail.design.stickerTitle')}
+                  />
+                </div>
+              )}
             </div>
           )}
-          {item.box.packagingPrompt && (
+          {packagingDesign && item.box.packaging && (
+            <DesignBlock
+              design={packagingDesign}
+              title={t('dashboard.orders.detail.design.boxTitle', {
+                name: item.box.packaging.name,
+              })}
+            />
+          )}
+          {/* Requests from before box designs were stored whole. */}
+          {!packagingDesign && item.box.packagingPrompt && (
             <p className="rounded-brand bg-muted/40 px-2 py-1.5 text-xs">
               <span className="text-muted-foreground">
                 {t('dashboard.orders.detail.line.boxBrief')}{' '}
@@ -537,7 +652,7 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
               {item.box.packagingPrompt}
             </p>
           )}
-          {item.box.packagingLayout && (
+          {!packagingDesign && item.box.packagingLayout && (
             <div className="space-y-1.5 rounded-brand border border-border/40 p-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {t('dashboard.orders.detail.line.boxPlacement')}
@@ -547,7 +662,9 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
           )}
 
           {item.box.designs &&
-            Object.entries(item.box.designs).map(([productId, design]) => {
+            Object.entries(item.box.designs)
+              .filter(([productId]) => productId !== packagingId && productId !== stickerId)
+              .map(([productId, design]) => {
               const part = parts.find((p) => p.productId === productId)
               return (
                 <DesignBlock

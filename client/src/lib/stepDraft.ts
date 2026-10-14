@@ -86,13 +86,16 @@ export const EMPTY_STEP_DRAFT: StepDraft = {
  * design on them — a new design is a different-looking box.
  */
 export function heroKeyFor(draft: StepDraft): string {
-  const ids = [...draft.productIds, draft.packagingId].filter(Boolean) as string[]
-  const designs = ids.map((id) => draft.designs[id]?.image ?? '').join(',')
+  // Only the box is photographed as designed; products always go in plain.
+  const designs = draft.packagingId ? (draft.designs[draft.packagingId]?.image ?? '') : ''
   // Not the filling: the photo shows the box closed, so it never appears.
   const key = [draft.productIds.join(','), draft.packagingId, designs].join('|')
   // The sticker is on the box in the photo. Appended only when there is one,
   // so boxes without a sticker keep the key — and the photo — they had.
-  return draft.stickerId ? `${key}|sticker:${draft.stickerId}` : key
+  if (!draft.stickerId) return key
+  // A designed sticker is photographed as designed, so a new design is a new photo.
+  const stickerArt = draft.designs[draft.stickerId]?.image
+  return `${key}|sticker:${draft.stickerId}${stickerArt ? `:${stickerArt}` : ''}`
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null)

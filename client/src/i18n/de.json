@@ -519,7 +519,8 @@
     "printed": "Gedruckt",
     "embossed": "Geprägt",
     "engraved": "Graviert",
-    "pictureCouldNotLoad": "Dieses Bild konnte nicht geladen werden. Ihr Design ist sicher — schließen Sie das Fenster und öffnen Sie es erneut."
+    "pictureCouldNotLoad": "Dieses Bild konnte nicht geladen werden. Ihr Design ist sicher — schließen Sie das Fenster und öffnen Sie es erneut.",
+    "logoSticker": "Logo-Sticker"
   },
   "validation": {
     "summary_one": "Fast geschafft. Bitte prüfen Sie das markierte Feld oben.",
@@ -606,7 +607,7 @@
     },
     "packaging": {
       "title": "Verpackung auswählen",
-      "body": "Wählen Sie die Verpackung für Ihre Box. Alle gezeigten Verpackungen sind fertig gestaltet und werden wie abgebildet versendet.",
+      "body": "Wählen Sie die Verpackung für Ihre Box – fertig gestaltet oder mit Ihrem eigenen Logo und Design bedruckt.",
       "pick": "Wählen Sie eine Verpackung, um fortzufahren.",
       "fillingIncluded": "Jede Box wird mit {{name}} gepolstert.",
       "fillingTitle": "Füllmaterial",
@@ -630,7 +631,12 @@
       "logoUploaded": "Logo hochgeladen",
       "logoFollows": "Logo folgt – wir fragen nach Ihrer Anfrage danach",
       "tooLarge": "Die Datei ist größer als 10 MB. Bitte wählen Sie eine kleinere oder schicken Sie sie uns später.",
-      "uploadFailed": "Das Logo konnte nicht hochgeladen werden. Versuchen Sie es erneut oder schicken Sie es uns später."
+      "uploadFailed": "Das Logo konnte nicht hochgeladen werden. Versuchen Sie es erneut oder schicken Sie es uns später.",
+      "designTitle": "Sticker selbst gestalten",
+      "designBody": "Platzieren Sie Ihr Logo und Ihren Text auf dem Sticker und sehen Sie genau, wie er aussieht.",
+      "designButton": "Sticker gestalten",
+      "designed": "Ihr Sticker-Design",
+      "designedBody": "Gespeichert – so wird er gedruckt."
     },
     "review": {
       "title": "Ihre Box",
@@ -959,7 +965,16 @@
           "photoreal": "Fotorealistische Ansicht — nur zur Präsentation",
           "brief": "Briefing:",
           "customLogo": "Für dieses Design wurde ein eigenes Logo verwendet, nicht das Firmenlogo.",
-          "noPlacement": "Keine Platzierung gespeichert — das Motiv wurde aus dem Briefing erzeugt, nicht von Hand positioniert."
+          "noPlacement": "Keine Platzierung gespeichert — das Motiv wurde aus dem Briefing erzeugt, nicht von Hand positioniert.",
+          "source": "Ausgangsfoto — die Platzierung bezieht sich darauf",
+          "openFull": "in voller Größe öffnen",
+          "boardColour": "Kartonfarbe:",
+          "copyBrief": "Briefing kopieren",
+          "logoFile": "Im Design verwendete Logodatei",
+          "logoNotSaved": "Es wurde das Firmenlogo verwendet; die Datei wurde nicht mit dem Design gespeichert. Bitte beim Kunden anfragen.",
+          "artworkFiles": "Hochgeladene Motive",
+          "boxTitle": "Box-Design — {{name}}",
+          "stickerTitle": "Sticker-Design"
         },
         "openProduct": "{{name}} öffnen",
         "copy": {

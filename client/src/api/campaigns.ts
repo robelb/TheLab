@@ -108,6 +108,8 @@ export interface HeroImageSupplies {
   packagingImageUrl?: string
   /** The logo sticker chosen in the builder; the photo shows it on the box. */
   stickerId?: string
+  /** The shopper's sticker design, photographed in place of the catalogue sticker. */
+  stickerImageUrl?: string
   /**
    * Designs made for the products inside, keyed by product id. Without these
    * the group shot would show plain catalogue items beside a box the shopper
