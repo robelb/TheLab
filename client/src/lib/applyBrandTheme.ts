@@ -45,6 +45,64 @@ function hexToHslChannels(hex: string): string | null {
   return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`
 }
 
+const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i
+
+function toRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
+  return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16)) as [number, number, number]
+}
+
+/** `amount` of `from` laid over `onto`, as a solid colour. */
+function mix(from: string, onto: string, amount: number): string {
+  const a = toRgb(from)
+  const b = toRgb(onto)
+  return `#${a
+    .map((c, i) => Math.round(c * amount + b[i] * (1 - amount)).toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+/**
+ * The supporting colours, each its own value.
+ *
+ * They used to be one: "muted" painted secondary text, placeholders, borders,
+ * input outlines and the muted background alike — so a dark grey meant for
+ * text turned every muted surface into a dark block, and a placeholder could
+ * not be told from something typed. Each is now set on its own in the
+ * branding form (`otherColors[3..5]`). Left empty, it is worked out from the
+ * text and background colours, so older themes need no edit.
+ */
+export function brandPalette(brand: BrandConfig) {
+  const pick = (value: string | undefined, fallback: string) =>
+    value && HEX.test(value) ? value : fallback
+  const background = pick(brand.secondaryColor, '#ffffff')
+  const foreground = pick(brand.otherColors[0], '#ffffff')
+  const accentAlt = pick(brand.otherColors[1], '#000000')
+  const mutedText = pick(brand.otherColors[2], '#b3b3b3')
+  const borderStrong = pick(brand.otherColors[6], mutedText)
+  return {
+    background,
+    foreground,
+    accentAlt,
+    /** Secondary text: captions, hints, labels. */
+    mutedText,
+    /**
+     * Resting lines: cards, tiles, dividers, table rows. By default the strong
+     * line at 40% — what `border-border` drew before borders had a colour
+     * of their own — so a theme that never sets it looks as it did.
+     */
+    border: pick(brand.otherColors[3], mix(borderStrong, background, 0.4)),
+    /** Emphasis lines: hover and selected states, field outlines, outline buttons. */
+    borderStrong,
+    /** Placeholder text: clearly lighter than anything typed. */
+    placeholder: pick(brand.otherColors[4], mix(mutedText, background, 0.55)),
+    /** Quiet backgrounds: image wells, chips, hover rows. */
+    mutedSurface: pick(brand.otherColors[5], mix(foreground, background, 0.05)),
+    /** Secondary buttons: a step stronger than the muted background. */
+    secondarySurface: mix(foreground, background, 0.09),
+  }
+}
+
 function setColorVar(root: HTMLElement, name: string, hex: string) {
   const hsl = hexToHslChannels(hex)
   if (hsl) root.style.setProperty(name, hsl)
@@ -63,8 +121,8 @@ let brandDescription = document
 
 export function applyBrandTheme(brand: BrandConfig) {
   const root = document.documentElement
-  const [foreground = '#ffffff', accentAlt = '#000000', muted = '#b3b3b3'] =
-    brand.otherColors
+  const palette = brandPalette(brand)
+  const { foreground, accentAlt } = palette
 
   const isDark = brand.customization.theme === 'dark'
   root.classList.toggle('dark', isDark)
@@ -87,22 +145,24 @@ export function applyBrandTheme(brand: BrandConfig) {
   setColorVar(root, '--popover-foreground', foreground)
   setColorVar(root, '--primary', brand.primaryColor)
   setColorVar(root, '--primary-foreground', accentAlt)
-  setColorVar(root, '--secondary', muted)
+  setColorVar(root, '--secondary', palette.secondarySurface)
   setColorVar(root, '--secondary-foreground', foreground)
-  setColorVar(root, '--muted', muted)
-  setColorVar(root, '--muted-foreground', muted)
+  setColorVar(root, '--muted', palette.mutedSurface)
+  setColorVar(root, '--muted-foreground', palette.mutedText)
+  setColorVar(root, '--placeholder', palette.placeholder)
   setColorVar(root, '--accent', brand.primaryColor)
   setColorVar(root, '--accent-foreground', accentAlt)
   setColorVar(root, '--destructive', '#e91429')
   setColorVar(root, '--destructive-foreground', foreground)
-  setColorVar(root, '--border', muted)
-  setColorVar(root, '--input', muted)
+  setColorVar(root, '--border', palette.border)
+  setColorVar(root, '--border-strong', palette.borderStrong)
+  setColorVar(root, '--input', palette.borderStrong)
   setColorVar(root, '--ring', brand.primaryColor)
 
   root.style.setProperty('--brand-primary', brand.primaryColor)
   root.style.setProperty('--brand-secondary', brand.secondaryColor)
   root.style.setProperty('--brand-foreground', foreground)
-  root.style.setProperty('--brand-muted', muted)
+  root.style.setProperty('--brand-muted', palette.mutedText)
   root.style.setProperty('--brand-accent-alt', accentAlt)
   root.style.setProperty('--radius', brand.customization.borderRadius)
   root.style.setProperty('--spacing-unit', brand.customization.spacing)

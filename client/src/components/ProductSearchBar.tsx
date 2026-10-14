@@ -19,7 +19,7 @@ export function ProductSearchBar({
     <div className={cn('relative w-full', className)}>
       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex w-12 items-center justify-center">
         <Search
-          className="size-5 shrink-0 text-foreground/45"
+          className="size-5 shrink-0 text-muted-foreground"
           strokeWidth={2}
           aria-hidden
         />
@@ -29,7 +29,7 @@ export function ProductSearchBar({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={t('filters.searchPlaceholder')}
-        className="relative h-12 border-border/50 bg-card/60 pl-12 text-base shadow-brand backdrop-blur-sm"
+        className="relative h-12 border-border bg-card/60 pl-12 text-base shadow-brand backdrop-blur-sm"
         aria-label={t('filters.searchLabel')}
       />
     </div>

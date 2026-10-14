@@ -50,7 +50,7 @@ export function CampaignPage() {
               {campaign.videos.map((v) => (
                 <div
                   key={v.id}
-                  className="overflow-hidden rounded-brand border border-border/40 bg-card/50"
+                  className="overflow-hidden rounded-brand border border-border bg-card/50"
                 >
                   <video
                     src={v.url}
@@ -71,7 +71,7 @@ export function CampaignPage() {
             </div>
           ) : (
             campaign.heroImageUrl && (
-              <div className="overflow-hidden rounded-brand border border-border/40">
+              <div className="overflow-hidden rounded-brand border border-border">
                 <img
                   src={campaign.heroImageUrl}
                   alt={campaign.title}

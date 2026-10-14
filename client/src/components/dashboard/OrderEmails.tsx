@@ -42,7 +42,7 @@ export function OrderEmails({ orderId }: { orderId: string }) {
       {error ? (
         <p className="text-sm text-muted-foreground">{t('dashboard.orders.emails.loadFailed')}</p>
       ) : (
-        <ul className="divide-y divide-border/40 rounded-brand border border-border/40 text-sm">
+        <ul className="divide-y divide-border/40 rounded-brand border border-border text-sm">
           {emails!.map((email) => (
             <li key={email.id} className="space-y-1 px-3 py-2">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

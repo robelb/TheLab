@@ -33,7 +33,7 @@ export function BrandSwitcher({
                 'btn-brand-radius flex items-center gap-2 border px-4 py-2 text-sm font-medium transition-colors',
                 active
                   ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-transparent text-muted-foreground hover:border-primary/50 hover:text-foreground',
+                  : 'border-border-strong bg-transparent text-muted-foreground hover:border-primary/50 hover:text-foreground',
               )}
             >
               <span
@@ -69,7 +69,7 @@ export function BrandSwitcher({
               'btn-brand-radius flex h-8 items-center gap-1.5 px-2 text-xs font-medium transition-colors',
               active
                 ? 'bg-primary/15 text-primary'
-                : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground',
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             <span

@@ -31,7 +31,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
 
   return (
     <Card
-      className="group relative flex h-full flex-col overflow-hidden border-border/30 bg-card/80 transition-transform hover:-translate-y-0.5"
+      className="group relative flex h-full flex-col overflow-hidden border-border bg-card/80 transition-transform hover:-translate-y-0.5"
       style={{
         animationDelay: `${index * 40}ms`,
         animation: 'fadeUp 0.45s ease backwards',

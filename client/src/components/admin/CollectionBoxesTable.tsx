@@ -86,10 +86,10 @@ export function CollectionBoxesTable({
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-brand border border-border/40">
+      <div className="overflow-hidden rounded-brand border border-border">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/40">
+            <TableRow className="bg-muted">
               <TableHead className="w-12 text-center">#</TableHead>
               <TableHead>{t('dashboard.admin.collectionBoxes.columns.box')}</TableHead>
               <TableHead>
@@ -125,7 +125,7 @@ export function CollectionBoxesTable({
                       <ProductImage
                         src={box.image}
                         alt=""
-                        className="size-10 shrink-0 rounded-brand border border-border/40 bg-background object-contain"
+                        className="size-10 shrink-0 rounded-brand border border-border bg-background object-contain"
                         loading="lazy"
                       />
                       <div className="min-w-0">

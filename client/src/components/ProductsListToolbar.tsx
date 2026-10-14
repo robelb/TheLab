@@ -23,7 +23,7 @@ export function ProductsListToolbar({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center justify-between gap-3 border-b border-border/30 pb-4',
+        'flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4',
         className,
       )}
     >
@@ -47,7 +47,7 @@ export function ProductsListToolbar({
           {t('filters.perPage')}
         </span>
         <div
-          className="inline-flex rounded-brand border border-border/50 bg-card/40 p-0.5"
+          className="inline-flex rounded-brand border border-border bg-card/40 p-0.5"
           role="group"
           aria-label={t('filters.perPageLabel')}
         >

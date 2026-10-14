@@ -52,8 +52,8 @@ export function VersionBadge({
       aria-label={`Version ${BUILD.version} — click to copy the version number`}
       className={cn(
         'inline-flex shrink-0 items-center gap-1.5 rounded-brand px-2 py-1 font-mono text-xs whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground',
-        variant === 'outline' && 'border border-border/40 hover:border-border',
-        variant === 'bare' && 'hover:bg-muted/50',
+        variant === 'outline' && 'border border-border hover:border-border-strong',
+        variant === 'bare' && 'hover:bg-muted',
         className,
       )}
     >

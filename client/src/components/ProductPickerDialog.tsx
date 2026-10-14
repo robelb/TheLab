@@ -114,7 +114,7 @@ export function ProductPickerDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[92vh] max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-6xl">
-        <DialogHeader className="space-y-3 border-b border-border/40 p-4 pr-12 sm:p-6 sm:pr-14">
+        <DialogHeader className="space-y-3 border-b border-border p-4 pr-12 sm:p-6 sm:pr-14">
           <div className="space-y-1">
             <DialogTitle className="font-display text-2xl">{title}</DialogTitle>
             {description && <DialogDescription>{description}</DialogDescription>}
@@ -208,7 +208,7 @@ export function ProductPickerDialog({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/40 bg-background p-4 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background p-4 sm:px-6">
           <p className="text-sm text-muted-foreground">
             {t('stepBuilder.picker.selected', { count: selected.size })}
           </p>
@@ -260,13 +260,13 @@ function PickerCard({
         'group relative flex items-stretch gap-4 overflow-hidden rounded-brand border bg-card p-3 text-left transition-colors sm:gap-5',
         checked
           ? 'border-primary ring-2 ring-primary'
-          : 'border-border/40 hover:border-border',
+          : 'border-border hover:border-border-strong',
         inBox && 'cursor-default opacity-60',
       )}
     >
       {/* A fixed square the photo fills, whatever its own shape — a tall
           bottle must not stretch the card. */}
-      <div className="relative aspect-square w-28 shrink-0 self-start overflow-hidden rounded-brand bg-muted/10 sm:w-36">
+      <div className="relative aspect-square w-28 shrink-0 self-start overflow-hidden rounded-brand bg-muted sm:w-36">
         <ProductImage
           src={product.image}
           alt={product.name}
@@ -278,7 +278,7 @@ function PickerCard({
             'absolute left-1.5 top-1.5 flex size-6 items-center justify-center rounded-full border-2 bg-background transition-colors',
             checked || inBox
               ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border',
+              : 'border-border-strong',
           )}
         >
           {(checked || inBox) && <Check className="size-3.5" />}

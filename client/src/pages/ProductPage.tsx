@@ -204,7 +204,7 @@ export function ProductPage() {
 
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
         <div className="space-y-3">
-          <div className="relative aspect-4/5 overflow-hidden rounded-brand bg-muted/10 shadow-brand lg:aspect-square">
+          <div className="relative aspect-4/5 overflow-hidden rounded-brand bg-muted shadow-brand lg:aspect-square">
             <img
               src={activeImage}
               alt=""
@@ -231,10 +231,10 @@ export function ProductPage() {
                       : t('product.viewImage', { index: i + 1 })
                   }
                   className={cn(
-                    'relative aspect-square overflow-hidden rounded-brand border bg-muted/10 transition-colors',
+                    'relative aspect-square overflow-hidden rounded-brand border bg-muted transition-colors',
                     i === safeIndex
                       ? 'border-primary ring-1 ring-primary'
-                      : 'border-border/40 hover:border-primary/50',
+                      : 'border-border hover:border-primary/50',
                   )}
                 >
                   <img
@@ -285,7 +285,7 @@ export function ProductPage() {
               holds belongs next to that price rather than in the details
               below — it is the thing being bought. */}
           {isBundle && contents.length > 0 && (
-            <Card className="border-border/30 bg-card/50">
+            <Card className="border-border bg-card/50">
               <CardContent className="space-y-2 p-4">
                 <h2 className="text-sm font-semibold uppercase tracking-wide">
                   {t('product.inside')}
@@ -358,7 +358,7 @@ export function ProductPage() {
                 here, before it goes in the cart. Folded away, because it is
                 optional and can also be sent later. */}
             {greetingCard && (
-              <div className="rounded-brand border border-border/60">
+              <div className="rounded-brand border border-border">
                 <button
                   type="button"
                   onClick={() => setCardOpen((open) => !open)}
@@ -379,7 +379,7 @@ export function ProductPage() {
                   />
                 </button>
                 {cardOpen && (
-                  <div id="bundle-card-message" className="space-y-2 border-t border-border/60 px-4 py-3">
+                  <div id="bundle-card-message" className="space-y-2 border-t border-border px-4 py-3">
                     <Textarea
                       rows={5}
                       maxLength={GREETING_MAX_LENGTH}
@@ -459,7 +459,7 @@ export function ProductPage() {
 
           <Separator />
 
-          <Card className="border-border/30 bg-card/50">
+          <Card className="border-border bg-card/50">
             <CardContent className="space-y-2 p-4">
               <h2 className="text-sm font-semibold uppercase tracking-wide">
                 {t('product.details')}

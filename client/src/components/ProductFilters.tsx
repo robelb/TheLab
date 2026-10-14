@@ -96,7 +96,7 @@ export function ProductFilters({
         <div className="relative">
           <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex w-9 items-center justify-center">
             <Search
-              className="size-3.5 shrink-0 text-foreground/45"
+              className="size-3.5 shrink-0 text-muted-foreground"
               strokeWidth={2}
               aria-hidden
             />
@@ -106,7 +106,7 @@ export function ProductFilters({
             value={categoryQuery}
             onChange={(e) => setCategoryQuery(e.target.value)}
             placeholder={t('filters.filterCategories')}
-            className="relative h-9 border-border/40 bg-background/40 pl-9 text-xs"
+            className="relative h-9 border-border bg-background/40 pl-9 text-xs"
             aria-label={t('filters.filterCategoryList')}
           />
         </div>
@@ -173,7 +173,7 @@ export function ProductFilters({
               onChange={(e) => onBrandColorChange(e.target.value)}
               disabled={!colorSortActive}
               aria-label={t('filters.brandColor')}
-              className="h-8 w-10 cursor-pointer rounded-brand border border-border/40 bg-transparent p-0.5 disabled:cursor-not-allowed"
+              className="h-8 w-10 cursor-pointer rounded-brand border border-border bg-transparent p-0.5 disabled:cursor-not-allowed"
             />
             <span className="font-mono text-xs uppercase text-muted-foreground">
               {brandColor ?? '#2563eb'}
@@ -182,7 +182,7 @@ export function ProductFilters({
         </div>
       )}
 
-      <div className="border-t border-border/40 pt-4">
+      <div className="border-t border-border pt-4">
         {hasActiveFilters && (
           <Button
             type="button"
@@ -206,7 +206,7 @@ export function ProductFilters({
           type="button"
           variant="outline"
           size="sm"
-          className="gap-2 border-border/50 bg-card/60"
+          className="gap-2 border-border bg-card/60"
           onClick={() => setMobileOpen((o) => !o)}
           aria-expanded={mobileOpen}
         >
@@ -244,7 +244,7 @@ export function ProductFilters({
 
       <div
         className={cn(
-          'rounded-brand border border-border/40 bg-card/50 p-4 shadow-brand backdrop-blur-sm',
+          'rounded-brand border border-border bg-card/50 p-4 shadow-brand backdrop-blur-sm',
           'lg:block',
           mobileOpen ? 'block' : 'hidden',
         )}
@@ -278,7 +278,7 @@ function CategoryOption({
         'btn-brand-radius flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
         active
           ? 'border-l-2 border-primary bg-primary/10 font-medium text-foreground'
-          : 'border-l-2 border-transparent text-muted-foreground hover:bg-muted/15 hover:text-foreground',
+          : 'border-l-2 border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
       )}
       aria-current={active ? 'true' : undefined}
     >
@@ -296,12 +296,12 @@ function FilterChip({
 }) {
   const { t } = useTranslation()
   return (
-    <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-border/50 bg-background/80 py-0.5 pl-2.5 pr-1 text-xs capitalize">
+    <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-background/80 py-0.5 pl-2.5 pr-1 text-xs capitalize">
       <span className="truncate">{label}</span>
       <button
         type="button"
         onClick={onRemove}
-        className="rounded-full p-0.5 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+        className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
         aria-label={t('filters.removeFilter', { label })}
       >
         <X className="size-3" />

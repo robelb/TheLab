@@ -41,7 +41,7 @@ export function CampaignProductTile({
   const showStepper = quantity !== undefined && Boolean(onQuantityChange)
 
   return (
-    <div className="group relative overflow-hidden rounded-brand border border-border/40 bg-card">
+    <div className="group relative overflow-hidden rounded-brand border border-border bg-card">
       {onRemove && (
         <button
           type="button"
@@ -52,7 +52,7 @@ export function CampaignProductTile({
           <X className="size-3.5" />
         </button>
       )}
-      <div className="relative aspect-square overflow-hidden bg-muted/10">
+      <div className="relative aspect-square overflow-hidden bg-muted">
         <img
           src={
             designImage ?? (plainImage ? product.image : getProductDisplayImage(product))
@@ -94,7 +94,7 @@ export function CampaignProductTile({
             <span className="text-[0.65rem] uppercase tracking-wide text-muted-foreground">
               Qty
             </span>
-            <div className="flex items-center rounded-brand border border-border">
+            <div className="flex items-center rounded-brand border border-border-strong">
               <button
                 type="button"
                 aria-label={t('buildBox.decreaseQuantity', { name: product.name })}

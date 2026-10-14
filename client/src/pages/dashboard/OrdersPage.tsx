@@ -40,9 +40,9 @@ import { formatDate, formatDateTime, formatPrice } from '@/utils/format'
 /** Quiet until something needs doing — only `new` earns the eye. */
 const STATUS_STYLE: Record<OrderStatus, string> = {
   new: 'border-primary/40 bg-primary/10 text-primary',
-  quoted: 'border-border/60 text-muted-foreground',
-  confirmed: 'border-border/60 text-muted-foreground',
-  cancelled: 'border-border/40 text-muted-foreground line-through',
+  quoted: 'border-border text-muted-foreground',
+  confirmed: 'border-border text-muted-foreground',
+  cancelled: 'border-border text-muted-foreground line-through',
 }
 
 const PAYMENT_STYLE: Record<PaymentStatus, string> = {
@@ -202,7 +202,7 @@ export function OrdersPage() {
   return (
     <div className="space-y-4">
       {/* ── Views ──────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-1 border-b border-border/40" role="tablist">
+      <div className="flex flex-wrap gap-1 border-b border-border" role="tablist">
         {tabs.map((view) => (
           <button
             key={view.key}
@@ -223,7 +223,7 @@ export function OrdersPage() {
                 'rounded-full px-1.5 text-xs tabular-nums',
                 view.key === 'action' && counts.action > 0
                   ? 'bg-primary text-primary-foreground'
-                  : 'border border-border text-foreground/70',
+                  : 'border border-border-strong text-muted-foreground',
               )}
             >
               {counts[view.key]}

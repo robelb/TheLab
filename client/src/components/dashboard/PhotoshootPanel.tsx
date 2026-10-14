@@ -74,7 +74,7 @@ function ReferenceSlot({
     <div className="space-y-1.5">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       {value ? (
-        <div className="relative size-16 overflow-hidden rounded-brand border border-border/40">
+        <div className="relative size-16 overflow-hidden rounded-brand border border-border">
           <img src={value} alt="" className="h-full w-full object-cover" />
           <button
             type="button"
@@ -89,7 +89,7 @@ function ReferenceSlot({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex size-16 flex-col items-center justify-center gap-1 rounded-brand border border-dashed border-border text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+          className="flex size-16 flex-col items-center justify-center gap-1 rounded-brand border border-dashed border-border-strong text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
         >
           <ImageUp className="size-4" />
           <span className="text-[10px]">{t('dashboard.products.photoshoot.add')}</span>
@@ -142,7 +142,7 @@ function BrandingSlot({
   const box = (() => {
     if (override) {
       return (
-        <div className="relative size-16 overflow-hidden rounded-brand border border-border/40 bg-white">
+        <div className="relative size-16 overflow-hidden rounded-brand border border-border bg-white">
           <img src={override} alt="" className="h-full w-full object-contain p-1" />
           <button
             type="button"
@@ -176,8 +176,8 @@ function BrandingSlot({
         className={cn(
           'flex size-16 items-center justify-center overflow-hidden rounded-brand border text-muted-foreground transition-colors hover:border-primary/50',
           hasDefaultLogo
-            ? 'border-border/40 bg-white'
-            : 'border-dashed border-border',
+            ? 'border-border bg-white'
+            : 'border-dashed border-border-strong',
         )}
       >
         {defaultPreview}
@@ -374,7 +374,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
         className="min-h-48 flex-1 space-y-4 overflow-y-auto p-1"
       >
         {results.length === 0 && !generating && (
-          <div className="flex h-full flex-col items-center justify-center gap-2 rounded-brand border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground">
+          <div className="flex h-full flex-col items-center justify-center gap-2 rounded-brand border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
             <Sparkles className="size-6 text-primary" />
             <p className="font-medium text-foreground">
               {t('dashboard.products.photoshoot.emptyTitle')}
@@ -387,13 +387,13 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
 
         {/* Loading placeholder sits at the top, where the new result lands. */}
         {generating && (
-          <div className="space-y-2 rounded-brand border border-border/40 bg-card p-3">
+          <div className="space-y-2 rounded-brand border border-border bg-card p-3">
             <Badge variant="secondary" className="text-[10px]">
               {isRefining
                 ? t('dashboard.products.photoshoot.refining')
                 : sceneLabel(sceneType)}
             </Badge>
-            <div className="flex aspect-square max-w-[200px] animate-pulse items-center justify-center rounded-brand bg-muted/30 text-center text-sm text-muted-foreground">
+            <div className="flex aspect-square max-w-[200px] animate-pulse items-center justify-center rounded-brand bg-muted text-center text-sm text-muted-foreground">
               <span className="flex flex-col items-center gap-2 p-3">
                 <Sparkles className="size-5 animate-pulse text-primary" />
                 {t('dashboard.products.photoshoot.generating')}
@@ -412,7 +412,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
           return (
             <div
               key={r.key}
-              className="space-y-2 rounded-brand border border-border/40 bg-card p-3"
+              className="space-y-2 rounded-brand border border-border bg-card p-3"
             >
               <div className="flex items-center justify-between gap-2">
                 <Badge variant="secondary" className="text-[10px]">
@@ -469,7 +469,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
                 <img
                   src={r.url}
                   alt={t('dashboard.products.photoshoot.generatedAlt')}
-                  className="max-w-[200px] cursor-zoom-in rounded-brand border border-border/30 bg-muted/10 object-contain transition-opacity hover:opacity-90"
+                  className="max-w-[200px] cursor-zoom-in rounded-brand border border-border bg-muted object-contain transition-opacity hover:opacity-90"
                 />
               </button>
               <details className="text-xs text-muted-foreground">
@@ -484,7 +484,7 @@ export function PhotoshootPanel({ product }: PhotoshootPanelProps) {
       </div>
 
       {/* Composer */}
-      <div className="space-y-3 border-t border-border/40 pt-3 overflow-y-auto h-full">
+      <div className="space-y-3 border-t border-border pt-3 overflow-y-auto h-full">
         {error && (
           <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
             {error}

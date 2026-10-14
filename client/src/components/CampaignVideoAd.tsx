@@ -91,7 +91,7 @@ export function CampaignVideoAd({
     <div
       ref={containerRef}
       className={cn(
-        'group relative overflow-hidden rounded-brand border border-border/40 bg-card/50 shadow-brand',
+        'group relative overflow-hidden rounded-brand border border-border bg-card/50 shadow-brand',
         className,
       )}
     >

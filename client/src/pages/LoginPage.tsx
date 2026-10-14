@@ -97,7 +97,7 @@ export function LoginPage() {
         }}
       />
 
-      <Card className="relative z-10 w-full max-w-md border-border/60 bg-card/80 shadow-2xl backdrop-blur-sm">
+      <Card className="relative z-10 w-full max-w-md border-border bg-card/80 shadow-2xl backdrop-blur-sm">
         <CardHeader className="space-y-3 text-center">
           <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/15 text-primary">
             <Sparkles className="size-6" />

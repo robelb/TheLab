@@ -182,7 +182,7 @@ export function CollectionPage() {
           ad promised one thing, and a second route is a decision to lose
           people at. */}
       {collection.allowBoxBuilding && (
-        <section className="rounded-brand border border-border/40 bg-muted/10 p-6 text-center sm:p-10">
+        <section className="rounded-brand border border-border bg-muted p-6 text-center sm:p-10">
           <Gift className="mx-auto size-8 text-primary" />
           <h2 className="mt-3 font-display text-2xl font-semibold">
             {t('collection.buildYourOwn')}

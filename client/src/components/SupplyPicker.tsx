@@ -43,7 +43,7 @@ export function SupplyPicker({
           ))}
         </div>
       ) : options.length === 0 ? (
-        <p className="rounded-brand border border-dashed border-border/60 px-3 py-4 text-center text-xs text-muted-foreground">
+        <p className="rounded-brand border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
           None available — ask an admin to seed the {label.toLowerCase()}.
         </p>
       ) : (
@@ -62,7 +62,7 @@ export function SupplyPicker({
                   'relative flex items-center gap-2 overflow-hidden rounded-brand border p-2 text-left transition-colors',
                   selected
                     ? 'border-primary bg-primary/5'
-                    : 'border-border/40 hover:border-border',
+                    : 'border-border hover:border-border-strong',
                 )}
               >
                 <img
@@ -74,7 +74,7 @@ export function SupplyPicker({
                     (selected && previewImage) || option.image
                   }
                   alt=""
-                  className="size-10 shrink-0 rounded-brand bg-muted/20 object-contain"
+                  className="size-10 shrink-0 rounded-brand bg-muted object-contain"
                   loading="lazy"
                 />
                 <span className="min-w-0 flex-1">

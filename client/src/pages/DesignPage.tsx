@@ -920,7 +920,7 @@ export function DesignPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-background lg:h-dvh lg:overflow-hidden">
       {/* ── Top bar ─────────────────────────────────────────────────── */}
-      <header className="flex shrink-0 items-center gap-3 border-b border-border/40 px-4 py-2.5">
+      <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5">
         <Button
           variant="ghost"
           size="sm"
@@ -983,7 +983,7 @@ export function DesignPage() {
 
       <div className="flex flex-1 flex-col lg:min-h-0 lg:flex-row">
         {/* ── Left rail: layers and sources ─────────────────────────── */}
-        <aside className="shrink-0 space-y-4 border-b border-border/40 p-4 lg:w-64 lg:overflow-y-auto lg:border-b-0 lg:border-r">
+        <aside className="shrink-0 space-y-4 border-b border-border p-4 lg:w-64 lg:overflow-y-auto lg:border-b-0 lg:border-r">
           <div className="space-y-2">
             <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <LayersIcon className="size-3.5" />
@@ -1011,7 +1011,7 @@ export function DesignPage() {
                           'flex min-w-0 flex-1 items-center gap-2 rounded-brand border px-2 py-1.5 text-left text-xs transition-colors',
                           selectedId === layer.id
                             ? 'border-primary bg-primary/5 text-primary'
-                            : 'border-border/40 text-muted-foreground hover:border-border',
+                            : 'border-border text-muted-foreground hover:border-border-strong',
                         )}
                       >
                         {layer.kind === 'logo' ? (
@@ -1123,7 +1123,7 @@ export function DesignPage() {
           <div className="space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground">{t('design.logo')}</p>
             <div className="flex items-center gap-2">
-              <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-brand border border-border/40 bg-white">
+              <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-brand border border-border bg-white">
                 {canvasLogo ? (
                   canvasLogo.kind === 'svg' ? (
                     <div
@@ -1312,7 +1312,7 @@ export function DesignPage() {
                   {versions.map((version) => (
                     <li
                       key={version.id}
-                      className="flex items-center gap-1 rounded-brand border border-border/40 p-1 transition-colors hover:border-border"
+                      className="flex items-center gap-1 rounded-brand border border-border p-1 transition-colors hover:border-border-strong"
                     >
                       {renamingId === version.id ? (
                         <Input
@@ -1352,13 +1352,13 @@ export function DesignPage() {
                                 src={version.source}
                                 alt=""
                                 title={t('design.thePhotoThisWasDesigned')}
-                                className="size-8 rounded-brand border border-border/40 bg-background object-cover"
+                                className="size-8 rounded-brand border border-border bg-background object-cover"
                               />
                               <img
                                 src={version.photoreal ?? version.flat ?? version.source}
                                 alt=""
                                 title={t('design.whatWasMadeFromIt')}
-                                className="size-8 rounded-brand border border-border/40 bg-background object-cover"
+                                className="size-8 rounded-brand border border-border bg-background object-cover"
                               />
                             </span>
                             <span className="min-w-0">
@@ -1423,7 +1423,7 @@ export function DesignPage() {
                     'rounded-brand border px-2.5 py-1 text-xs transition-colors',
                     view === option.id
                       ? 'border-primary bg-primary/5 text-primary'
-                      : 'border-border/40 text-muted-foreground hover:border-border',
+                      : 'border-border text-muted-foreground hover:border-border-strong',
                   )}
                 >
                   {option.label}
@@ -1437,7 +1437,7 @@ export function DesignPage() {
           )}
 
           {shownImage ? (
-            <div className="relative flex min-h-[55vh] items-center justify-center overflow-hidden rounded-brand border border-border/40 bg-muted/20 lg:min-h-0 lg:flex-1">
+            <div className="relative flex min-h-[55vh] items-center justify-center overflow-hidden rounded-brand border border-border bg-muted lg:min-h-0 lg:flex-1">
               <img
                 src={shownImage}
                 alt={t('design.yourDesign')}
@@ -1482,7 +1482,7 @@ export function DesignPage() {
         </main>
 
         {/* ── Right: the brief and the controls this subject needs ──── */}
-        <aside className="shrink-0 space-y-4 border-t border-border/40 p-4 lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-l">
+        <aside className="shrink-0 space-y-4 border-t border-border p-4 lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-l">
           <div className="space-y-1.5">
             <label htmlFor="design-brief" className="text-sm font-medium">
               {isBox ? t('design.whatShouldWePrint') : t('design.howShouldItLook')}
@@ -1582,7 +1582,7 @@ export function DesignPage() {
                         'rounded-brand border px-3 py-1 text-xs capitalize transition-colors',
                         color === option
                           ? 'border-primary bg-primary/5 text-primary'
-                          : 'border-border/40 text-muted-foreground hover:border-border',
+                          : 'border-border text-muted-foreground hover:border-border-strong',
                       )}
                     >
                       {option}
@@ -1659,7 +1659,7 @@ export function DesignPage() {
               carries the weight. The mockup used to be a third button the
               shopper had to know to press before this one would work; it is
               now a step inside confirming, because it never was a decision. */}
-          <div className="space-y-4 border-t border-border/40 pt-4">
+          <div className="space-y-4 border-t border-border pt-4">
             <div className="space-y-1.5">
               <Button
                 type="button"
@@ -1772,7 +1772,7 @@ export function DesignPage() {
           {/* Only a question when there are genuinely two pictures of one
               design. Pre-answered with whichever tab they came from. */}
           {placed && photoreal && (
-            <label className="flex items-start gap-2 rounded-brand border border-border/40 p-3 text-xs">
+            <label className="flex items-start gap-2 rounded-brand border border-border p-3 text-xs">
               <input
                 type="checkbox"
                 checked={useRenderForImage}
@@ -1791,7 +1791,7 @@ export function DesignPage() {
               <img
                 src={showingRender ? (confirmImage ?? photoreal) : photoreal}
                 alt=""
-                className="size-12 shrink-0 rounded-brand border border-border/40 object-cover"
+                className="size-12 shrink-0 rounded-brand border border-border object-cover"
               />
             </label>
           )}
@@ -1853,7 +1853,7 @@ function ConfirmPreview({ src, alt }: { src: string; alt: string }) {
   return (
     <div
       className={cn(
-        'relative flex items-center justify-center overflow-hidden rounded-brand border border-border/40 bg-muted/20 p-2',
+        'relative flex items-center justify-center overflow-hidden rounded-brand border border-border bg-muted p-2',
         state !== 'ready' && 'min-h-[42vh]',
       )}
     >

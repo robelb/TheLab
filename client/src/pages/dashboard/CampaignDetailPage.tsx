@@ -170,7 +170,7 @@ function AddVideoDialog({
         </DialogHeader>
         <div className="space-y-4">
           {localUrl && (
-            <div className="overflow-hidden rounded-brand border border-border/40 bg-black/5">
+            <div className="overflow-hidden rounded-brand border border-border bg-black/5">
               <video
                 src={localUrl}
                 controls
@@ -342,7 +342,7 @@ function BundleImage({
       </div>
 
       <div
-        className="relative overflow-hidden rounded-brand border border-border/40 bg-muted/20"
+        className="relative overflow-hidden rounded-brand border border-border bg-muted"
         aria-busy={regenerating}
       >
         {campaign.heroImageUrl ? (
@@ -429,7 +429,7 @@ function CampaignVideos({ campaign }: { campaign: Campaign }) {
   )
 
   return (
-    <div className="space-y-2 border-t border-border/40 pt-4">
+    <div className="space-y-2 border-t border-border pt-4">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">
           {t('dashboard.company.detail.videos.heading', {
@@ -442,7 +442,7 @@ function CampaignVideos({ campaign }: { campaign: Campaign }) {
         </Button>
       </div>
       {campaign.videos.length === 0 ? (
-        <p className="rounded-brand border border-border/40 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-brand border border-border bg-muted px-4 py-6 text-center text-sm text-muted-foreground">
           {t('dashboard.company.detail.videos.empty')}
         </p>
       ) : (
@@ -450,7 +450,7 @@ function CampaignVideos({ campaign }: { campaign: Campaign }) {
           {campaign.videos.map((v) => (
             <li
               key={v.id}
-              className="flex items-center gap-3 rounded-brand border border-border/40 p-2"
+              className="flex items-center gap-3 rounded-brand border border-border p-2"
             >
               <button
                 type="button"
@@ -462,7 +462,7 @@ function CampaignVideos({ campaign }: { campaign: Campaign }) {
                     t('dashboard.company.detail.videos.fallbackName'),
                 })}
               >
-                <div className="relative size-14 shrink-0 overflow-hidden rounded-brand border border-border/40 bg-black">
+                <div className="relative size-14 shrink-0 overflow-hidden rounded-brand border border-border bg-black">
                   <video
                     src={v.url}
                     muted
@@ -665,7 +665,7 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
             </Button>
           </div>
           {bundle.length === 0 ? (
-            <p className="rounded-brand border border-border/40 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+            <p className="rounded-brand border border-border bg-muted px-4 py-6 text-center text-sm text-muted-foreground">
               {t('dashboard.company.detail.editor.emptyBundle')}
             </p>
           ) : (
@@ -683,7 +683,7 @@ function CampaignEditor({ campaign }: { campaign: Campaign }) {
 
         <CampaignVideos campaign={campaign} />
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
           <Button
             variant="ghost"
             className="text-destructive hover:text-destructive"

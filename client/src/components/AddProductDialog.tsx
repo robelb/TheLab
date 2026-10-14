@@ -166,7 +166,7 @@ export function AddProductDialog({
                 disabled={blocked}
                 onClick={() => (multiple ? toggle(p) : onAdd?.(p))}
                 className={cn(
-                  'flex w-full items-center gap-3 rounded-brand p-2 text-left transition-colors hover:bg-muted/40',
+                  'flex w-full items-center gap-3 rounded-brand p-2 text-left transition-colors hover:bg-muted',
                   checked && 'bg-primary/10 hover:bg-primary/15',
                   blocked && 'cursor-not-allowed opacity-50 hover:bg-transparent',
                 )}
@@ -182,7 +182,7 @@ export function AddProductDialog({
                 <img
                   src={plainImages ? p.image : getProductDisplayImage(p)}
                   alt=""
-                  className="size-10 shrink-0 rounded-brand border border-border/40 object-cover"
+                  className="size-10 shrink-0 rounded-brand border border-border object-cover"
                 />
                 <span className="min-w-0 flex-1 truncate text-sm">{p.name}</span>
                 {bestSellersFirst && p.isBestSeller && (
@@ -209,7 +209,7 @@ export function AddProductDialog({
           )}
         </div>
         {multiple && (
-          <DialogFooter className="items-center gap-2 border-t border-border/40 pt-3 sm:justify-between">
+          <DialogFooter className="items-center gap-2 border-t border-border pt-3 sm:justify-between">
             <p className="text-xs text-muted-foreground">
               {full
                 ? t('buildBox.selectedMax', { count: selected.size })

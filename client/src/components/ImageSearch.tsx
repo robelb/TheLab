@@ -81,7 +81,7 @@ export function ImageSearch({
       />
 
       {previewUrl ? (
-        <div className="relative size-12 shrink-0 overflow-hidden rounded-brand border border-border/50">
+        <div className="relative size-12 shrink-0 overflow-hidden rounded-brand border border-border">
           <img
             src={previewUrl}
             alt="Search reference"

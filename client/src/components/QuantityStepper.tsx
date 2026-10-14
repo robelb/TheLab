@@ -52,7 +52,7 @@ export function QuantityStepper({
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center rounded-brand border border-border',
+        'flex shrink-0 items-center rounded-brand border border-border-strong',
         className,
       )}
     >

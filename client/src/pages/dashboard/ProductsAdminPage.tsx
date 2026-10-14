@@ -154,10 +154,10 @@ export function ProductsAdminPage() {
         </p>
       )}
 
-      <div className="overflow-hidden rounded-brand border border-border/40">
+      <div className="overflow-hidden rounded-brand border border-border">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/40">
+            <TableRow className="bg-muted">
               {canFeature && (
                 <TableHead className="w-10">
                   <Checkbox
@@ -244,7 +244,7 @@ export function ProductsAdminPage() {
                     <img
                       src={p.image}
                       alt=""
-                      className="size-10 shrink-0 rounded-brand border border-border/40 object-cover"
+                      className="size-10 shrink-0 rounded-brand border border-border object-cover"
                     />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">

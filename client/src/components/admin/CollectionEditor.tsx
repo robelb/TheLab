@@ -237,7 +237,7 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
 
         <TabsContent value="content" className="mt-4 space-y-6">
           {/* First, because they decide whether half of this page applies. */}
-          <section className="space-y-3 rounded-brand border border-border/40 bg-muted/10 p-3">
+          <section className="space-y-3 rounded-brand border border-border bg-muted p-3">
             <div className="flex items-start gap-3">
               <Checkbox
                 id={`build-${collection.id}`}
@@ -369,7 +369,7 @@ export function CollectionEditor({ collection }: { collection: Collection }) {
             </p>
           )}
 
-          <div className="mt-4 flex items-center gap-2 border-t border-border/40 pt-3">
+          <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
             <Button
               type="button"
               disabled={!dirty || updateCollection.isPending}

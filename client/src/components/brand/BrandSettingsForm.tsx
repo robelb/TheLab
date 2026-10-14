@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { brandPalette } from '@/lib/applyBrandTheme'
 import { BrandSwitcher } from '@/components/BrandSwitcher'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,29 +19,54 @@ function ColorField({
   label,
   value,
   onChange,
+  auto,
+  hint,
 }: {
   id: string
   label: string
   value: string
   onChange: (v: string) => void
+  /**
+   * The colour used while this one is left empty. Given, the field may be
+   * cleared back to it; empty, it shows that colour and says it is automatic.
+   */
+  auto?: string
+  hint?: string
 }) {
+  const isAuto = auto !== undefined && !value
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor={id}>
+          {label}
+          {isAuto && <span className="font-normal text-muted-foreground"> · auto</span>}
+        </Label>
+        {auto !== undefined && !isAuto && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            Auto
+          </button>
+        )}
+      </div>
       <div className="flex gap-2">
         <Input
           id={id}
           type="color"
-          value={value}
+          value={isAuto ? auto : value}
           onChange={(e) => onChange(e.target.value)}
           className="h-10 w-14 shrink-0 cursor-pointer p-1"
         />
         <Input
           value={value}
+          placeholder={isAuto ? auto : undefined}
           onChange={(e) => onChange(e.target.value)}
           className="font-mono text-sm"
         />
       </div>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   )
 }
@@ -54,6 +80,8 @@ export function BrandSettingsForm() {
     resetBrand,
     replaceBrand,
   } = useBrand()
+  // What the newer colours fall back to, worked out with them left empty.
+  const autoPalette = brandPalette({ ...brand, otherColors: brand.otherColors.slice(0, 3) })
   const [jsonError, setJsonError] = useState<string | null>(null)
   const [jsonDraft, setJsonDraft] = useState('')
 
@@ -65,7 +93,12 @@ export function BrandSettingsForm() {
   }
 
   function patchOtherColor(index: number, value: string) {
-    const next = [...brand.otherColors]
+    // Empty slots are '' rather than holes: the theme is saved as a list of
+    // strings, and '' is what "work it out" means for the newer ones.
+    const next = Array.from(
+      { length: Math.max(brand.otherColors.length, index + 1) },
+      (_, i) => brand.otherColors[i] ?? '',
+    )
     next[index] = value
     setBrand({ otherColors: next })
   }
@@ -193,9 +226,42 @@ export function BrandSettingsForm() {
           />
           <ColorField
             id="other2"
-            label="Muted / border"
+            label="Muted text"
+            hint="Captions, hints and secondary labels."
             value={brand.otherColors[2] ?? '#b3b3b3'}
             onChange={(v) => patchOtherColor(2, v)}
+          />
+          <ColorField
+            id="other3"
+            label="Borders"
+            hint="Resting lines: cards, tiles, dividers and table rows."
+            value={brand.otherColors[3] ?? ''}
+            auto={autoPalette.border}
+            onChange={(v) => patchOtherColor(3, v)}
+          />
+          <ColorField
+            id="other6"
+            label="Strong borders & field outlines"
+            hint="Hover and selected states, input fields and outline buttons."
+            value={brand.otherColors[6] ?? ''}
+            auto={autoPalette.borderStrong}
+            onChange={(v) => patchOtherColor(6, v)}
+          />
+          <ColorField
+            id="other4"
+            label="Placeholder text"
+            hint="The grey example text inside empty fields."
+            value={brand.otherColors[4] ?? ''}
+            auto={autoPalette.placeholder}
+            onChange={(v) => patchOtherColor(4, v)}
+          />
+          <ColorField
+            id="other5"
+            label="Muted background"
+            hint="Quiet surfaces: image wells, chips, hover rows."
+            value={brand.otherColors[5] ?? ''}
+            auto={autoPalette.mutedSurface}
+            onChange={(v) => patchOtherColor(5, v)}
           />
         </CardContent>
       </Card>

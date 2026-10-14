@@ -38,7 +38,7 @@ export function LanguageSwitcher() {
 
   return (
     <div
-      className="flex items-center rounded-brand border border-border/60"
+      className="flex items-center rounded-brand border border-border"
       role="group"
       aria-label={t('common.language')}
     >

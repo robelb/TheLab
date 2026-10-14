@@ -244,7 +244,7 @@ export function HomePage() {
       </div>
 
       {imageActive && (
-        <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border/50 bg-card/40 px-4 py-2 text-sm">
+        <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border bg-card/40 px-4 py-2 text-sm">
           <span className="text-muted-foreground">
             {imageCaption
               ? t('home.visualMatches', { caption: imageCaption })
@@ -263,7 +263,7 @@ export function HomePage() {
       )}
 
       {!imageActive && interpretedChips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border/50 bg-card/40 px-4 py-2 text-sm">
+        <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border bg-card/40 px-4 py-2 text-sm">
           <span className="text-muted-foreground">{t('home.understoodAs')}</span>
           {interpretedChips.map((chip) => (
             <span
@@ -364,7 +364,7 @@ export function HomePage() {
               </div>
 
               {products.length === 0 && !error && (
-                <div className="rounded-brand border border-dashed border-border/50 bg-card/30 px-6 py-16 text-center">
+                <div className="rounded-brand border border-dashed border-border bg-card/30 px-6 py-16 text-center">
                   <p className="font-display text-lg font-semibold">
                     {t('home.noMatches')}
                   </p>
@@ -385,7 +385,7 @@ export function HomePage() {
 
               {totalPages > 1 && (
                 <nav
-                  className="flex flex-wrap items-center justify-center gap-3 border-t border-border/30 pt-8"
+                  className="flex flex-wrap items-center justify-center gap-3 border-t border-border pt-8"
                   aria-label={t('home.pagination')}
                 >
                   <Button

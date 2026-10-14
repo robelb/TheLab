@@ -293,7 +293,7 @@ export function ProductDetailPage() {
                             <img
                               src={row.src}
                               alt=""
-                              className="size-12 rounded-brand border border-border/40 object-cover"
+                              className="size-12 rounded-brand border border-border object-cover"
                             />
                           </a>
                         </TableCell>

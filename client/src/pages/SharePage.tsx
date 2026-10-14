@@ -61,7 +61,7 @@ export function SharePage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/20 text-sm text-muted-foreground">
+      <div className="flex min-h-screen items-center justify-center bg-muted text-sm text-muted-foreground">
         Loading shared preview…
       </div>
     )
@@ -69,7 +69,7 @@ export function SharePage() {
 
   if (error || !share) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-muted/20 px-6 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-muted px-6 text-center">
         <h1 className="font-display text-2xl font-bold">Link not found</h1>
         <p className="max-w-sm text-sm text-muted-foreground">
           This shared link is invalid or has expired.
@@ -83,11 +83,11 @@ export function SharePage() {
 
   return (
     <div
-      className="min-h-screen bg-muted/20"
+      className="min-h-screen bg-muted"
       style={accent ? ({ ['--brand-accent' as string]: accent } as React.CSSProperties) : undefined}
     >
       {/* Branded header — this is "our site", not a bare image URL. */}
-      <header className="border-b border-border/50 bg-background/80 backdrop-blur">
+      <header className="border-b border-border bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
           <BrandMark
             logo={share.brand?.logo}
@@ -111,7 +111,7 @@ export function SharePage() {
       <main className="mx-auto max-w-4xl px-6 py-8 sm:py-12">
         <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr] lg:items-start">
           {/* The configured image, presented cleanly. */}
-          <div className="overflow-hidden rounded-brand border border-border/40 bg-white shadow-brand">
+          <div className="overflow-hidden rounded-brand border border-border bg-white shadow-brand">
             <img
               src={share.imageUrl}
               alt={share.title ?? share.product?.name ?? 'Shared product'}
@@ -139,7 +139,7 @@ export function SharePage() {
               )}
             </div>
 
-            <div className="flex items-start gap-2 rounded-brand border border-border/40 bg-background p-3 text-xs text-muted-foreground">
+            <div className="flex items-start gap-2 rounded-brand border border-border bg-background p-3 text-xs text-muted-foreground">
               <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" />
               <p>
                 Someone shared this configured product with you for sign-off.

@@ -152,10 +152,10 @@ export function FeaturedProductsPage() {
         </p>
       )}
 
-      <div className="overflow-hidden rounded-brand border border-border/40">
+      <div className="overflow-hidden rounded-brand border border-border">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/40">
+            <TableRow className="bg-muted">
               <TableHead className="w-10">
                 <Checkbox
                   checked={selection.pageState}
@@ -240,7 +240,7 @@ export function FeaturedProductsPage() {
                         <ProductImage
                           src={p.image}
                           alt=""
-                          className="size-10 shrink-0 rounded-brand border border-border/40 bg-background object-cover"
+                          className="size-10 shrink-0 rounded-brand border border-border bg-background object-cover"
                           loading="lazy"
                         />
                         <div className="min-w-0">

@@ -933,11 +933,11 @@ export function StepBoxBuilderPage() {
       </section>
 
       {/* ── Running price and the way on ─────────────────────────────────── */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/40 bg-background/95 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur">
         {priceOpen && hasPrice && (
           <div
             id="price-details"
-            className="mx-auto max-h-[50vh] max-w-7xl overflow-y-auto border-b border-border/40 px-4 py-3 sm:px-6 lg:px-8"
+            className="mx-auto max-h-[50vh] max-w-7xl overflow-y-auto border-b border-border px-4 py-3 sm:px-6 lg:px-8"
           >
             <ul className="space-y-1 text-sm sm:max-w-md">
               {priceRows.map((row) => (
@@ -946,7 +946,7 @@ export function StepBoxBuilderPage() {
                   <span className="shrink-0 tabular-nums">{formatPrice(row.amount, currency)}</span>
                 </li>
               ))}
-              <li className="flex justify-between gap-4 border-t border-border/40 pt-1 font-medium">
+              <li className="flex justify-between gap-4 border-t border-border pt-1 font-medium">
                 <span>{t('stepBuilder.price.perBox')}</span>
                 <span className="tabular-nums">{formatPrice(perBox, currency)}</span>
               </li>
@@ -1119,7 +1119,7 @@ function StepIntro({
         <Icon className="size-5 text-primary" />
         {title}
         {optional && (
-          <span className="rounded-full border border-border px-2 py-0.5 text-xs font-normal text-foreground/70">
+          <span className="rounded-full border border-border-strong px-2 py-0.5 text-xs font-normal text-muted-foreground">
             {t('stepBuilder.optional')}
           </span>
         )}
@@ -1131,7 +1131,7 @@ function StepIntro({
 
 function Note({ children }: { children: React.ReactNode }) {
   return (
-    <p className="max-w-2xl rounded-brand border border-border/40 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+    <p className="max-w-2xl rounded-brand border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
       {children}
     </p>
   )
@@ -1187,7 +1187,7 @@ function ProductsStep({
         <button
           type="button"
           onClick={onOpenPicker}
-          className="flex w-full flex-col items-center gap-3 rounded-brand border-2 border-dashed border-border/60 bg-muted/10 px-6 py-16 text-center transition-colors hover:border-primary/60 hover:bg-primary/5"
+          className="flex w-full flex-col items-center gap-3 rounded-brand border-2 border-dashed border-border bg-muted px-6 py-16 text-center transition-colors hover:border-primary/60 hover:bg-primary/5"
         >
           <Plus className="size-8 text-primary" />
           <span className="font-medium">{t('stepBuilder.products.empty')}</span>
@@ -1200,7 +1200,7 @@ function ProductsStep({
             return (
               <div
                 key={p.id}
-                className="group relative flex flex-col overflow-hidden rounded-brand border border-border/40 bg-card"
+                className="group relative flex flex-col overflow-hidden rounded-brand border border-border bg-card"
               >
                 <button
                   type="button"
@@ -1210,7 +1210,7 @@ function ProductsStep({
                 >
                   <X className="size-4" />
                 </button>
-                <div className="relative aspect-square shrink-0 overflow-hidden bg-muted/10">
+                <div className="relative aspect-square shrink-0 overflow-hidden bg-muted">
                   <ProductImage
                     src={imageOf(p)}
                     alt={p.name}
@@ -1223,7 +1223,7 @@ function ProductsStep({
                     <span className="text-sm tabular-nums">
                       {formatPrice(unitFor(p, quantity), p.currency)}
                     </span>
-                    <div className="flex items-center rounded-brand border border-border/60">
+                    <div className="flex items-center rounded-brand border border-border">
                       <button
                         type="button"
                         aria-label={t('stepBuilder.products.less', { name: p.name })}
@@ -1304,7 +1304,7 @@ function OptionGrid({
             'flex aspect-square flex-col items-center justify-center gap-2 rounded-brand border-2 border-dashed p-4 text-center text-sm font-medium transition-colors',
             none.selected
               ? 'border-primary bg-primary/5 text-foreground'
-              : 'border-border/60 text-muted-foreground hover:border-border',
+              : 'border-border text-muted-foreground hover:border-border-strong',
           )}
         >
           <X className="size-6" />
@@ -1324,10 +1324,10 @@ function OptionGrid({
               'relative flex flex-col overflow-hidden rounded-brand border bg-card text-left transition-colors',
               selected
                 ? 'border-primary ring-2 ring-primary'
-                : 'border-border/40 hover:border-border',
+                : 'border-border hover:border-border-strong',
             )}
           >
-            <div className="relative aspect-square shrink-0 overflow-hidden bg-muted/10">
+            <div className="relative aspect-square shrink-0 overflow-hidden bg-muted">
               <ProductImage
                 src={option.image}
                 alt={option.name}
@@ -1396,7 +1396,7 @@ function PackagingStep({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start">
         {/* The large preview: the box is what the recipient sees first. */}
         <div className="space-y-3 lg:sticky lg:top-24">
-          <div className="overflow-hidden rounded-brand border border-border/40 bg-muted/10">
+          <div className="overflow-hidden rounded-brand border border-border bg-muted">
             {loading || !preview ? (
               <Skeleton className="aspect-square w-full" />
             ) : (
@@ -1420,9 +1420,9 @@ function PackagingStep({
                 <p className="text-xs text-primary">{t('stepBuilder.packaging.pick')}</p>
               )}
               {selected && onDesign && (
-                <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border/40 bg-background/60 px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border bg-background/60 px-3 py-2">
                   <Wand2 className="size-4 shrink-0 text-primary" />
-                  <p className="min-w-0 flex-1 text-xs text-foreground/70">
+                  <p className="min-w-0 flex-1 text-xs text-muted-foreground">
                     {design
                       ? t('stepBuilder.packaging.printed', {
                           prompt: design.prompt || t('buildBox.yourDesign'),
@@ -1454,7 +1454,7 @@ function PackagingStep({
           {/* Every box is padded; the first filling is chosen for them and
               they can swap it for any other on offer. */}
           {fillings.length > 0 && (
-            <div className="space-y-3 border-t border-border/40 pt-5">
+            <div className="space-y-3 border-t border-border pt-5">
               <div>
                 <p className="font-medium">{t('stepBuilder.packaging.fillingTitle')}</p>
                 <p className="text-sm text-muted-foreground">
@@ -1573,7 +1573,7 @@ function ReviewStep({
       {/* ── The box ───────────────────────────────────────────────────── */}
       <div className="space-y-3 lg:sticky lg:top-24">
         <div
-          className="relative overflow-hidden rounded-brand border border-border/40 bg-muted/10"
+          className="relative overflow-hidden rounded-brand border border-border bg-muted"
           aria-busy={rendering}
         >
           {heroUrl ? (
@@ -1595,7 +1595,7 @@ function ReviewStep({
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/85 px-6 text-center">
               <Loader2 className="size-7 animate-spin text-primary" />
               <p className="text-sm font-medium">{t('stepBuilder.review.photographing')}</p>
-              <p className="text-xs text-foreground/70">{t('stepBuilder.review.takesAMinute')}</p>
+              <p className="text-xs text-muted-foreground">{t('stepBuilder.review.takesAMinute')}</p>
             </div>
           )}
         </div>
@@ -1626,7 +1626,7 @@ function ReviewStep({
           <p className="text-sm text-muted-foreground">{t('stepBuilder.review.body')}</p>
         </div>
 
-        <div className="rounded-brand border border-border/40 bg-card/40 px-4 py-2">
+        <div className="rounded-brand border border-border bg-card/40 px-4 py-2">
           <div className="flex items-center justify-between py-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {t('stepBuilder.steps.products')}
@@ -1649,7 +1649,7 @@ function ReviewStep({
                   <ProductImage
                     src={imageOf(p)}
                     alt=""
-                    className="size-10 shrink-0 rounded-brand border border-border/40 object-contain"
+                    className="size-10 shrink-0 rounded-brand border border-border object-contain"
                   />
                   <span className="min-w-0 flex-1 truncate text-sm">
                     {quantity > 1 && <span className="tabular-nums">{quantity} × </span>}
@@ -1662,7 +1662,7 @@ function ReviewStep({
               )
             })}
           </ul>
-          <div className="divide-y divide-border/40 border-t border-border/40">
+          <div className="divide-y divide-border/40 border-t border-border">
             {supplyRow('card', t('stepBuilder.steps.card'), card)}
             {card && (
               <div className="py-2">
@@ -1689,7 +1689,7 @@ function ReviewStep({
                   {stickerLogo ? (
                     stickerLogo.name ?? t('stepBuilder.stickers.logoUploaded')
                   ) : (
-                    <span className="text-foreground/70">{t('stepBuilder.stickers.logoFollows')}</span>
+                    <span className="text-muted-foreground">{t('stepBuilder.stickers.logoFollows')}</span>
                   )}
                 </p>
               </div>
@@ -1697,7 +1697,7 @@ function ReviewStep({
           </div>
         </div>
 
-        <div className="space-y-3 rounded-brand border border-border/40 px-4 py-3">
+        <div className="space-y-3 rounded-brand border border-border px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm text-muted-foreground">{t('stepBuilder.footer.perBox')}</span>
             <span className="text-sm tabular-nums">{formatPrice(perBox, currency)}</span>
@@ -1716,7 +1716,7 @@ function ReviewStep({
               max={MAX_LINE_QUANTITY}
             />
           </div>
-          <div className="flex items-end justify-between gap-3 border-t border-border/40 pt-3">
+          <div className="flex items-end justify-between gap-3 border-t border-border pt-3">
             <div>
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 {t('stepBuilder.review.total')}
@@ -1749,8 +1749,8 @@ function StickerDesign({
 }) {
   const { t } = useTranslation()
   return (
-    <div className="flex max-w-2xl flex-wrap items-center gap-3 rounded-brand border border-border/40 bg-card/40 p-4">
-      <span className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-brand border border-border/40 bg-background">
+    <div className="flex max-w-2xl flex-wrap items-center gap-3 rounded-brand border border-border bg-card/40 p-4">
+      <span className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-brand border border-border bg-background">
         <ProductImage
           src={design?.image ?? sticker.image}
           alt={sticker.name}
@@ -1761,7 +1761,7 @@ function StickerDesign({
         <p className="text-sm font-medium">
           {design ? t('stepBuilder.stickers.designed') : t('stepBuilder.stickers.designTitle')}
         </p>
-        <p className="text-sm text-foreground/70">
+        <p className="text-sm text-muted-foreground">
           {design
             ? design.prompt
               ? t('stepBuilder.packaging.printed', { prompt: design.prompt })
@@ -1815,10 +1815,10 @@ function StickerLogoUpload({
   }
 
   return (
-    <div className="max-w-2xl space-y-3 rounded-brand border border-border/40 bg-card/40 p-4">
+    <div className="max-w-2xl space-y-3 rounded-brand border border-border bg-card/40 p-4">
       <div className="space-y-1">
         <p className="text-sm font-medium">{t('stepBuilder.stickers.logoTitle')}</p>
-        <p className="text-sm text-foreground/70">{t('stepBuilder.stickers.logoBody')}</p>
+        <p className="text-sm text-muted-foreground">{t('stepBuilder.stickers.logoBody')}</p>
       </div>
       <input
         ref={input}
@@ -1834,16 +1834,16 @@ function StickerLogoUpload({
             <img
               src={logo.url}
               alt=""
-              className="size-12 shrink-0 rounded-brand border border-border/40 bg-background object-contain p-1"
+              className="size-12 shrink-0 rounded-brand border border-border bg-background object-contain p-1"
             />
           ) : (
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-brand border border-border/40 bg-background">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-brand border border-border bg-background">
               <Check className="size-5 text-primary" />
             </span>
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{logo.name ?? t('stepBuilder.stickers.logoUploaded')}</p>
-            <p className="text-xs text-foreground/70">{t('stepBuilder.stickers.logoUploaded')}</p>
+            <p className="text-xs text-muted-foreground">{t('stepBuilder.stickers.logoUploaded')}</p>
           </div>
           <div className="flex gap-1">
             <Button
@@ -1871,12 +1871,12 @@ function StickerLogoUpload({
             {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
             {uploading ? t('stepBuilder.stickers.uploading') : t('stepBuilder.stickers.upload')}
           </Button>
-          <span className="text-xs text-foreground/70">{t('stepBuilder.stickers.formats')}</span>
+          <span className="text-xs text-muted-foreground">{t('stepBuilder.stickers.formats')}</span>
         </div>
       )}
       {error && <p className="text-xs text-destructive">{error}</p>}
       {!logo && (
-        <p className="text-xs text-foreground/70">{t('stepBuilder.stickers.later')}</p>
+        <p className="text-xs text-muted-foreground">{t('stepBuilder.stickers.later')}</p>
       )}
     </div>
   )
@@ -1903,7 +1903,7 @@ function AiPick({
 }) {
   const { t } = useTranslation()
   return (
-    <div className="space-y-3 rounded-brand border border-border/40 bg-card/40 p-4">
+    <div className="space-y-3 rounded-brand border border-border bg-card/40 p-4">
       <label htmlFor="box-brief" className="flex items-center gap-1.5 text-sm font-medium">
         <Sparkles className="size-4 text-primary" />
         {t('buildBox.letUsPick')}
@@ -1922,7 +1922,7 @@ function AiPick({
           {picking ? t('buildBox.assembling') : t('buildBox.pickForMe')}
         </Button>
         {replaces > 0 && !picking && (
-          <span className="text-xs text-foreground/70">
+          <span className="text-xs text-muted-foreground">
             {t('buildBox.replacesProducts', { count: replaces })}
           </span>
         )}
@@ -1955,7 +1955,7 @@ function Collage({
             key={p.id}
             src={p.src}
             alt=""
-            className="size-20 rounded-brand border border-border/40 bg-background object-contain p-1 shadow-sm sm:size-24"
+            className="size-20 rounded-brand border border-border bg-background object-contain p-1 shadow-sm sm:size-24"
           />
         ))}
       </div>

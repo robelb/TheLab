@@ -238,10 +238,10 @@ export function CampaignsPage() {
         </p>
       )}
 
-      <div className="overflow-hidden rounded-brand border border-border/40">
+      <div className="overflow-hidden rounded-brand border border-border">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/40">
+            <TableRow className="bg-muted">
               <TableHead>{t('dashboard.company.campaigns.table.campaign')}</TableHead>
               <TableHead>{t('dashboard.company.campaigns.table.status')}</TableHead>
               <TableHead>{t('dashboard.company.campaigns.table.products')}</TableHead>
@@ -287,7 +287,7 @@ export function CampaignsPage() {
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <div
-                      className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-brand border border-border/40 bg-muted/20"
+                      className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-brand border border-border bg-muted"
                       aria-busy={c.heroImageStatus === 'pending'}
                       title={
                         c.heroImageStatus === 'pending'

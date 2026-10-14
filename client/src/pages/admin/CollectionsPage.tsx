@@ -113,10 +113,10 @@ export function CollectionsPage() {
         </p>
       )}
 
-      <div className="overflow-hidden rounded-brand border border-border/40">
+      <div className="overflow-hidden rounded-brand border border-border">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/40">
+            <TableRow className="bg-muted">
               <TableHead>{t('dashboard.admin.collections.columns.page')}</TableHead>
               <TableHead>{t('dashboard.admin.collections.columns.tag')}</TableHead>
               <TableHead>{t('dashboard.admin.collections.columns.boxes')}</TableHead>
@@ -254,7 +254,7 @@ export function CollectionsPage() {
                       ) : (
                         <Badge
                           variant="outline"
-                          className="border-border/60 text-muted-foreground"
+                          className="border-border text-muted-foreground"
                         >
                           {t('dashboard.admin.collections.ended')}
                         </Badge>

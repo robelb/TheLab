@@ -188,7 +188,7 @@ export function OrderDetailsDialog({
         <section className="space-y-3">
           <h3 className="text-sm font-semibold">{t('dashboard.orders.details.invoice')}</h3>
           {billingLocked ? (
-            <p className="rounded-brand border border-border/40 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <p className="rounded-brand border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
               {t('dashboard.orders.details.invoiceLocked')}
             </p>
           ) : (
@@ -222,7 +222,7 @@ export function OrderDetailsDialog({
         </section>
 
         {(order.addressesLater || (order.shippingMethod && order.shippingMethod !== 'bulk')) && (
-          <section className="space-y-2 border-t border-border/40 pt-4">
+          <section className="space-y-2 border-t border-border pt-4">
             <h3 className="text-sm font-semibold">{t('dashboard.orders.details.recipients')}</h3>
             <div className="flex items-center gap-2">
               <Checkbox
@@ -238,14 +238,14 @@ export function OrderDetailsDialog({
         )}
 
         {stickerLines.length > 0 && (
-          <section className="space-y-2 border-t border-border/40 pt-4">
+          <section className="space-y-2 border-t border-border pt-4">
             <h3 className="text-sm font-semibold">{t('dashboard.orders.details.stickerLogo')}</h3>
             {stickerLines.map(({ item, index }) => {
               const logo = logos[index]
               return (
                 <div
                   key={index}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-brand border border-border/40 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-brand border border-border px-3 py-2"
                 >
                   <div className="min-w-0 text-sm">
                     <p className="truncate font-medium">{item.name}</p>
@@ -297,7 +297,7 @@ export function OrderDetailsDialog({
         )}
 
         {cardLines.length > 0 && (
-          <section className="space-y-3 border-t border-border/40 pt-4">
+          <section className="space-y-3 border-t border-border pt-4">
             <h3 className="text-sm font-semibold">{t('dashboard.orders.details.cardMessage')}</h3>
             {cardLines.map(({ item, index }) => {
               const value = messages[index] ?? ''
@@ -327,7 +327,7 @@ export function OrderDetailsDialog({
         )}
 
         {customItems.length > 0 && (
-          <section className="space-y-2 border-t border-border/40 pt-4">
+          <section className="space-y-2 border-t border-border pt-4">
             <h3 className="text-sm font-semibold">{t('dashboard.orders.details.customDesign')}</h3>
             <div className="flex items-start gap-2">
               <Checkbox

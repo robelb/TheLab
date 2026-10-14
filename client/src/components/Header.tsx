@@ -40,7 +40,7 @@ export function Header() {
   const focused = inFunnel && !allowCustomization
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/40 bg-background/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
       <div className="mx-auto flex h-auto min-h-16 max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:h-16 lg:flex-nowrap lg:py-0 lg:px-8">
         {/* Home, while they are in a campaign, is the campaign — not the shop. */}
         <BrandLogo to={shopHome} />

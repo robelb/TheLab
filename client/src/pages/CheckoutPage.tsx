@@ -446,7 +446,7 @@ export function CheckoutPage() {
           <PrivacyConsent f={f} disabled={pending} />
         </form>
 
-        <Card className="border-border/30 lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+        <Card className="border-border lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1">
           <CardHeader>
             <CardTitle>{t('checkout.asking')}</CardTitle>
           </CardHeader>
@@ -486,7 +486,7 @@ export function CheckoutPage() {
                         {t('cart.insideBox')} ·{' '}
                         {t('common.item', { count: boxPieceCount(box.lines) })}
                       </summary>
-                      <ul className="mt-1 ml-1.5 border-l border-border/40 pl-3 text-xs text-muted-foreground">
+                      <ul className="mt-1 ml-1.5 border-l border-border pl-3 text-xs text-muted-foreground">
                         {boxAllLines(box).map((line) => (
                           <li key={line.productId} className="truncate">
                             {line.name} × {line.quantity}

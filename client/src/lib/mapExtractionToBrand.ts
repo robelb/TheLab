@@ -27,6 +27,10 @@ export interface ExtractionPayload {
     textMuted?: string | null
     accent?: string | null
     border?: string | null
+    /** Set in the branding form; see `brandPalette`. Not from extraction. */
+    placeholder?: string | null
+    mutedSurface?: string | null
+    borderStrong?: string | null
   }
   typography?: {
     headingFont?: string | null
@@ -104,6 +108,15 @@ export function mapExtractionToBrand(data: ExtractionPayload): BrandConfig {
       [DEFAULT_FOREGROUND, DEFAULT_ACCENT_ALT, DEFAULT_MUTED][otherColors.length]!,
     )
   }
+  // Slots 3–6 — borders, placeholder, muted background, strong borders (see
+  // `brandPalette`). The site's border colour fills the first unless it is
+  // just its muted text again; the rest come from the branding form. An empty
+  // slot means "work it out".
+  const border =
+    colors.border && colors.border.toLowerCase() !== muted.toLowerCase() ? colors.border : ''
+  const later = [border, colors.placeholder ?? '', colors.mutedSurface ?? '', colors.borderStrong ?? '']
+  while (later.length && !later[later.length - 1]) later.pop()
+  otherColors.push(...later)
 
   const typography = data.typography ?? {}
   const fonts =
@@ -160,7 +173,8 @@ export function mapExtractionToBrand(data: ExtractionPayload): BrandConfig {
 export function brandConfigToExtraction(
   brand: BrandConfig,
 ): Record<string, unknown> {
-  const [text, surface, textMuted] = brand.otherColors
+  const [text, surface, textMuted, border, placeholder, mutedSurface, borderStrong] =
+    brand.otherColors
   return {
     companyName: brand.companyName,
     description: brand.description,
@@ -177,6 +191,12 @@ export function brandConfigToExtraction(
       text: text ?? null,
       surface: surface ?? null,
       textMuted: textMuted ?? null,
+      // The newer slots, so a saved company theme keeps them; null clears one
+      // back to automatic.
+      border: border || null,
+      placeholder: placeholder || null,
+      mutedSurface: mutedSurface || null,
+      borderStrong: borderStrong || null,
     },
     customization: brand.customization,
   }

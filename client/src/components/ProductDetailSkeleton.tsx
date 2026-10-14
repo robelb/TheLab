@@ -21,7 +21,7 @@ export function ProductDetailSkeleton() {
           </div>
           <Skeleton className="h-10 w-full rounded-md" />
           <Skeleton className="h-px w-full" />
-          <div className="space-y-2 rounded-md border border-border/30 p-4">
+          <div className="space-y-2 rounded-md border border-border p-4">
             <Skeleton className="h-4 w-16" />
             <Skeleton className="h-3 w-full" />
             <Skeleton className="h-3 w-5/6" />

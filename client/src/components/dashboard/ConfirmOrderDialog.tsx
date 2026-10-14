@@ -291,7 +291,7 @@ export function ConfirmOrderDialog({
               </span>
             </div>
           ))}
-          <div className="grid grid-cols-[1fr_110px_90px] items-center gap-3 border-t border-border/40 pt-3 text-sm">
+          <div className="grid grid-cols-[1fr_110px_90px] items-center gap-3 border-t border-border pt-3 text-sm">
             <Label htmlFor="confirm-shipping">{t('dashboard.orders.confirm.shipping')}</Label>
             <Input
               id="confirm-shipping"
@@ -333,7 +333,7 @@ export function ConfirmOrderDialog({
         </div>
 
         {totals && (
-          <dl className="space-y-1 border-t border-border/40 pt-3 text-sm">
+          <dl className="space-y-1 border-t border-border pt-3 text-sm">
             <div className="flex justify-between text-muted-foreground">
               <dt>{t('dashboard.orders.confirm.net')}</dt>
               <dd className="tabular-nums">{m(totals.net)}</dd>
@@ -358,7 +358,7 @@ export function ConfirmOrderDialog({
         )}
 
         {needsBilling && (
-          <fieldset className="space-y-3 border-t border-border/40 pt-3">
+          <fieldset className="space-y-3 border-t border-border pt-3">
             <legend className="text-sm font-medium">
               {t('dashboard.orders.confirm.billingTitle')}
             </legend>
@@ -400,7 +400,7 @@ export function ConfirmOrderDialog({
           </fieldset>
         )}
 
-        <div className="grid grid-cols-[1fr_160px] items-center gap-3 border-t border-border/40 pt-3 text-sm">
+        <div className="grid grid-cols-[1fr_160px] items-center gap-3 border-t border-border pt-3 text-sm">
           <div>
             <Label htmlFor="confirm-due">{t('dashboard.orders.confirm.dueBy')}</Label>
             <p

@@ -157,7 +157,7 @@ export function CollectionDetailPage() {
         </div>
 
         {/* What the agency gets. Campaign parameters go on the end of it. */}
-        <p className="break-all rounded-brand bg-muted/40 px-3 py-2 font-mono text-xs">
+        <p className="break-all rounded-brand bg-muted px-3 py-2 font-mono text-xs">
           {link}
         </p>
       </header>
@@ -166,7 +166,7 @@ export function CollectionDetailPage() {
 
       {/* Ending and deleting sit apart from the editing, at the bottom, because
           neither is something anybody does by accident on the way past. */}
-      <section className="space-y-3 rounded-brand border border-border/40 p-4">
+      <section className="space-y-3 rounded-brand border border-border p-4">
         <div>
           <h2 className="font-display text-base font-semibold">
             {t('dashboard.admin.collectionDetail.campaignTitle')}

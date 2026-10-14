@@ -399,14 +399,14 @@ export function DeliverySection({
                     'flex flex-col gap-1.5 rounded-brand border p-3 text-left transition-colors',
                     selected
                       ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                      : 'border-border/60 hover:border-border',
+                      : 'border-border hover:border-border-strong',
                   )}
                 >
                   <span className="flex items-center gap-2 text-sm font-medium">
                     <Icon className="size-4 text-primary" />
                     {m.title}
                   </span>
-                  <span className="text-xs text-foreground/70">{m.body}</span>
+                  <span className="text-xs text-muted-foreground">{m.body}</span>
                   {estimate !== null && (
                     <span className="mt-auto pt-1 text-xs font-medium tabular-nums">
                       {t('checkout.shipFrom', { price: formatPrice(estimate, currency) })}
@@ -431,7 +431,7 @@ export function DeliverySection({
           >
             <Input {...bulkBoxes} type="number" inputMode="numeric" min={1} max={boxes - 1} />
           </FormField>
-          <p className="pb-2 text-sm text-foreground/70">
+          <p className="pb-2 text-sm text-muted-foreground">
             {t('checkout.individualRest', {
               count: Math.max(0, boxes - (Number(f.values.bulkBoxes) || 0)),
             })}
@@ -444,7 +444,7 @@ export function DeliverySection({
           <Mail className="mt-0.5 size-5 shrink-0 text-primary" />
           <div className="space-y-1 text-sm">
             <p className="font-medium">{t('checkout.addressesLater')}</p>
-            <p className="text-foreground/70">{t('checkout.addressesLaterBody')}</p>
+            <p className="text-muted-foreground">{t('checkout.addressesLaterBody')}</p>
           </div>
         </div>
       )}
@@ -468,7 +468,7 @@ export function DeliverySection({
           </label>
           <FieldMessage id={f.idOf('sameAsBilling')} error={f.errors.sameAsBilling} />
           {!f.values.sameAsBilling && (
-            <div className="space-y-4 rounded-brand border border-border/40 p-4">
+            <div className="space-y-4 rounded-brand border border-border p-4">
               <Field
                 f={f}
                 name="deliveryStreet"

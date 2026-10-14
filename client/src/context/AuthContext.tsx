@@ -131,7 +131,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(bundle.user)
       setCompany(bundle.company)
       // Apply the persisted company brand — no re-extraction on login.
-      if (bundle.company?.brand) {
+      //
+      // Not for big little things' own staff: their company is the platform
+      // itself, whose look is the house theme. Wearing the company's old
+      // extraction instead meant a house theme saved in the dashboard never
+      // showed in their own shop, which read as the save not working.
+      if (bundle.company?.brand && bundle.user.role !== 'super_admin') {
         applyExtractedBrand(mapExtractionToBrand(bundle.company.brand))
       } else {
         clearExtractedBrand()

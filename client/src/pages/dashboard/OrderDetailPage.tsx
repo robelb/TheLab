@@ -77,9 +77,9 @@ import { formatDate, formatDateTime, formatPrice } from '@/utils/format'
 
 const STATUS_STYLE: Record<OrderStatus, string> = {
   new: 'border-primary/40 bg-primary/10 text-primary',
-  quoted: 'border-border/60 text-muted-foreground',
-  confirmed: 'border-border/60 text-muted-foreground',
-  cancelled: 'border-border/40 text-muted-foreground line-through',
+  quoted: 'border-border text-muted-foreground',
+  confirmed: 'border-border text-muted-foreground',
+  cancelled: 'border-border text-muted-foreground line-through',
 }
 
 function pct(value: number): string {
@@ -108,7 +108,7 @@ function PlacementTable({ layout }: { layout: PlacementLayout }) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-[34rem] border-collapse text-xs">
         <thead>
-          <tr className="border-b border-border/60 text-left text-muted-foreground">
+          <tr className="border-b border-border text-left text-muted-foreground">
             <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.element')}</th>
             <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.content')}</th>
             <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.across')}</th>
@@ -120,7 +120,7 @@ function PlacementTable({ layout }: { layout: PlacementLayout }) {
         </thead>
         <tbody className="tabular-nums">
           {layout.layers.map((layer) => (
-            <tr key={layer.id} className="border-b border-border/30 last:border-0">
+            <tr key={layer.id} className="border-b border-border last:border-0">
               <td className="py-1.5 pr-3 whitespace-nowrap">{layerLabel(layer, t)}</td>
               <td className="max-w-[12rem] truncate py-1.5 pr-3">
                 {layer.kind === 'text' ? (
@@ -128,7 +128,7 @@ function PlacementTable({ layout }: { layout: PlacementLayout }) {
                     {layer.color && (
                       <span
                         aria-hidden
-                        className="size-3 shrink-0 rounded-sm border border-border/60"
+                        className="size-3 shrink-0 rounded-sm border border-border"
                         style={{ background: layer.color }}
                       />
                     )}
@@ -142,7 +142,7 @@ function PlacementTable({ layout }: { layout: PlacementLayout }) {
                     <img
                       src={layer.imageUrl}
                       alt=""
-                      className="size-8 rounded-sm border border-border/40 bg-white object-contain"
+                      className="size-8 rounded-sm border border-border bg-white object-contain"
                     />
                   </a>
                 ) : (
@@ -184,7 +184,7 @@ function DesignFile({ url, caption }: { url: string; caption: string }) {
         <img
           src={url}
           alt=""
-          className="max-h-56 rounded-brand border border-border/40 bg-white object-contain hover:opacity-90"
+          className="max-h-56 rounded-brand border border-border bg-white object-contain hover:opacity-90"
         />
       </a>
       <figcaption className="text-[11px] text-muted-foreground">
@@ -224,7 +224,7 @@ function DesignBlock({
   ]
   const logoIsImage = design.logoUrl ? IMAGE_FILE.test(design.logoUrl) : false
   return (
-    <div className="space-y-3 rounded-brand border border-border/40 p-3 break-inside-avoid">
+    <div className="space-y-3 rounded-brand border border-border p-3 break-inside-avoid">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {title}
       </p>
@@ -277,7 +277,7 @@ function DesignBlock({
               <img
                 src={design.logoUrl}
                 alt=""
-                className="size-16 rounded-brand border border-border/40 bg-white object-contain p-1"
+                className="size-16 rounded-brand border border-border bg-white object-contain p-1"
               />
             ) : (
               <FileText className="size-6 text-muted-foreground" />
@@ -304,7 +304,7 @@ function DesignBlock({
                 <img
                   src={url}
                   alt=""
-                  className="size-16 rounded-brand border border-border/40 bg-white object-contain p-1 hover:opacity-90"
+                  className="size-16 rounded-brand border border-border bg-white object-contain p-1 hover:opacity-90"
                 />
               </a>
             ))}
@@ -336,10 +336,10 @@ function SupplyHeading({ label, line }: { label: string; line: BoxLine }) {
         <img
           src={line.image}
           alt=""
-          className="size-12 shrink-0 rounded-brand border border-border/40 bg-muted/10 object-contain"
+          className="size-12 shrink-0 rounded-brand border border-border bg-muted object-contain"
         />
       ) : (
-        <span className="size-12 shrink-0 rounded-brand border border-dashed border-border/60" />
+        <span className="size-12 shrink-0 rounded-brand border border-dashed border-border" />
       )}
       <span className="min-w-0">
         <span className="block text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -377,7 +377,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
     <button
       type="button"
       onClick={copy}
-      className="inline-flex items-center gap-1 rounded-brand border border-border/50 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground print:hidden"
+      className="inline-flex items-center gap-1 rounded-brand border border-border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground print:hidden"
       aria-label={label}
     >
       {state === 'copied' ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
@@ -410,10 +410,10 @@ function UploadedLogo({ logo }: { logo: StickerLogo }) {
             <img
               src={logo.url}
               alt={logo.name ?? t('dashboard.orders.detail.logo.alt')}
-              className="size-24 rounded-brand border border-border/40 bg-white object-contain p-1"
+              className="size-24 rounded-brand border border-border bg-white object-contain p-1"
             />
           ) : (
-            <span className="flex size-24 items-center justify-center rounded-brand border border-border/40">
+            <span className="flex size-24 items-center justify-center rounded-brand border border-border">
               <FileText className="size-8 text-muted-foreground" />
             </span>
           )}
@@ -486,13 +486,13 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
   const calc = boxPriceCalc(item, money)
 
   return (
-    <li className="space-y-3 rounded-brand border border-border/40 p-4 break-inside-avoid">
+    <li className="space-y-3 rounded-brand border border-border p-4 break-inside-avoid">
       <div className="flex gap-4">
         {item.image && (
           <img
             src={item.image}
             alt=""
-            className="size-24 shrink-0 rounded-brand border border-border/40 bg-muted/10 object-contain"
+            className="size-24 shrink-0 rounded-brand border border-border bg-muted object-contain"
           />
         )}
         <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-3">
@@ -542,7 +542,7 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
             <table className="mt-1 w-full text-sm">
               <tbody>
                 {parts.map((part) => (
-                  <tr key={part.productId} className="border-b border-border/30 last:border-0">
+                  <tr key={part.productId} className="border-b border-border last:border-0">
                     <td className="py-1 pr-3">{part.name}</td>
                     <td className="py-1 pr-3 text-right tabular-nums text-muted-foreground">
                       {t('dashboard.orders.detail.line.partPerBox', { count: part.quantity })}
@@ -562,12 +562,12 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
           </div>
 
           {calc && (
-            <div className="rounded-brand border border-border/40 p-3">
+            <div className="rounded-brand border border-border p-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {t('dashboard.orders.detail.line.howPriced')}
               </p>
               <CalcRows calc={calc} money={money} />
-              <div className="mt-1 flex justify-between border-t border-border/40 pt-1 text-sm font-medium">
+              <div className="mt-1 flex justify-between border-t border-border pt-1 text-sm font-medium">
                 <span>{t('dashboard.orders.detail.line.pricePerBox')}</span>
                 <span className="tabular-nums">{money(unit)}</span>
               </div>
@@ -582,7 +582,7 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
           )}
 
           {item.box.greetingCard && (
-            <div className="rounded-brand border border-border/40 p-3">
+            <div className="rounded-brand border border-border p-3">
               <SupplyHeading
                 label={t('dashboard.orders.detail.card.title')}
                 line={item.box.greetingCard}
@@ -598,7 +598,7 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
                       label={t('dashboard.orders.detail.card.copyMessage')}
                     />
                   </div>
-                  <p className="mt-1 whitespace-pre-line rounded-brand border border-border/40 px-3 py-2 text-sm">
+                  <p className="mt-1 whitespace-pre-line rounded-brand border border-border px-3 py-2 text-sm">
                     {item.box.greetingCard.message}
                   </p>
                 </div>
@@ -610,7 +610,7 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
             </div>
           )}
           {item.box.stickers && (
-            <div className="rounded-brand border border-border/40 p-3">
+            <div className="rounded-brand border border-border p-3">
               <SupplyHeading
                 label={t('dashboard.orders.detail.logo.title')}
                 line={item.box.stickers}
@@ -645,7 +645,7 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
           )}
           {/* Requests from before box designs were stored whole. */}
           {!packagingDesign && item.box.packagingPrompt && (
-            <p className="rounded-brand bg-muted/40 px-2 py-1.5 text-xs">
+            <p className="rounded-brand bg-muted px-2 py-1.5 text-xs">
               <span className="text-muted-foreground">
                 {t('dashboard.orders.detail.line.boxBrief')}{' '}
               </span>
@@ -653,7 +653,7 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
             </p>
           )}
           {!packagingDesign && item.box.packagingLayout && (
-            <div className="space-y-1.5 rounded-brand border border-border/40 p-3">
+            <div className="space-y-1.5 rounded-brand border border-border p-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {t('dashboard.orders.detail.line.boxPlacement')}
               </p>
@@ -685,7 +685,7 @@ function LineCard({ item, currency }: { item: OrderItem; currency: string }) {
 /** A labelled block in the sidebar. */
 function SideCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-2 rounded-brand border border-border/40 p-4 text-sm break-inside-avoid">
+    <section className="space-y-2 rounded-brand border border-border p-4 text-sm break-inside-avoid">
       <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {title}
       </h2>
@@ -882,7 +882,7 @@ export function OrderDetailPage() {
       </div>
 
       {/* ── Who, when, where it stands ─────────────────────────────── */}
-      <header className="space-y-3 border-b border-border/40 pb-4">
+      <header className="space-y-3 border-b border-border pb-4">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-mono text-2xl font-semibold">{order.reference}</h1>
           <Badge variant="outline" className={STATUS_STYLE[order.status]}>
@@ -1117,7 +1117,7 @@ export function OrderDetailPage() {
             </ul>
           </section>
 
-          <section className="space-y-1 rounded-brand border border-border/40 p-4 text-sm">
+          <section className="space-y-1 rounded-brand border border-border p-4 text-sm">
             <div className="flex justify-between text-muted-foreground">
               <span>{t('dashboard.orders.detail.totals.subtotal')}</span>
               <span className="tabular-nums">{formatPrice(order.subtotal, order.currency)}</span>
@@ -1195,7 +1195,7 @@ export function OrderDetailPage() {
             which lead.
           */}
           {(order.source === 'funnel' || order.attribution) && (
-            <details className="group rounded-brand border border-border/40 bg-muted/10 px-3 py-2 text-sm print:hidden">
+            <details className="group rounded-brand border border-border bg-muted px-3 py-2 text-sm print:hidden">
               <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground">
                 {t('dashboard.orders.detail.campaign.title')}
                 {order.collectionSlug ? ` · ${order.collectionSlug}` : ''}
@@ -1367,7 +1367,7 @@ export function OrderDetailPage() {
               )}
             </dl>
             {delivery?.notes && (
-              <p className="whitespace-pre-wrap rounded-brand bg-muted/40 px-3 py-2">
+              <p className="whitespace-pre-wrap rounded-brand bg-muted px-3 py-2">
                 <span className="text-muted-foreground">
                   {t('dashboard.orders.detail.delivery.notes')}{' '}
                 </span>

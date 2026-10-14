@@ -121,11 +121,11 @@ export function BundleContentsEditor({
         </div>
 
         {value.items.length === 0 ? (
-          <p className="rounded-brand border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
+          <p className="rounded-brand border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
             {t('dashboard.products.bundle.empty')}
           </p>
         ) : (
-          <ul className="divide-y divide-border/40 rounded-brand border border-border/40">
+          <ul className="divide-y divide-border/40 rounded-brand border border-border">
             {value.items.map((item) => (
               <li
                 key={item.productId}
@@ -134,7 +134,7 @@ export function BundleContentsEditor({
                 <img
                   src={item.image}
                   alt=""
-                  className="size-10 shrink-0 rounded-brand border border-border/40 bg-background object-contain"
+                  className="size-10 shrink-0 rounded-brand border border-border bg-background object-contain"
                   loading="lazy"
                 />
                 <div className="min-w-0 flex-1">
@@ -143,7 +143,7 @@ export function BundleContentsEditor({
                     {formatPrice(item.price, item.currency)}
                   </p>
                 </div>
-                <div className="flex items-center rounded-brand border border-border">
+                <div className="flex items-center rounded-brand border border-border-strong">
                   <Button
                     type="button"
                     variant="ghost"
@@ -228,7 +228,7 @@ export function BundleContentsEditor({
         </div>
       </div>
 
-      <dl className="space-y-1 rounded-brand border border-border/40 bg-muted/10 p-3 text-sm">
+      <dl className="space-y-1 rounded-brand border border-border bg-muted p-3 text-sm">
         <div className="flex justify-between">
           <dt className="text-muted-foreground">{t('dashboard.products.bundle.partsTotal')}</dt>
           <dd className="tabular-nums">{formatPrice(partsTotal, currency)}</dd>

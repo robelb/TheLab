@@ -130,7 +130,7 @@ function Editor({ instruction }: { instruction: SystemInstructionView }) {
       </CardHeader>
       <CardContent className="space-y-4">
         {instruction.placeholders.length > 0 && (
-          <div className="space-y-1.5 rounded-brand border border-border/40 bg-muted/20 p-3">
+          <div className="space-y-1.5 rounded-brand border border-border bg-muted p-3">
             <p className="text-xs font-medium">
               {t('dashboard.admin.systemInstructions.placeholdersIntro')}
             </p>
@@ -323,7 +323,7 @@ export function SystemInstructionsPage() {
                     'flex w-full items-center justify-between gap-2 rounded-brand border px-3 py-2.5 text-left text-sm transition-colors',
                     isSelected
                       ? 'border-primary/40 bg-primary/5 font-medium'
-                      : 'border-border/40 hover:bg-muted/40',
+                      : 'border-border hover:bg-muted',
                   )}
                 >
                   <span className="min-w-0 truncate">{i.title}</span>

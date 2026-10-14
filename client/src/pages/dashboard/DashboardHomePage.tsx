@@ -195,7 +195,7 @@ export function DashboardHomePage() {
           </div>
 
           {data.requests.recent.length > 0 && (
-            <ul className="divide-y divide-border/40 rounded-brand border border-border/40">
+            <ul className="divide-y divide-border/40 rounded-brand border border-border">
               {data.requests.recent.map((r) => (
                 <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
                   <span className="font-mono text-xs text-muted-foreground">
@@ -283,7 +283,7 @@ export function DashboardHomePage() {
                     <img
                       src={p.image}
                       alt=""
-                      className="size-10 shrink-0 rounded-brand border border-border/40 object-cover"
+                      className="size-10 shrink-0 rounded-brand border border-border object-cover"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{p.name}</p>

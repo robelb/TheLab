@@ -95,7 +95,7 @@ export function ImageManager({ images, onChange }: ImageManagerProps) {
         onDragLeave={() => setIsDropTarget(false)}
         onDrop={onFileDrop}
         className={cn(
-          'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-brand border-2 border-dashed border-border px-6 py-8 text-center transition-colors hover:border-primary/50 hover:bg-muted/30',
+          'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-brand border-2 border-dashed border-border-strong px-6 py-8 text-center transition-colors hover:border-primary/50 hover:bg-muted',
           isDropTarget && 'border-primary bg-primary/5',
         )}
       >
@@ -152,7 +152,7 @@ export function ImageManager({ images, onChange }: ImageManagerProps) {
 
       {/* Thumbnail grid (drag to reorder) */}
       {images.length === 0 ? (
-        <p className="rounded-brand border border-border/40 bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-brand border border-border bg-muted px-4 py-6 text-center text-sm text-muted-foreground">
           {t('dashboard.products.images.empty')}
         </p>
       ) : (
@@ -174,7 +174,7 @@ export function ImageManager({ images, onChange }: ImageManagerProps) {
                 }}
                 onDrop={(e) => onThumbDrop(e, index)}
                 className={cn(
-                  'group relative aspect-square overflow-hidden rounded-brand border border-border/40 bg-muted/20',
+                  'group relative aspect-square overflow-hidden rounded-brand border border-border bg-muted',
                   dragIndex === index && 'opacity-40',
                   overIndex === index &&
                     dragIndex !== index &&

@@ -1207,7 +1207,7 @@ export function PlacementCanvas({
       <div
         ref={frameRef}
         className={cn(
-          'relative w-full overflow-hidden rounded-brand border border-border/40 bg-muted/20 select-none',
+          'relative w-full overflow-hidden rounded-brand border border-border bg-muted select-none',
           // In fill mode the frame grows to take the column rather than asking
           // for `height: 100%` — a percentage height resolves against the
           // parent's *specified* height, which is `auto` whenever the page is
@@ -1382,7 +1382,7 @@ export function PlacementCanvas({
             of the frame rather than following the layer, so it never sits under
             the cursor or falls off an edge. */}
         {box && dragging && dragReadout && (
-          <span className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-brand border border-border/40 bg-background/90 px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground shadow-sm backdrop-blur">
+          <span className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-brand border border-border bg-background/90 px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground shadow-sm backdrop-blur">
             {dragReadout}
           </span>
         )}
@@ -1410,7 +1410,7 @@ export function PlacementCanvas({
         )}
 
         {zoomable && !busy && (
-          <div className="absolute bottom-2 right-2 flex items-center gap-0.5 rounded-brand border border-border/40 bg-background/90 px-1 py-0.5 shadow-sm backdrop-blur">
+          <div className="absolute bottom-2 right-2 flex items-center gap-0.5 rounded-brand border border-border bg-background/90 px-1 py-0.5 shadow-sm backdrop-blur">
             <button
               type="button"
               aria-label="Zoom out"
@@ -1557,7 +1557,7 @@ export function SelectedLayerControls({
   const sizeMax = Math.max(200, Math.min(sizePercent, MAX_LAYER_WIDTH * 100))
 
   return (
-    <div className="space-y-3 rounded-brand border border-border/40 bg-card/40 p-2.5">
+    <div className="space-y-3 rounded-brand border border-border bg-card/40 p-2.5">
       {layer.kind === 'text' && (
         <>
           {/* A textarea, not an input: wording can be more than one line, and
@@ -1587,7 +1587,7 @@ export function SelectedLayerControls({
                   'rounded-brand border px-2 py-0.5 text-xs transition-colors',
                   (layer.fontStyle ?? 'sans') === style
                     ? 'border-primary bg-primary/5 text-primary'
-                    : 'border-border/40 text-muted-foreground hover:border-border',
+                    : 'border-border text-muted-foreground hover:border-border-strong',
                 )}
                 style={{ fontFamily: FONT_STACKS[style] }}
               >
@@ -1607,7 +1607,7 @@ export function SelectedLayerControls({
                 'rounded-brand border px-2 py-0.5 text-xs font-bold transition-colors',
                 layer.fontWeight === 'bold'
                   ? 'border-primary bg-primary/5 text-primary'
-                  : 'border-border/40 text-muted-foreground hover:border-border',
+                  : 'border-border text-muted-foreground hover:border-border-strong',
               )}
             >
               B
@@ -1626,7 +1626,7 @@ export function SelectedLayerControls({
                   'size-5 rounded-full border transition-transform hover:scale-110',
                   (layer.color ?? '').toLowerCase() === swatch.toLowerCase()
                     ? 'border-primary ring-2 ring-primary/40'
-                    : 'border-border/60',
+                    : 'border-border',
                 )}
               />
             ))}
@@ -1636,7 +1636,7 @@ export function SelectedLayerControls({
               value={layer.color ?? DEFAULT_TEXT_COLOR}
               onChange={(e) => patch({ color: e.target.value })}
               onBlur={() => onCommit?.()}
-              className="size-5 cursor-pointer rounded border border-border/40 bg-transparent p-0"
+              className="size-5 cursor-pointer rounded border border-border bg-transparent p-0"
             />
           </div>
         </>

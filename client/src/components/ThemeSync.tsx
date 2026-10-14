@@ -23,7 +23,7 @@ const CHECK_EVERY_MS = 60_000
  * from the one in use. The answer is a 304 while nothing has changed.
  */
 export function ThemeSync() {
-  const { company, isLoading } = useAuth()
+  const { company, isLoading, role } = useAuth()
   const {
     houseThemeVersion,
     applyHouseTheme,
@@ -56,13 +56,15 @@ export function ThemeSync() {
   const companyTheme = data?.company ?? null
   useEffect(() => {
     if (!companyTheme || companyTheme.id !== company?.id) return
+    // Staff wear the house theme (see AuthContext), never their company's.
+    if (role === 'super_admin') return
     if (companyTheme.version === companyVersion.current) return
     // Somebody is mid-edit in the branding form: leave their draft alone and
     // catch up once it is saved or discarded.
     if (hasUnsavedEdits && !editingHouse) return
     companyVersion.current = companyTheme.version
     applyExtractedBrand(mapExtractionToBrand(companyTheme.brand))
-  }, [companyTheme, company?.id, hasUnsavedEdits, editingHouse, applyExtractedBrand])
+  }, [companyTheme, company?.id, role, hasUnsavedEdits, editingHouse, applyExtractedBrand])
 
   return null
 }

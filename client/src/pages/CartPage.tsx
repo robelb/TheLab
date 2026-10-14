@@ -186,7 +186,7 @@ export function CartPage() {
                 {/* A box is one line, so what it holds is spelled out here —
                     folded away by default so a cart of boxes stays scannable. */}
                 {box && boxAllLines(box).length > 0 && (
-                  <details className="group mt-3 rounded-brand border border-border/40 bg-muted/5 p-3">
+                  <details className="group mt-3 rounded-brand border border-border bg-muted p-3">
                     <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground">
                       <ChevronRight className="size-3.5 shrink-0 transition-transform group-open:rotate-90" />
                       {t('cart.insideBox')} ·{' '}
@@ -209,7 +209,7 @@ export function CartPage() {
                           <ProductImage
                             src={getProductDisplayImage(line, brandGeneration)}
                             alt=""
-                            className="size-9 shrink-0 rounded-brand border border-border/40 bg-background object-contain"
+                            className="size-9 shrink-0 rounded-brand border border-border bg-background object-contain"
                             loading="lazy"
                           />
                           <div className="min-w-0 flex-1">
@@ -234,7 +234,7 @@ export function CartPage() {
                       box.filling ||
                       box.greetingCard ||
                       box.stickers) && (
-                      <ul className="mt-2 space-y-1.5 border-t border-border/40 pt-2">
+                      <ul className="mt-2 space-y-1.5 border-t border-border pt-2">
                         {[box.packaging, box.filling, box.greetingCard, box.stickers]
                           .filter((line) => Boolean(line))
                           .map((line) => (
@@ -362,7 +362,7 @@ export function CartPage() {
           })}
         </ul>
 
-        <Card className="sticky top-24 border-border/30">
+        <Card className="sticky top-24 border-border">
           <CardHeader>
             <CardTitle>{t('cart.summary')}</CardTitle>
           </CardHeader>

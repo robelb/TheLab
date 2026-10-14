@@ -49,7 +49,7 @@ export function DashboardLayout() {
           pushing the whole page (header included) sideways under the sidebar. */}
       <SidebarInset className="min-w-0">
         <OfflineBanner />
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-border/40 bg-background/90 px-4 backdrop-blur-md print:hidden">
+        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background/90 px-4 backdrop-blur-md print:hidden">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="font-display text-base font-semibold">{title}</h1>

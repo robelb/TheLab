@@ -114,7 +114,7 @@ export function NotificationsPage() {
               )}
 
               {emails.length ? (
-                <ul className="divide-y divide-border/40 rounded-brand border border-border/40">
+                <ul className="divide-y divide-border/40 rounded-brand border border-border">
                   {emails.map((email) => (
                     <li key={email} className="flex items-center justify-between gap-3 px-3 py-2">
                       <span className="truncate text-sm">{email}</span>
@@ -155,7 +155,7 @@ export function NotificationsPage() {
                 {error && <p className="text-sm text-destructive">{error}</p>}
               </form>
 
-              <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-4">
+              <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
                 <p className="text-xs text-muted-foreground">
                   {data.updatedAt
                     ? t('dashboard.admin.notifications.lastSaved', {

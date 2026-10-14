@@ -7,7 +7,6 @@ import { resetHouseTheme, saveHouseTheme } from '@/api/theme'
 import { BrandSettingsForm } from '@/components/brand/BrandSettingsForm'
 import { themeKeys } from '@/components/ThemeSync'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/context/AuthContext'
 import { useUpdateCompanyBrand } from '@/hooks/use-companies'
 import {
@@ -67,8 +66,11 @@ export function BrandingPage() {
   // Only an administrator edits the house theme, and that is what they come
   // here for first; a company owner only ever has their own.
   const canEditHouse = can('manage_all')
-  const [scope, setScope] = useState<Scope>(canEditHouse ? 'house' : 'company')
-  const editingHouse = canEditHouse && scope === 'house'
+  // Staff edit the house theme only. Their own company is big little things,
+  // whose look *is* the house theme, so a second "company" theme for it only
+  // ever showed up as the wrong colours somewhere.
+  const scope: Scope = canEditHouse ? 'house' : 'company'
+  const editingHouse = scope === 'house'
   const [houseSaving, setHouseSaving] = useState(false)
   const saving = editingHouse ? houseSaving : saveBrand.isPending
 
@@ -77,11 +79,6 @@ export function BrandingPage() {
     setEditingHouse(editingHouse)
     return () => setEditingHouse(false)
   }, [editingHouse, setEditingHouse])
-
-  function switchScope(next: Scope) {
-    setScope(next)
-    setSavedAt(null)
-  }
 
   async function saveHouse() {
     setHouseSaving(true)
@@ -200,18 +197,6 @@ export function BrandingPage() {
         </div>
       </header>
 
-      {canEditHouse && company && (
-        <Tabs value={scope} onValueChange={(v) => switchScope(v as Scope)}>
-          <TabsList aria-label={t('dashboard.company.branding.scopeLabel')}>
-            <TabsTrigger value="house">
-              {t('dashboard.company.branding.scopeHouse')}
-            </TabsTrigger>
-            <TabsTrigger value="company">
-              {t('dashboard.company.branding.scopeCompany')}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <BrandSettingsForm />

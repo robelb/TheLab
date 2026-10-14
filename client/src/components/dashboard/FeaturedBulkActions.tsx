@@ -49,7 +49,7 @@ export function FeaturedBulkActions({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border/40 bg-muted/30 px-2 py-1">
+    <div className="flex flex-wrap items-center gap-2 rounded-brand border border-border bg-muted px-2 py-1">
       <span className="text-sm">
         {t('dashboard.products.featured.selected', { count })}
       </span>

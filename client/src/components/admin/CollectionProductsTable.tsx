@@ -186,7 +186,7 @@ export function CollectionProductsTable({
           />
         </div>
         {selected.size > 0 && (
-          <div className="flex items-center gap-2 rounded-brand border border-border/40 bg-muted/30 px-2 py-1">
+          <div className="flex items-center gap-2 rounded-brand border border-border bg-muted px-2 py-1">
             <span className="text-sm">
               {t('dashboard.admin.collectionProducts.selected', {
                 count: selected.size,
@@ -226,10 +226,10 @@ export function CollectionProductsTable({
         )}
       </div>
 
-      <div className="overflow-hidden rounded-brand border border-border/40">
+      <div className="overflow-hidden rounded-brand border border-border">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/40">
+            <TableRow className="bg-muted">
               <TableHead className="w-10">
                 <Checkbox
                   checked={allOnPage ? true : someOnPage ? 'indeterminate' : false}
@@ -311,7 +311,7 @@ export function CollectionProductsTable({
                       <ProductImage
                         src={product.image}
                         alt=""
-                        className="size-10 shrink-0 rounded-brand border border-border/40 bg-background object-contain"
+                        className="size-10 shrink-0 rounded-brand border border-border bg-background object-contain"
                         loading="lazy"
                       />
                       <div className="min-w-0">
