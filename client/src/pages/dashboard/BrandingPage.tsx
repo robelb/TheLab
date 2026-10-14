@@ -1,12 +1,19 @@
-import { useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Loader2, Save } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Check, Loader2, RotateCcw, Save } from 'lucide-react'
 import { toast } from 'sonner'
+import { resetHouseTheme, saveHouseTheme } from '@/api/theme'
 import { BrandSettingsForm } from '@/components/brand/BrandSettingsForm'
+import { themeKeys } from '@/components/ThemeSync'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/context/AuthContext'
 import { useUpdateCompanyBrand } from '@/hooks/use-companies'
-import { brandConfigToExtraction } from '@/lib/mapExtractionToBrand'
+import {
+  brandConfigToExtraction,
+  mapExtractionToBrand,
+} from '@/lib/mapExtractionToBrand'
 import { ProductCard } from '@/components/ProductCard'
 import { useBrand } from '@/context/BrandContext'
 import type { Product } from '@/types/product'
@@ -32,13 +39,84 @@ function usePreviewProduct(): Product {
   }
 }
 
+/** Which theme the page edits: big little things' own, or the company's. */
+type Scope = 'house' | 'company'
+
+function errorMessage(err: unknown, fallback: string): string {
+  return (
+    (err as { response?: { data?: { error?: string } } }).response?.data
+      ?.error ?? fallback
+  )
+}
+
 export function BrandingPage() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const previewProduct = usePreviewProduct()
-  const { brand } = useBrand()
-  const { company } = useAuth()
+  const {
+    brand,
+    setEditingHouse,
+    applyHouseTheme,
+    applyExtractedBrand,
+    resetBrand,
+  } = useBrand()
+  const { company, can } = useAuth()
   const saveBrand = useUpdateCompanyBrand()
   const [savedAt, setSavedAt] = useState<number | null>(null)
+
+  // Only an administrator edits the house theme, and that is what they come
+  // here for first; a company owner only ever has their own.
+  const canEditHouse = can('manage_all')
+  const [scope, setScope] = useState<Scope>(canEditHouse ? 'house' : 'company')
+  const editingHouse = canEditHouse && scope === 'house'
+  const [houseSaving, setHouseSaving] = useState(false)
+  const saving = editingHouse ? houseSaving : saveBrand.isPending
+
+  // Before paint, so the form never shows one theme's values under the other.
+  useLayoutEffect(() => {
+    setEditingHouse(editingHouse)
+    return () => setEditingHouse(false)
+  }, [editingHouse, setEditingHouse])
+
+  function switchScope(next: Scope) {
+    setScope(next)
+    setSavedAt(null)
+  }
+
+  async function saveHouse() {
+    setHouseSaving(true)
+    try {
+      applyHouseTheme(await saveHouseTheme(brand))
+      // The draft is the theme now, so drop it.
+      resetBrand()
+      void queryClient.invalidateQueries({ queryKey: themeKeys.all })
+      setSavedAt(Date.now())
+      toast.success(t('dashboard.company.branding.houseSavedToast'))
+    } catch (err) {
+      toast.error(errorMessage(err, t('dashboard.company.branding.saveError')))
+    } finally {
+      setHouseSaving(false)
+    }
+  }
+
+  async function resetHouse() {
+    if (!window.confirm(t('dashboard.company.branding.resetHouseConfirm'))) {
+      return
+    }
+    setHouseSaving(true)
+    try {
+      await resetHouseTheme()
+      applyHouseTheme(null)
+      resetBrand()
+      void queryClient.invalidateQueries({ queryKey: themeKeys.all })
+      setSavedAt(null)
+      toast.success(t('dashboard.company.branding.resetHouseToast'))
+    } catch (err) {
+      toast.error(errorMessage(err, t('dashboard.company.branding.saveError')))
+    } finally {
+      setHouseSaving(false)
+    }
+  }
 
   /**
    * Until this existed, the form edited a copy in this browser and nothing
@@ -46,19 +124,21 @@ export function BrandingPage() {
    * top, so the work vanished — and teammates never saw any of it.
    */
   async function save() {
+    if (editingHouse) return saveHouse()
     if (!company) return
     try {
-      await saveBrand.mutateAsync({
+      const saved = await saveBrand.mutateAsync({
         id: company.id,
         brand: brandConfigToExtraction(brand),
       })
+      // What was saved becomes the theme, and the draft goes with it — which
+      // also lets ThemeSync pick up the next change from anybody else.
+      if (saved.brand) applyExtractedBrand(mapExtractionToBrand(saved.brand))
+      void queryClient.invalidateQueries({ queryKey: themeKeys.all })
       setSavedAt(Date.now())
       toast.success(t('dashboard.company.branding.savedToast'))
     } catch (err) {
-      const message =
-        (err as { response?: { data?: { error?: string } } }).response?.data
-          ?.error ?? t('dashboard.company.branding.saveError')
-      toast.error(message)
+      toast.error(errorMessage(err, t('dashboard.company.branding.saveError')))
     }
   }
 
@@ -70,25 +150,40 @@ export function BrandingPage() {
             {t('dashboard.company.branding.title')}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {t('dashboard.company.branding.subtitle')}
+            {editingHouse
+              ? t('dashboard.company.branding.houseSubtitle')
+              : t('dashboard.company.branding.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {savedAt && !saveBrand.isPending && (
+          {savedAt && !saving && (
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Check className="size-3.5" />
               {t('dashboard.company.branding.saved')}
             </span>
           )}
+          {editingHouse && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => void resetHouse()}
+              disabled={saving}
+            >
+              <RotateCcw className="size-4" />
+              {t('dashboard.company.branding.resetHouse')}
+            </Button>
+          )}
           <Button
             type="button"
             onClick={() => void save()}
-            disabled={!company || saveBrand.isPending}
+            disabled={(!editingHouse && !company) || saving}
             title={
-              company ? undefined : t('dashboard.company.branding.signInToSave')
+              editingHouse || company
+                ? undefined
+                : t('dashboard.company.branding.signInToSave')
             }
           >
-            {saveBrand.isPending ? (
+            {saving ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
                 {t('dashboard.company.shared.saving')}
@@ -96,12 +191,27 @@ export function BrandingPage() {
             ) : (
               <>
                 <Save className="size-4" />
-                {t('dashboard.company.branding.save')}
+                {editingHouse
+                  ? t('dashboard.company.branding.saveHouse')
+                  : t('dashboard.company.branding.save')}
               </>
             )}
           </Button>
         </div>
       </header>
+
+      {canEditHouse && company && (
+        <Tabs value={scope} onValueChange={(v) => switchScope(v as Scope)}>
+          <TabsList aria-label={t('dashboard.company.branding.scopeLabel')}>
+            <TabsTrigger value="house">
+              {t('dashboard.company.branding.scopeHouse')}
+            </TabsTrigger>
+            <TabsTrigger value="company">
+              {t('dashboard.company.branding.scopeCompany')}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <BrandSettingsForm />

@@ -50,6 +50,17 @@ function setColorVar(root: HTMLElement, name: string, hex: string) {
   if (hsl) root.style.setProperty(name, hsl)
 }
 
+/**
+ * The title and description the brand last set (at first, the ones
+ * `index.html` ships with). A page with its own — a collection's name, see
+ * `useDocumentMeta` — keeps it when the theme changes underneath, which it now
+ * does whenever an open shop picks up a theme update.
+ */
+let brandTitle = document.title
+let brandDescription = document
+  .querySelector('meta[name="description"]')
+  ?.getAttribute('content')
+
 export function applyBrandTheme(brand: BrandConfig) {
   const root = document.documentElement
   const [foreground = '#ffffff', accentAlt = '#000000', muted = '#b3b3b3'] =
@@ -108,7 +119,9 @@ export function applyBrandTheme(brand: BrandConfig) {
       : 'ui-monospace, monospace',
   )
 
-  document.title = `${brand.companyName} Shop`
+  const title = `${brand.companyName} Shop`
+  if (document.title === brandTitle) document.title = title
+  brandTitle = title
 
   if (brand.favicon) {
     let link = document.querySelector<HTMLLinkElement>("link[rel*='icon']")
@@ -121,5 +134,8 @@ export function applyBrandTheme(brand: BrandConfig) {
   }
 
   const meta = document.querySelector('meta[name="description"]')
-  if (meta) meta.setAttribute('content', brand.description)
+  if (meta && meta.getAttribute('content') === brandDescription) {
+    meta.setAttribute('content', brand.description)
+  }
+  brandDescription = brand.description
 }

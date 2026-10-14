@@ -46,7 +46,14 @@ function ColorField({
 }
 
 export function BrandSettingsForm() {
-  const { brand, activePreset, setBrand, resetBrand, replaceBrand } = useBrand()
+  const {
+    brand,
+    activePreset,
+    editingHouse,
+    setBrand,
+    resetBrand,
+    replaceBrand,
+  } = useBrand()
   const [jsonError, setJsonError] = useState<string | null>(null)
   const [jsonDraft, setJsonDraft] = useState('')
 
@@ -87,17 +94,20 @@ export function BrandSettingsForm() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Brand preset</CardTitle>
-          <CardDescription>
-            Switch between {activePreset.label} and other catalog brands
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <BrandSwitcher variant="full" />
-        </CardContent>
-      </Card>
+      {/* The house theme is one theme, not a pick from the presets. */}
+      {!editingHouse && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Brand preset</CardTitle>
+            <CardDescription>
+              Switch between {activePreset.label} and other catalog brands
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BrandSwitcher variant="full" />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -305,7 +315,9 @@ export function BrandSettingsForm() {
               Import JSON
             </Button>
             <Button type="button" variant="ghost" onClick={resetBrand}>
-              Reset {activePreset.label} preset
+              {editingHouse
+                ? 'Discard changes'
+                : `Reset ${activePreset.label} preset`}
             </Button>
           </div>
         </CardContent>

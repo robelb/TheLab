@@ -6,6 +6,7 @@ import { CartProvider } from '@/context/CartContext'
 import { Layout } from '@/components/Layout'
 import { RequireAuth } from '@/components/RequireAuth'
 import { AttributionCapture } from '@/components/AttributionCapture'
+import { ThemeSync } from '@/components/ThemeSync'
 import { FunnelProvider } from '@/context/FunnelContext'
 import { RequireCustomization } from '@/components/RequireCustomization'
 import { HomePage } from '@/pages/HomePage'
@@ -49,6 +50,7 @@ export default function App() {
               <FunnelProvider>
               <Toaster position="top-center" richColors closeButton />
               <AttributionCapture />
+              <ThemeSync />
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
                 {/* Accounts are by invitation; old sign-up links land on sign-in. */}

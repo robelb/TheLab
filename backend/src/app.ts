@@ -18,6 +18,7 @@ import { productsRouter } from './modules/products/products.router.js'
 import { shareRouter } from './modules/share/share.router.js'
 import { systemInstructionsRouter } from './modules/system-instructions/system-instructions.router.js'
 import { settingsRouter } from './modules/settings/settings.router.js'
+import { themeRouter } from './modules/theme/theme.router.js'
 import { uploadsRouter } from './modules/uploads/uploads.router.js'
 import { usersRouter } from './modules/users/users.router.js'
 import { internalRouter } from './modules/internal/internal.router.js'
@@ -61,6 +62,7 @@ export function createApp() {
   app.use('/api/collections', collectionsRouter)
   app.use('/api/compose', composeRouter)
   app.use('/api/orders', ordersRouter)
+  app.use('/api/theme', themeRouter)
   // Nested under products for listing, addressed by id once saved — so it owns
   // the `/api` prefix rather than a segment of its own.
   app.use('/api', designsRouter)
