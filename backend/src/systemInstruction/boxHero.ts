@@ -30,9 +30,18 @@ export interface BoxHeroPackaging {
   designed?: boolean
 }
 
+export interface BoxHeroSticker {
+  name: string
+}
+
 export interface BoxHeroOptions {
   /** The chosen box or bag, sent as the reference after the products. */
   packaging?: BoxHeroPackaging | null
+  /**
+   * The logo sticker chosen in the builder, sent as the very last reference.
+   * Its catalogue image — the shopper's own logo for it is not used yet.
+   */
+  sticker?: BoxHeroSticker | null
   /** Products whose reference is a design the shopper made. */
   designed?: string[]
 }
@@ -40,7 +49,11 @@ export interface BoxHeroOptions {
 const TASK_BLOCK =
   'You are a commercial product photographer. Create ONE photorealistic studio photograph of a gift box and the products packed in it, styled as a premium e-commerce hero shot: the closed gift box standing at the back, the products grouped in front of it.'
 
-function referenceBlock(count: number, hasPackaging: boolean): string {
+function referenceBlock(
+  count: number,
+  hasPackaging: boolean,
+  hasSticker = false,
+): string {
   const lines = ['REFERENCE IMAGES, in the order provided:']
   lines.push(
     count === 1
@@ -50,6 +63,11 @@ function referenceBlock(count: number, hasPackaging: boolean): string {
   if (hasPackaging) {
     lines.push(
       `- Image ${count + 1} is the GIFT PACKAGING the products come in. It is the backdrop of the shot, never one of the products.`,
+    )
+  }
+  if (hasSticker) {
+    lines.push(
+      `- Image ${count + (hasPackaging ? 2 : 1)} is the LOGO STICKER that seals the packaging. It is never one of the products. It may show the sticker on its own or stuck on a box in a sample photo; either way, take only the round sticker itself from it — never that box, background or anything else in the picture.`,
     )
   }
   return lines.join('\n')
@@ -68,11 +86,28 @@ function productBlock(names: string[], designed: string[] = []): string {
   ].join('\n')
 }
 
-function packagingLine(packaging?: BoxHeroPackaging | null): string {
-  if (!packaging) {
-    return '- At the back, centred, stands a closed plain kraft-brown gift box, upright, its lid turned toward the camera.'
-  }
-  return `- At the back, centred, stands the "${packaging.name}" from the packaging reference, CLOSED and upright, its printed front or lid turned squarely toward the camera so its design is fully visible and readable. It fills roughly the upper-middle half of the frame and frames the group.`
+function packagingLine(
+  packaging?: BoxHeroPackaging | null,
+  sticker?: BoxHeroSticker | null,
+): string {
+  const box = packaging
+    ? `- At the back, centred, stands the "${packaging.name}" from the packaging reference, CLOSED and upright, its printed front or lid turned squarely toward the camera so its design is fully visible and readable. It fills roughly the upper-middle half of the frame and frames the group.`
+    : '- At the back, centred, stands a closed plain kraft-brown gift box, upright, its lid turned toward the camera.'
+  return sticker ? `${box}\n${stickerLine(sticker)}` : box
+}
+
+/**
+ * One fixed size and spot for the sticker, so every box photo shows it the
+ * same. Given as a share of the lid and as the real thing (a ~5 cm sticker
+ * on a ~35 cm box): left to "about a fifth" the model drew it bigger each time.
+ */
+const STICKER_SIZE =
+  'its diameter is exactly one seventh of the lid’s width (a 3 cm sticker on a 35 cm box) — small, never larger, the same size in every photo'
+const STICKER_SPOT =
+  'in the upper right corner of the lid face, its edge about half its own diameter in from the top and right edges'
+
+function stickerLine(sticker: BoxHeroSticker): string {
+  return `- ONE "${sticker.name}" logo sticker, exactly as in the sticker reference, is stuck on the packaging's lid face that is turned toward the camera: ${STICKER_SPOT}. SIZE: ${STICKER_SIZE}. It covers none of the box's own printed design. It is a real paper sticker lying flat on the cardboard, following its surface, perspective and light, with a faint edge — not floating, not a flat graphic pasted over the photo. Reproduce its shape, colours, illustration and lettering as they are, the lettering included. Exactly one sticker: none on the products, none elsewhere.`
 }
 
 const SHOT_RULES = [
@@ -95,16 +130,19 @@ const FIDELITY_BLOCK = [
   '- These are real retail products. Reproduce each one exactly as its reference shows it: the same shape, proportions, colours and materials, and its own printed packaging — brand name, product name, logos, illustrations, certification seals (Bio, vegan, Fairtrade) and every line of lettering, in the same place and the same colours.',
   '- Never blank out, simplify, translate, re-letter, restyle or "clean up" a product’s packaging. A product without its printing is a different product.',
   '- A product marked CUSTOMER DESIGN carries the customer’s own artwork: keep it exactly where and as large as its reference shows it.',
-  '- The packaging is exactly the one in its reference: the same material, colour, construction and printed design. Do not add, remove or change any print on it.',
+  '- The packaging is exactly the one in its reference: the same material, colour, construction and printed design. Do not add, remove or change any print on it. The only thing that may be stuck on it is a logo sticker that has its own reference image.',
   '- All you may change is what the shot needs: the size of each item in the frame, its position, the turn needed to stand it upright facing the camera, and light and shadow.',
-  '- Add nothing: no extra or duplicate products, no company logo, stickers, ribbons, gift tags, greeting cards, price tags, filling material spilling out, or text that is not in a reference.',
+  '- Add nothing that is not in a reference: no extra or duplicate products, no company logo, stickers, ribbons, gift tags, greeting cards, price tags, filling material spilling out, or text.',
 ].join('\n')
 
 const OUTPUT_BLOCK =
   'OUTPUT: one single photograph of one scene. Never a collage, grid, split image or several frames.'
 
-function finalCheckBlock(count: number): string {
-  return `FINAL CHECK before returning the image: go through the product list one by one and find each product in the photo exactly once — there are exactly ${count} product${count === 1 ? '' : 's'} and no item appears twice; each one carries the same packaging artwork, brand and lettering as its reference; the packaging stands closed at the back with its design facing the camera; the backdrop is warm cream with soft light from the upper left. If anything fails, correct it first.`
+function finalCheckBlock(count: number, hasSticker = false): string {
+  const sticker = hasSticker
+    ? ` exactly one logo sticker, matching its reference, sits flat on the packaging lid facing the camera and nowhere else, ${STICKER_SPOT}, and ${STICKER_SIZE};`
+    : ''
+  return `FINAL CHECK before returning the image: go through the product list one by one and find each product in the photo exactly once — there are exactly ${count} product${count === 1 ? '' : 's'} and no item appears twice; each one carries the same packaging artwork, brand and lettering as its reference; the packaging stands closed at the back with its design facing the camera;${sticker} the backdrop is warm cream with soft light from the upper left. If anything fails, correct it first.`
 }
 
 export function buildBoxHeroPrompt(
@@ -112,15 +150,20 @@ export function buildBoxHeroPrompt(
   options: BoxHeroOptions = {},
 ): string {
   const count = productNames.length
+  const hasSticker = Boolean(options.sticker)
   return [
     TASK_BLOCK,
-    referenceBlock(count, Boolean(options.packaging)),
+    referenceBlock(count, Boolean(options.packaging), hasSticker),
     productBlock(productNames, options.designed),
-    ['THE SHOT:', packagingLine(options.packaging), SHOT_RULES].join('\n'),
+    [
+      'THE SHOT:',
+      packagingLine(options.packaging, options.sticker),
+      SHOT_RULES,
+    ].join('\n'),
     SET_BLOCK,
     FIDELITY_BLOCK,
     OUTPUT_BLOCK,
-    finalCheckBlock(count),
+    finalCheckBlock(count, hasSticker),
   ].join('\n\n')
 }
 
@@ -131,12 +174,19 @@ export function buildBoxHeroTemplateVars(
   productNames: string[],
   options: BoxHeroOptions = {},
 ): Record<string, string> {
+  const hasSticker = Boolean(options.sticker)
   return {
     productCount: String(productNames.length),
-    referenceImages: referenceBlock(productNames.length, Boolean(options.packaging)),
+    referenceImages: referenceBlock(
+      productNames.length,
+      Boolean(options.packaging),
+      hasSticker,
+    ),
     productSet: productBlock(productNames, options.designed),
-    packaging: packagingLine(options.packaging),
-    finalCheck: finalCheckBlock(productNames.length),
+    // The sticker rides on the packaging line, so a saved override that
+    // predates it still puts the sticker in the shot.
+    packaging: packagingLine(options.packaging, options.sticker),
+    finalCheck: finalCheckBlock(productNames.length, hasSticker),
   }
 }
 

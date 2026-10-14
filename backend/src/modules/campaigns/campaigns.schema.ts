@@ -94,6 +94,7 @@ export const updateCampaignSchema = z
         packagingId: z.string().uuid().optional(),
         fillingId: z.string().uuid().optional(),
         packagingImageUrl: z.string().trim().min(1).optional(),
+        stickerId: z.string().uuid().optional(),
         productImages: z
           .record(z.string().uuid(), z.string().trim().min(1))
           .optional(),
@@ -123,6 +124,8 @@ export const regenerateHeroImageSchema = z.object({
   fillingId: z.string().uuid().optional(),
   /** The shopper's printed-box design, used in place of the catalog photo. */
   packagingImageUrl: z.string().trim().min(1).optional(),
+  /** The logo sticker chosen in the box builder; it goes on the packaging. */
+  stickerId: z.string().uuid().optional(),
   /**
    * Per-product designs, keyed by product id — the same idea as
    * `packagingImageUrl` but for the contents. Without these the group shot

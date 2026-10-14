@@ -212,6 +212,12 @@ export interface KitSupplySelection {
   fillingId?: string
   /** The shopper's printed-box design, preferred over the catalog photo. */
   packagingImageUrl?: string
+  /**
+   * The logo sticker from the box builder, stuck on the packaging in the box
+   * photo. Photographed from its catalogue image for now; the shopper's own
+   * logo for it is not put on it yet.
+   */
+  stickerId?: string
   /** Per-product designs, keyed by product id, preferred over catalog photos. */
   productImages?: Record<string, string>
   /**
@@ -430,7 +436,7 @@ async function generateBoxHeroImage(
   const startedAt = Date.now()
   const sourceFor = (p: ProductWithCategory) => supplies.productImages?.[p.id] ?? p.image
 
-  const [fetched, packaging] = await Promise.all([
+  const [fetched, packaging, sticker] = await Promise.all([
     Promise.allSettled(
       products.map((p) => fetchImage(sourceFor(p), 'product', { maxEdge: BOX_HERO_REF_EDGE })),
     ),
@@ -451,6 +457,22 @@ async function generateBoxHeroImage(
             return null
           })
       : Promise.resolve(null),
+    // A sticker that cannot be loaded is left out of the photo, not fatal.
+    supplies.stickerId
+      ? getProductById(supplies.stickerId)
+          .then(async (item) => {
+            if (!item?.image) return null
+            const image = await fetchImage(item.image, 'product', { maxEdge: BOX_HERO_REF_EDGE })
+            return { name: item.name, image }
+          })
+          .catch((err) => {
+            console.warn(
+              '[campaigns] could not load the sticker for the box photo:',
+              err instanceof Error ? err.message : err,
+            )
+            return null
+          })
+      : Promise.resolve(null),
   ])
 
   // A product whose photo cannot be fetched is left out, and the brief then
@@ -466,11 +488,14 @@ async function generateBoxHeroImage(
   const names = usable.map((e) => e.product.name)
   const options = {
     packaging: packaging ? { name: packaging.name, designed: packaging.designed } : null,
+    sticker: sticker ? { name: sticker.name } : null,
     designed: usable.filter((e) => supplies.productImages?.[e.product.id]).map((e) => e.product.name),
   }
-  // Products first, in list order; the packaging last — the brief names them by position.
+  // Products first, in list order; then the packaging, then the sticker — the
+  // brief names them by position.
   const images = usable.map((e) => e.image)
   if (packaging) images.push(packaging.image)
+  if (sticker) images.push(sticker.image)
 
   const override = await resolveInstruction('box-hero-image', buildBoxHeroTemplateVars(names, options))
   const prompt = override ?? buildBoxHeroPrompt(names, options)

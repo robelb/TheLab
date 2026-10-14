@@ -100,12 +100,12 @@ export const INSTRUCTION_DEFINITIONS: InstructionDefinition[] = [
     key: 'box-hero-image',
     title: 'Box photo (box builder)',
     description:
-      'Renders the photo on the review step of the shop and collection box builder: the closed gift box standing at the back, the chosen products grouped in front of it, warm studio light. Sent with one photo per product, then the chosen packaging.',
+      'Renders the photo on the review step of the shop and collection box builder: the closed gift box standing at the back, the chosen products grouped in front of it, warm studio light. Sent with one photo per product, then the chosen packaging, then the chosen logo sticker.',
     placeholders: [
       { name: 'productCount', description: 'Number of products in the box.' },
       {
         name: 'referenceImages',
-        description: 'The list mapping attached images to products (image k = product k; packaging last).',
+        description: 'The list mapping attached images to products (image k = product k; then the packaging, then the logo sticker).',
       },
       {
         name: 'productSet',
@@ -113,7 +113,7 @@ export const INSTRUCTION_DEFINITIONS: InstructionDefinition[] = [
       },
       {
         name: 'packaging',
-        description: 'One line naming the chosen box or bag and how it stands in the shot.',
+        description: 'One line naming the chosen box or bag and how it stands in the shot, plus where the chosen logo sticker sits on it.',
       },
       { name: 'finalCheck', description: 'The closing check, with the product count filled in.' },
     ],

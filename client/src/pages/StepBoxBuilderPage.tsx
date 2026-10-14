@@ -529,6 +529,7 @@ export function StepBoxBuilderPage() {
       ...(draft.packagingId ? { packagingId: draft.packagingId } : {}),
       ...(draft.fillingId ? { fillingId: draft.fillingId } : {}),
       ...(boxDesign ? { packagingImageUrl: boxDesign.image } : {}),
+      ...(draft.stickerId ? { stickerId: draft.stickerId } : {}),
       ...(Object.keys(productImages).length > 0 ? { productImages } : {}),
       plainUnlessDesigned: true,
     }
@@ -555,11 +556,14 @@ export function StepBoxBuilderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, campaignId, domain, title, canDesign])
 
-  // The photo needs only the products and the packaging, so it starts as soon
-  // as the packaging is chosen — the stickers step and the review then hide
-  // most of the wait — unless one of this box already exists.
+  // The photo needs the products, the packaging and the sticker that goes on
+  // it, so it starts as soon as the sticker is picked or skipped — the rest of
+  // the stickers step and the review then hide most of the wait — unless one
+  // of this box already exists. Starting before the sticker was decided meant
+  // paying for a second photo the moment one was picked.
   const photoReady =
-    draft.step === 'review' || (draft.step === 'stickers' && Boolean(draft.packagingId))
+    draft.step === 'review' ||
+    (draft.step === 'stickers' && Boolean(draft.packagingId) && draft.stickersDecided)
   useEffect(() => {
     if (!photoReady || rendering) return
     // A saved box's campaign is still loading: wait to see what it already has.

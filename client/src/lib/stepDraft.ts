@@ -89,7 +89,10 @@ export function heroKeyFor(draft: StepDraft): string {
   const ids = [...draft.productIds, draft.packagingId].filter(Boolean) as string[]
   const designs = ids.map((id) => draft.designs[id]?.image ?? '').join(',')
   // Not the filling: the photo shows the box closed, so it never appears.
-  return [draft.productIds.join(','), draft.packagingId, designs].join('|')
+  const key = [draft.productIds.join(','), draft.packagingId, designs].join('|')
+  // The sticker is on the box in the photo. Appended only when there is one,
+  // so boxes without a sticker keep the key — and the photo — they had.
+  return draft.stickerId ? `${key}|sticker:${draft.stickerId}` : key
 }
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null)
