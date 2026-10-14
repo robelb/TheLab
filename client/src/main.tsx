@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import posthog from 'posthog-js'
 import { PostHogErrorBoundary, PostHogProvider } from '@posthog/react'
 import App from './App.tsx'
+import { AppCrashScreen } from '@/components/RouteErrorBoundary'
 import { versionProperties } from '@/lib/version'
 // Imported for its side effect, and before the app so the first render already
 // has the right language — a flash of English on a German ad landing page is
@@ -26,7 +27,7 @@ if (posthogToken) posthog.register(versionProperties())
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <PostHogProvider client={posthog}>
-      <PostHogErrorBoundary>
+      <PostHogErrorBoundary fallback={<AppCrashScreen />}>
         <App />
       </PostHogErrorBoundary>
     </PostHogProvider>

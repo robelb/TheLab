@@ -37,6 +37,7 @@ import { SystemInstructionsPage } from '@/pages/admin/SystemInstructionsPage'
 import { NotificationsPage } from '@/pages/admin/NotificationsPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { SharePage } from '@/pages/SharePage'
+import { DashboardNotFoundPage, NotFoundPage } from '@/pages/NotFoundPage'
 import { Toaster } from '@/components/ui/sonner'
 import { queryClient } from '@/lib/query-client'
 
@@ -86,6 +87,7 @@ export default function App() {
                   <Route path="product/:id" element={<ProductPage />} />
                   <Route path="cart" element={<CartPage />} />
                   <Route path="checkout" element={<CheckoutPage />} />
+                  <Route path="*" element={<NotFoundPage />} />
                 </Route>
                 <Route
                   path="/dashboard"
@@ -123,6 +125,7 @@ export default function App() {
                     element={<SystemInstructionsPage />}
                   />
                   <Route path="admin/notifications" element={<NotificationsPage />} />
+                  <Route path="*" element={<DashboardNotFoundPage />} />
                 </Route>
               </Routes>
               </FunnelProvider>

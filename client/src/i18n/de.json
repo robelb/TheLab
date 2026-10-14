@@ -218,7 +218,45 @@
     "NETWORK": "Der Shop ist gerade nicht erreichbar. Bitte prüfen Sie Ihre Verbindung.",
     "RATE_LIMITED": "Zu viele Anfragen von hier. Bitte versuchen Sie es später erneut.",
     "VALIDATION": "Bitte prüfen Sie Ihre Eingaben.",
-    "NOT_FOUND": "Das konnten wir nicht finden."
+    "NOT_FOUND": "Das konnten wir nicht finden.",
+    "page": {
+      "offline": {
+        "title": "Sie sind offline",
+        "body": "Bitte prüfen Sie Ihre Internetverbindung. Die Seite lädt weiter, sobald Sie wieder online sind."
+      },
+      "network": {
+        "title": "Der Shop ist gerade nicht erreichbar",
+        "body": "Meist liegt das an der Verbindung. Bitte prüfen Sie Ihre Internetverbindung und versuchen Sie es erneut."
+      },
+      "notFound": {
+        "title": "Seite nicht gefunden",
+        "body": "Diese Seite gibt es nicht oder nicht mehr. Alles andere finden Sie weiterhin im Shop.",
+        "dashboardBody": "Diese Seite gibt es im Dashboard nicht. Sie wurde vielleicht verschoben oder entfernt."
+      },
+      "server": {
+        "title": "Bei uns ist etwas schiefgelaufen",
+        "body": "Das liegt nicht an Ihnen. Bitte versuchen Sie es gleich noch einmal."
+      },
+      "rateLimited": {
+        "title": "Zu viele Anfragen",
+        "body": "Bitte warten Sie einen Moment und versuchen Sie es erneut."
+      },
+      "unknown": {
+        "title": "Etwas ist schiefgelaufen",
+        "body": "Bitte versuchen Sie es erneut. Wenn es wieder passiert, starten Sie am besten neu im Shop."
+      },
+      "crash": {
+        "title": "Diese Seite hat ein Problem",
+        "body": "Ihr Warenkorb bleibt gespeichert. Versuchen Sie es erneut oder gehen Sie zurück zum Shop."
+      }
+    },
+    "actions": {
+      "tryAgain": "Erneut versuchen",
+      "backToShop": "Zurück zum Shop",
+      "backToDashboard": "Zurück zum Dashboard",
+      "reload": "Seite neu laden"
+    },
+    "offlineBanner": "Sie sind offline. Es geht weiter, sobald Ihre Verbindung wieder da ist."
   },
   "card": {
     "addFailed": "Konnte nicht in den Warenkorb gelegt werden",
@@ -1581,7 +1619,7 @@
         "activate": "Aktivieren",
         "deactivate": "Deaktivieren",
         "roles": {
-          "super_admin": "Administrator",
+          "super_admin": "Super-Admin (big little things)",
           "company_owner": "Unternehmensinhaber",
           "member": "Mitglied"
         }
@@ -1623,7 +1661,8 @@
         "no": "Nein",
         "activate": "Aktivieren",
         "deactivate": "Deaktivieren",
-        "confirmDelete": "{{email}} löschen?"
+        "confirmDelete": "{{email}} löschen?",
+        "roleFailed": "Die Rolle konnte nicht geändert werden."
       },
       "companies": {
         "title": "Alle Unternehmen",

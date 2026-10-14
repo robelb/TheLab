@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ASSIGNABLE_ROLES } from '@/lib/roles'
+import { ADMIN_ASSIGNABLE_ROLES } from '@/lib/roles'
 import { normalizeDomainInput } from '@/lib/domainSchema'
 import type { TFunction } from 'i18next'
 import { emailRule, optionalText, requiredText, tooLongEn, tooLongIn } from './common'
@@ -27,7 +27,9 @@ export const newUserSchema = z.object({
     .string()
     .min(8, 'Use at least 8 characters.')
     .max(200, tooLongEn(200)),
-  role: z.enum(ASSIGNABLE_ROLES as [string, ...string[]], {
+  // Every role a super admin may give; the form shows each person what they
+  // may give, and the server decides.
+  role: z.enum(ADMIN_ASSIGNABLE_ROLES as [string, ...string[]], {
     errorMap: () => ({ message: 'Choose a role.' }),
   }),
   /** Admin only; empty = no company. */

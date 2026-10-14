@@ -1,6 +1,8 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { OfflineBanner } from '@/components/OfflineBanner'
+import { RouteErrorBoundary } from '@/components/RouteErrorBoundary'
 import { AppSidebar } from '@/components/dashboard/AppSidebar'
 import { VersionBadge } from '@/components/VersionBadge'
 import { Separator } from '@/components/ui/separator'
@@ -46,6 +48,7 @@ export function DashboardLayout() {
       {/* min-w-0: a wide table scrolls inside its own container instead of
           pushing the whole page (header included) sideways under the sidebar. */}
       <SidebarInset className="min-w-0">
+        <OfflineBanner />
         <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-border/40 bg-background/90 px-4 backdrop-blur-md print:hidden">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
@@ -58,7 +61,12 @@ export function DashboardLayout() {
         <div className="flex-1 p-4 sm:p-6 print:p-0">
           {/* Above the pages, so ticked rows survive moving between them. */}
           <SelectionProvider>
-            <Outlet />
+            <RouteErrorBoundary
+              homeTo="/dashboard"
+              homeLabel={t('errors.actions.backToDashboard')}
+            >
+              <Outlet />
+            </RouteErrorBoundary>
           </SelectionProvider>
         </div>
       </SidebarInset>

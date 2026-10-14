@@ -18,8 +18,11 @@ export const ROLE_LABELS: Record<Role, string> = {
   member: 'Member',
 }
 
-/** Roles offered in assignment forms — `super_admin` is never assignable. */
+/** Roles a company owner may give out — `super_admin` is never among them. */
 export const ASSIGNABLE_ROLES: Role[] = [ROLES.COMPANY_OWNER, ROLES.MEMBER]
+
+/** Roles a super admin may give out (All users page): super admin as well. */
+export const ADMIN_ASSIGNABLE_ROLES: Role[] = [ROLES.SUPER_ADMIN, ...ASSIGNABLE_ROLES]
 
 export type Capability = 'manage_all' | 'manage_company' | 'view_storefront'
 

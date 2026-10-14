@@ -22,8 +22,14 @@ export const ALL_ROLES: Role[] = [
   ROLES.MEMBER,
 ]
 
-/** Roles offered in normal assignment forms — `super_admin` is never assignable. */
+/** Roles a company owner may give out. `super_admin` is never among them. */
 export const ASSIGNABLE_ROLES: Role[] = [ROLES.COMPANY_OWNER, ROLES.MEMBER]
+
+/**
+ * Roles a super admin may give out: those, plus super admin — for adding
+ * someone to the big little things team. Enforced in users.service.
+ */
+export const ADMIN_ASSIGNABLE_ROLES: Role[] = [ROLES.SUPER_ADMIN, ...ASSIGNABLE_ROLES]
 
 export function isRole(value: unknown): value is Role {
   return typeof value === 'string' && (ALL_ROLES as string[]).includes(value)

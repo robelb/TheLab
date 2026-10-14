@@ -33,6 +33,8 @@ import {
 } from 'lucide-react'
 import { bundleToBoxDetails } from '@/lib/box'
 import { useFunnel } from '@/context/FunnelContext'
+import { ErrorState } from '@/components/ErrorState'
+import { pageErrorKind } from '@/lib/errors'
 
 export function ProductPage() {
   const { t } = useTranslation()
@@ -51,7 +53,7 @@ export function ProductPage() {
   } = useFunnel()
   const posthog = usePostHog()
 
-  const { data: product, isLoading, error } = useProduct(id)
+  const { data: product, isLoading, error, refetch } = useProduct(id)
   // Inside a campaign, only more of that campaign — never the whole catalogue.
   const { data: related, isLoading: relatedLoading } = useRelatedProducts(
     id,
@@ -108,17 +110,15 @@ export function ProductPage() {
   }
 
   if (!product || error) {
+    const kind = error ? pageErrorKind(error) : 'notFound'
     return (
-      <div className="flex flex-col items-center gap-4 py-20 text-center">
-        <h1 className="font-display text-2xl font-bold">
-          {error instanceof Error ? error.message : t('product.notFound')}
-        </h1>
-        <Button asChild variant="outline">
-          <Link to={shopHome}>
-            {inFunnel ? t('common.backToCollection') : t('product.backToShop')}
-          </Link>
-        </Button>
-      </div>
+      <ErrorState
+        kind={kind}
+        title={kind === 'notFound' ? t('product.notFound') : undefined}
+        onRetry={() => void refetch()}
+        homeTo={shopHome}
+        homeLabel={inFunnel ? t('common.backToCollection') : t('product.backToShop')}
+      />
     )
   }
 

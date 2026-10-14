@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { Gift, Loader2, Search } from 'lucide-react'
 import { usePostHog } from '@posthog/react'
 import { useCollection } from '@/hooks/use-collections'
+import { ErrorState } from '@/components/ErrorState'
+import { pageErrorKind } from '@/lib/errors'
 import { useFunnel, useFunnelLink } from '@/context/FunnelContext'
 import { useTaggedProducts } from '@/hooks/use-products'
 import { hasChosenLocale, isLocale, type Locale } from '@/i18n'
@@ -47,7 +49,7 @@ export function CollectionPage() {
   const { can, isLoading: authLoading } = useAuth()
   const staff = can('manage_all')
 
-  const { data: collection, isLoading, isError } = useCollection(slug)
+  const { data: collection, isLoading, error, refetch } = useCollection(slug)
 
   // The collection's own language, for a visitor who has not expressed one. A
   // German campaign landing in English reads as somebody else's shop.
@@ -116,19 +118,22 @@ export function CollectionPage() {
     )
   }
 
-  if (isError || !collection) {
+  if (error || !collection) {
+    // An ended offer and a dropped connection need different words: only one
+    // of them is fixed by trying again.
+    const kind = error ? pageErrorKind(error) : 'notFound'
+    const ended = kind === 'notFound'
     return (
-      <div className="flex flex-col items-center gap-4 py-20 text-center">
-        <h1 className="font-display text-3xl font-bold">
-          {t('collection.notFound')}
-        </h1>
-        <p className="max-w-sm text-muted-foreground">
-          {t('collection.notFoundBody')}
-        </p>
-        <Button asChild size="lg">
-          <Link to={shopHome}>{t('collection.browseShop')}</Link>
-        </Button>
-      </div>
+      <ErrorState
+        kind={kind}
+        title={ended ? t('collection.notFound') : undefined}
+        body={ended ? t('collection.notFoundBody') : undefined}
+        onRetry={() => void refetch()}
+        // Inside a campaign the shop's home is this very page; sending them
+        // back to it is no way out, and the front page would drop the campaign.
+        homeTo={ended ? shopHome : null}
+        homeLabel={ended ? t('collection.browseShop') : undefined}
+      />
     )
   }
 

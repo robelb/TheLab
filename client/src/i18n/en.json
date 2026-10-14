@@ -218,7 +218,45 @@
     "NETWORK": "We could not reach the shop. Check your connection and try again.",
     "RATE_LIMITED": "Too many requests from here. Please try again later.",
     "VALIDATION": "Please check the form and try again.",
-    "NOT_FOUND": "We could not find that."
+    "NOT_FOUND": "We could not find that.",
+    "page": {
+      "offline": {
+        "title": "You're offline",
+        "body": "Check your internet connection. The page will load again as soon as you're back online."
+      },
+      "network": {
+        "title": "We couldn't reach the shop",
+        "body": "This is usually a connection problem. Check your internet connection and try again."
+      },
+      "notFound": {
+        "title": "Page not found",
+        "body": "This page doesn't exist or is no longer available. Everything else is still in the shop.",
+        "dashboardBody": "This page doesn't exist in the dashboard. It may have been moved or removed."
+      },
+      "server": {
+        "title": "Something went wrong on our side",
+        "body": "It's not you. Please try again in a moment."
+      },
+      "rateLimited": {
+        "title": "Too many requests",
+        "body": "Please wait a moment and try again."
+      },
+      "unknown": {
+        "title": "Something went wrong",
+        "body": "Please try again. If it keeps happening, go back to the shop and start from there."
+      },
+      "crash": {
+        "title": "This page ran into a problem",
+        "body": "Your cart is saved. Try again, or go back to the shop."
+      }
+    },
+    "actions": {
+      "tryAgain": "Try again",
+      "backToShop": "Back to shop",
+      "backToDashboard": "Back to dashboard",
+      "reload": "Reload page"
+    },
+    "offlineBanner": "You're offline. We'll carry on as soon as your connection is back."
   },
   "card": {
     "addFailed": "Could not add this to the cart",
@@ -1581,7 +1619,7 @@
         "activate": "Activate",
         "deactivate": "Deactivate",
         "roles": {
-          "super_admin": "Administrator",
+          "super_admin": "Super admin (big little things)",
           "company_owner": "Company Owner",
           "member": "Member"
         }
@@ -1623,7 +1661,8 @@
         "no": "No",
         "activate": "Activate",
         "deactivate": "Deactivate",
-        "confirmDelete": "Delete {{email}}?"
+        "confirmDelete": "Delete {{email}}?",
+        "roleFailed": "The role could not be changed."
       },
       "companies": {
         "title": "All companies",

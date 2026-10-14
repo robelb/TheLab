@@ -1,8 +1,12 @@
 import { z } from 'zod'
-import { ASSIGNABLE_ROLES } from '../../lib/roles.js'
+import { ADMIN_ASSIGNABLE_ROLES } from '../../lib/roles.js'
 
+/**
+ * Any role a super admin could give. Who may give which is decided in the
+ * service: only a super admin may make another super admin.
+ */
 const assignableRole = z.enum(
-  ASSIGNABLE_ROLES as [string, ...string[]],
+  ADMIN_ASSIGNABLE_ROLES as [string, ...string[]],
 )
 
 export const listUsersQuerySchema = z.object({

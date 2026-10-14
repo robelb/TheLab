@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCampaign } from '@/hooks/use-campaigns'
 import { useFunnel } from '@/context/FunnelContext'
+import { ErrorState } from '@/components/ErrorState'
+import { pageErrorKind } from '@/lib/errors'
 
 export function CampaignPage() {
   const { id } = useParams<{ id: string }>()
-  const { data: campaign, isLoading, error } = useCampaign(id)
+  const { data: campaign, isLoading, error, refetch } = useCampaign(id)
   const { shopHome, inFunnel } = useFunnel()
 
   return (
@@ -23,9 +25,11 @@ export function CampaignPage() {
       {isLoading && <Skeleton className="h-80 rounded-brand" />}
 
       {!isLoading && (error || !campaign) && (
-        <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error instanceof Error ? error.message : 'Campaign not found'}
-        </p>
+        <ErrorState
+          kind={error ? pageErrorKind(error) : 'notFound'}
+          onRetry={() => void refetch()}
+          homeTo={shopHome}
+        />
       )}
 
       {campaign && (

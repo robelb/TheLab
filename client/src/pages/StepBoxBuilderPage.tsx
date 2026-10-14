@@ -131,9 +131,12 @@ export function StepBoxBuilderPage() {
   // Only ids are stored, so the box is read back from the API; the picker
   // hands over whole products, which are kept so an add shows at once.
   const [known, setKnown] = useState<Record<string, Product>>({})
-  const { data: fetched, isLoading: productsLoading } = useProductsByIds(
-    draft.productIds,
-  )
+  const {
+    data: fetched,
+    isLoading: productsLoading,
+    error: productsError,
+    refetch: refetchProducts,
+  } = useProductsByIds(draft.productIds)
   useEffect(() => {
     if (!fetched?.length) return
     setKnown((prev) => {
@@ -240,7 +243,12 @@ export function StepBoxBuilderPage() {
     }))
 
   // ── Supplies ─────────────────────────────────────────────────────────────
-  const { supplies: allSupplies, isLoading: suppliesLoading } = useBoxSupplies()
+  const {
+    supplies: allSupplies,
+    isLoading: suppliesLoading,
+    error: suppliesError,
+    refetch: refetchSupplies,
+  } = useBoxSupplies()
   // "Eigenes Design" options are customising: a collection with customising
   // off offers ready-made ones only. A saved choice of one then reads as
   // unpicked, and the step asks again.
@@ -713,6 +721,32 @@ export function StepBoxBuilderPage() {
         reachable={reachable}
         onSelect={goTo}
       />
+
+      {/* Without these the steps show empty lists that look like "nothing to
+          choose from"; say what happened and let them fetch again. */}
+      {(productsError || suppliesError) && (
+        <div
+          role="alert"
+          className="flex flex-col items-start gap-3 rounded-brand border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span>
+            {errorMessage(productsError ?? suppliesError, t('common.somethingWentWrong'))}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="shrink-0 gap-2"
+            onClick={() => {
+              if (productsError) void refetchProducts()
+              if (suppliesError) void refetchSupplies()
+            }}
+          >
+            <RotateCcw className="size-4" aria-hidden />
+            {t('errors.actions.tryAgain')}
+          </Button>
+        </div>
+      )}
 
       <section aria-live="polite" className="min-h-[40vh]">
         {draft.step === 'products' && (

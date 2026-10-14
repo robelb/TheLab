@@ -14,7 +14,7 @@ import {
   useUsers,
 } from '@/hooks/use-users'
 import { useCompaniesList } from '@/hooks/use-companies'
-import { ASSIGNABLE_ROLES, type Role } from '@/lib/roles'
+import { ADMIN_ASSIGNABLE_ROLES, type Role } from '@/lib/roles'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input'
 import { FormAlert, FormField } from '@/components/ui/form-field'
 import { useZodForm } from '@/lib/form'
 import { newUserSchema } from '@/lib/schemas/dashboard'
+import { notifyError } from '@/lib/notify'
 
 export function UsersPage() {
   const { t } = useTranslation()
@@ -119,7 +120,7 @@ export function UsersPage() {
             </FormField>
             <FormField id="u-role" label={t('dashboard.admin.users.role')} error={f.errors.role}>
               <select {...f.register('role')} className="h-10 w-full rounded-brand border border-input bg-background px-3 text-sm">
-                {ASSIGNABLE_ROLES.map((r) => (
+                {ADMIN_ASSIGNABLE_ROLES.map((r) => (
                   <option key={r} value={r}>
                     {t(`dashboard.company.team.roles.${r}`)}
                   </option>
@@ -206,16 +207,17 @@ export function UsersPage() {
                       <td className="py-2 pr-4">
                         <select
                           className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-                          value={
-                            (ASSIGNABLE_ROLES as string[]).includes(u.role)
-                              ? u.role
-                              : 'member'
-                          }
+                          // The user's real role — a super admin used to show as
+                          // "member" here, one click away from being demoted.
+                          value={u.role}
                           onChange={(e) =>
-                            changeRole.mutate({ id: u.id, role: e.target.value as Role })
+                            changeRole.mutate(
+                              { id: u.id, role: e.target.value as Role },
+                              { onError: (err) => notifyError(err, t('dashboard.admin.users.roleFailed')) },
+                            )
                           }
                         >
-                          {ASSIGNABLE_ROLES.map((r) => (
+                          {ADMIN_ASSIGNABLE_ROLES.map((r) => (
                             <option key={r} value={r}>
                               {t(`dashboard.company.team.roles.${r}`)}
                             </option>

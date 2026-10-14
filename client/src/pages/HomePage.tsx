@@ -16,7 +16,8 @@ import { ProductSearchBar } from '@/components/ProductSearchBar'
 import { ProductsListToolbar } from '@/components/ProductsListToolbar'
 import { Button } from '@/components/ui/button'
 import type { PageSize, PriceRange } from '@/types/product'
-import { ChevronLeft, ChevronRight, Gift } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Gift, RotateCw } from 'lucide-react'
+import { apiErrorMessage } from '@/lib/notify'
 
 const SEARCH_DEBOUNCE_MS = 300
 const PRICE_DEBOUNCE_MS = 300
@@ -27,15 +28,6 @@ function toHexColor(value: string | null | undefined): string {
   if (/^#[0-9a-fA-F]{6}$/.test(v)) return v.toLowerCase()
   if (/^[0-9a-fA-F]{6}$/.test(v)) return `#${v.toLowerCase()}`
   return '#2563eb'
-}
-
-function extractErrorMessage(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const data = (err as { response?: { data?: { error?: string } } }).response
-      ?.data
-    if (data?.error) return data.error
-  }
-  return err instanceof Error ? err.message : 'Image search failed'
 }
 
 export function HomePage() {
@@ -74,7 +66,7 @@ export function HomePage() {
     debouncedPrice &&
     isPriceRangeFiltered(priceBounds, debouncedPrice)
 
-  const { data, isLoading, isFetching, error } = useProducts({
+  const { data, isLoading, isFetching, error, refetch } = useProducts({
     page,
     limit,
     category: category !== 'all' ? category : undefined,
@@ -183,7 +175,7 @@ export function HomePage() {
   const imageSearchError =
     imageError ??
     (imageSearch.isError
-      ? extractErrorMessage(imageSearch.error)
+      ? apiErrorMessage(imageSearch.error, t('common.somethingWentWrong'))
       : null)
   const priceKey = priceFilterActive
     ? `${debouncedPrice![0]}-${debouncedPrice![1]}`
@@ -333,14 +325,29 @@ export function HomePage() {
             loading={loading}
           />
 
-          {(imageActive ? imageSearchError : error) && (
+          {imageActive && imageSearchError && (
             <p className="rounded-brand border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {imageActive
-                ? imageSearchError
-                : error instanceof Error
-                  ? error.message
-                  : t('home.loadFailed')}
+              {imageSearchError}
             </p>
+          )}
+
+          {!imageActive && error && !loading && (
+            <div
+              role="alert"
+              className="flex flex-col items-start gap-3 rounded-brand border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between"
+            >
+              <span>{apiErrorMessage(error, t('home.loadFailed'))}</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="shrink-0 gap-2"
+                onClick={() => void refetch()}
+              >
+                <RotateCw className="size-4" aria-hidden />
+                {t('errors.actions.tryAgain')}
+              </Button>
+            </div>
           )}
 
           {loading ? (

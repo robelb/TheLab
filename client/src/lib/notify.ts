@@ -1,4 +1,6 @@
 import { toast } from 'sonner'
+import i18n from '@/i18n'
+import { errorKind } from '@/lib/errors'
 
 /**
  * What went wrong, in the server's own words where it gave any.
@@ -9,6 +11,11 @@ import { toast } from 'sonner'
  * sentence; this is how it reaches them.
  */
 export function apiErrorMessage(err: unknown, fallback: string): string {
+  // No answer at all: the browser's own wording ("Network Error", "timeout of
+  // 220000ms exceeded") says nothing to a person; their connection might.
+  const kind = errorKind(err)
+  if (kind === 'offline' || kind === 'network') return i18n.t('errors.NETWORK')
+  if (kind === 'rateLimited') return i18n.t('errors.RATE_LIMITED')
   const data = responseData(err)
   // A raw database error ("Failed query: insert into …") is never something
   // to put in front of a person, whichever endpoint let it through.

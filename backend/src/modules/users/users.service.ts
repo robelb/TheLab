@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, or } from 'drizzle-orm'
+import { and, count, desc, eq, ilike, ne, or } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { users, type User } from '../../db/schema/index.js'
@@ -36,6 +36,34 @@ async function loadManageableUser(
     }
   }
   return user
+}
+
+/**
+ * Only a super admin may make someone a super admin: a company owner who could
+ * would be one step from every company's data.
+ */
+function assertMayGrant(actor: AuthUser, role: Role): void {
+  if (role === ROLES.SUPER_ADMIN && !isSuperAdmin(actor)) {
+    throw new AuthError('Only a super admin can add another super admin.', 403)
+  }
+}
+
+/**
+ * Keep at least one active super admin, and never let one take their own
+ * rights away by accident — either would lock the team out of the dashboard.
+ */
+async function assertKeepsASuperAdmin(actor: AuthUser, target: User, nextRole: Role): Promise<void> {
+  if (target.role !== ROLES.SUPER_ADMIN || nextRole === ROLES.SUPER_ADMIN) return
+  if (target.id === actor.id) {
+    throw new AuthError('You cannot remove your own super admin role. Ask another super admin.', 400)
+  }
+  const [row] = await db
+    .select({ total: count() })
+    .from(users)
+    .where(and(eq(users.role, ROLES.SUPER_ADMIN), eq(users.isActive, true), ne(users.id, target.id)))
+  if ((row?.total ?? 0) === 0) {
+    throw new AuthError('This is the last active super admin; make someone else one first.', 400)
+  }
 }
 
 export interface ListUsersResult {
@@ -135,6 +163,7 @@ export async function createUser(
   }
 
   const role = (body.role as Role | undefined) ?? ROLES.MEMBER
+  assertMayGrant(actor, role)
   const passwordHash = await hashPassword(body.password)
 
   const [user] = await db
@@ -180,10 +209,11 @@ export async function deleteUser(
   actor: AuthUser,
   id: string,
 ): Promise<void> {
-  await loadManageableUser(actor, id)
+  const target = await loadManageableUser(actor, id)
   if (id === actor.id) {
     throw new AuthError('You cannot delete your own account.', 400)
   }
+  await assertKeepsASuperAdmin(actor, target, ROLES.MEMBER)
   await db.delete(users).where(eq(users.id, id))
 }
 
@@ -192,7 +222,9 @@ export async function changeUserRole(
   id: string,
   role: Role,
 ): Promise<PublicUser> {
-  await loadManageableUser(actor, id)
+  const target = await loadManageableUser(actor, id)
+  assertMayGrant(actor, role)
+  await assertKeepsASuperAdmin(actor, target, role)
   const [user] = await db
     .update(users)
     .set({ role })
@@ -222,7 +254,11 @@ export async function setUserActive(
   id: string,
   isActive: boolean,
 ): Promise<PublicUser> {
-  await loadManageableUser(actor, id)
+  const target = await loadManageableUser(actor, id)
+  if (!isActive) {
+    if (id === actor.id) throw new AuthError('You cannot deactivate your own account.', 400)
+    await assertKeepsASuperAdmin(actor, target, ROLES.MEMBER)
+  }
   const [user] = await db
     .update(users)
     .set({ isActive })
