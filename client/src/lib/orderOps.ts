@@ -107,39 +107,42 @@ export function orderTodos(order: Order, now = new Date()): OrderTodo[] {
       label: tr('todo.confirm.label'),
       detail: tr('todo.confirm.detail'),
     })
-  }
-  if (order.addressesLater) {
-    todos.push({
-      key: 'addresses',
-      label: tr('todo.addresses.label'),
-      detail: tr('todo.addresses.detail'),
-    })
-  }
-  const missingLogo = boxes.filter((box) => box.stickers && !box.stickerLogo?.url).length
-  if (missingLogo) {
-    todos.push({
-      key: 'stickerLogo',
-      label: tr('todo.stickerLogo.label'),
-      detail: tr('todo.stickerLogo.detail', { count: missingLogo }),
-    })
-  }
-  const missingMessage = boxes.filter(
-    (box) => box.greetingCard && !box.greetingCard.message?.trim(),
-  ).length
-  if (missingMessage) {
-    todos.push({
-      key: 'cardMessage',
-      label: tr('todo.cardMessage.label'),
-      detail: tr('todo.cardMessage.detail', { count: missingMessage }),
-    })
-  }
-  const custom = customDesignItems(order)
-  if (custom.length && !order.designAgreedAt) {
-    todos.push({
-      key: 'customDesign',
-      label: tr('todo.customDesign.label'),
-      detail: tr('todo.customDesign.detail', { items: custom.join(', ') }),
-    })
+    // What the customer still owes us — addresses, logo, card text, artwork —
+    // only matters until the order is confirmed: confirming it means the team
+    // has it, whichever way it arrived.
+    if (order.addressesLater) {
+      todos.push({
+        key: 'addresses',
+        label: tr('todo.addresses.label'),
+        detail: tr('todo.addresses.detail'),
+      })
+    }
+    const missingLogo = boxes.filter((box) => box.stickers && !box.stickerLogo?.url).length
+    if (missingLogo) {
+      todos.push({
+        key: 'stickerLogo',
+        label: tr('todo.stickerLogo.label'),
+        detail: tr('todo.stickerLogo.detail', { count: missingLogo }),
+      })
+    }
+    const missingMessage = boxes.filter(
+      (box) => box.greetingCard && !box.greetingCard.message?.trim(),
+    ).length
+    if (missingMessage) {
+      todos.push({
+        key: 'cardMessage',
+        label: tr('todo.cardMessage.label'),
+        detail: tr('todo.cardMessage.detail', { count: missingMessage }),
+      })
+    }
+    const custom = customDesignItems(order)
+    if (custom.length && !order.designAgreedAt) {
+      todos.push({
+        key: 'customDesign',
+        label: tr('todo.customDesign.label'),
+        detail: tr('todo.customDesign.detail', { items: custom.join(', ') }),
+      })
+    }
   }
   if (order.invoice && order.paymentStatus !== 'paid') {
     todos.push({

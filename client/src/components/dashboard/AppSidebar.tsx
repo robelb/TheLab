@@ -28,6 +28,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import { useAuth } from '@/context/AuthContext'
 import type { Capability } from '@/lib/roles'
@@ -66,6 +67,9 @@ export function AppSidebar() {
   const { pathname } = useLocation()
   const { logout, can } = useAuth()
   const { t } = useTranslation()
+  // Collapsed to icons the header is 2rem wide; the full logo would spill over the page.
+  const { state, isMobile } = useSidebar()
+  const collapsed = state === 'collapsed' && !isMobile
 
   const isActive = (to: string, end: boolean) =>
     end ? pathname === to : pathname === to || pathname.startsWith(`${to}/`)
@@ -79,8 +83,8 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="z-20">
       <SidebarHeader className="border-b border-border">
         {/* Company logo (same logic as the shop navbar). */}
-        <div className="flex h-12 items-center px-2 group-data-[collapsible=icon]:px-0">
-          <BrandLogo />
+        <div className="flex h-12 items-center overflow-hidden px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+          <BrandLogo compact={collapsed} />
         </div>
       </SidebarHeader>
 

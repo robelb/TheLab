@@ -853,11 +853,14 @@
         "shipping": "Shipping",
         "anyShipping": "Any shipping",
         "neededBy": "Needed by",
+        "from": "From",
+        "to": "To",
         "dateFrom": "Delivery date from",
         "dateTo": "Delivery date to",
         "sort": "Sort",
         "sortNewest": "Newest first",
         "sortDue": "Delivery date first",
+        "filters": "Filters",
         "clear": "Clear",
         "nothingToDo": "Nothing needs doing right now.",
         "noMatches": "Nothing matches these filters.",
@@ -956,6 +959,7 @@
           "rotation": "Rotation",
           "typeface": "Typeface",
           "bold": "{{face}} bold",
+          "show": "Position details ({{count}})",
           "note": "Positions are the centre of each element as a share of the product photo, not a physical measurement."
         },
         "design": {

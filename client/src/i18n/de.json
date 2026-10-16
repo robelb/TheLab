@@ -853,11 +853,14 @@
         "shipping": "Versand",
         "anyShipping": "Alle Versandarten",
         "neededBy": "Benötigt bis",
+        "from": "Von",
+        "to": "Bis",
         "dateFrom": "Lieferdatum von",
         "dateTo": "Lieferdatum bis",
         "sort": "Sortierung",
         "sortNewest": "Neueste zuerst",
         "sortDue": "Nach Lieferdatum",
+        "filters": "Filter",
         "clear": "Zurücksetzen",
         "nothingToDo": "Gerade ist nichts zu erledigen.",
         "noMatches": "Keine Treffer für diese Filter.",
@@ -956,6 +959,7 @@
           "rotation": "Drehung",
           "typeface": "Schrift",
           "bold": "{{face}} fett",
+          "show": "Positionsdetails ({{count}})",
           "note": "Positionen geben die Mitte jedes Elements als Anteil am Produktfoto an, nicht als physisches Maß."
         },
         "design": {

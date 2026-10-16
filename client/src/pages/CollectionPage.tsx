@@ -151,6 +151,16 @@ export function CollectionPage() {
             {pick(collection.subtitle)}
           </p>
         )}
+        {/* The builder again, up top: further down it sits below the ready
+            boxes, where somebody who came to build one can miss it. */}
+        {collection.allowBoxBuilding && (
+          <Button asChild size="lg" className="mt-2">
+            <Link to={funnelLink('/build-box')}>
+              <Gift className="size-4" />
+              {t('collection.startBuilding')}
+            </Link>
+          </Button>
+        )}
       </header>
 
       {collection.featuredBundles.length > 0 && (

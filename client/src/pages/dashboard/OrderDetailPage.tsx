@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  ChevronRight,
   Copy,
   CircleAlert,
   FileDown,
@@ -103,75 +104,89 @@ function layerLabel(layer: PlacementLayer, t: TFunction): string {
  */
 function PlacementTable({ layout }: { layout: PlacementLayout }) {
   const { t } = useTranslation()
+  const ref = useRef<HTMLDetailsElement>(null)
+  // A folded table would not reach the printed sheet, so unfold it for print.
+  useEffect(() => {
+    const open = () => ref.current?.setAttribute('open', '')
+    window.addEventListener('beforeprint', open)
+    return () => window.removeEventListener('beforeprint', open)
+  }, [])
   if (!layout.layers.length) return null
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] border-collapse text-xs">
-        <thead>
-          <tr className="border-b border-border text-left text-muted-foreground">
-            <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.element')}</th>
-            <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.content')}</th>
-            <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.across')}</th>
-            <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.down')}</th>
-            <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.width')}</th>
-            <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.rotation')}</th>
-            <th className="py-1 font-medium">{t('dashboard.orders.detail.placement.typeface')}</th>
-          </tr>
-        </thead>
-        <tbody className="tabular-nums">
-          {layout.layers.map((layer) => (
-            <tr key={layer.id} className="border-b border-border last:border-0">
-              <td className="py-1.5 pr-3 whitespace-nowrap">{layerLabel(layer, t)}</td>
-              <td className="max-w-[12rem] truncate py-1.5 pr-3">
-                {layer.kind === 'text' ? (
-                  <span className="flex items-center gap-1.5">
-                    {layer.color && (
-                      <span
-                        aria-hidden
-                        className="size-3 shrink-0 rounded-sm border border-border"
-                        style={{ background: layer.color }}
-                      />
-                    )}
-                    <span className="truncate">{layer.text}</span>
-                    {layer.color && (
-                      <span className="text-muted-foreground">{layer.color}</span>
-                    )}
-                  </span>
-                ) : layer.kind === 'image' && layer.imageUrl ? (
-                  <a href={layer.imageUrl} target="_blank" rel="noreferrer">
-                    <img
-                      src={layer.imageUrl}
-                      alt=""
-                      className="size-8 rounded-sm border border-border bg-white object-contain"
-                    />
-                  </a>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </td>
-              <td className="py-1.5 pr-3">{pct(layer.x)}</td>
-              <td className="py-1.5 pr-3">{pct(layer.y)}</td>
-              <td className="py-1.5 pr-3">{pct(layer.width)}</td>
-              <td className="py-1.5 pr-3">
-                {layer.rotation ? `${Math.round(layer.rotation)}°` : '—'}
-              </td>
-              <td className="py-1.5 text-muted-foreground">
-                {layer.kind === 'text'
-                  ? layer.fontWeight === 'bold'
-                    ? t('dashboard.orders.detail.placement.bold', {
-                        face: layer.fontStyle ?? 'sans',
-                      })
-                    : (layer.fontStyle ?? 'sans')
-                  : '—'}
-              </td>
+    // Folded by default: the picture says enough until a printer asks.
+    <details ref={ref} className="group text-xs">
+      <summary className="flex cursor-pointer list-none items-center gap-1 font-medium text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
+        {t('dashboard.orders.detail.placement.show', { count: layout.layers.length })}
+      </summary>
+      <div className="mt-1.5 overflow-x-auto">
+        <table className="w-full min-w-[34rem] border-collapse text-xs">
+          <thead>
+            <tr className="border-b border-border text-left text-muted-foreground">
+              <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.element')}</th>
+              <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.content')}</th>
+              <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.across')}</th>
+              <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.down')}</th>
+              <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.width')}</th>
+              <th className="py-1 pr-3 font-medium">{t('dashboard.orders.detail.placement.rotation')}</th>
+              <th className="py-1 font-medium">{t('dashboard.orders.detail.placement.typeface')}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">
-        {t('dashboard.orders.detail.placement.note')}
-      </p>
-    </div>
+          </thead>
+          <tbody className="tabular-nums">
+            {layout.layers.map((layer) => (
+              <tr key={layer.id} className="border-b border-border last:border-0">
+                <td className="py-1.5 pr-3 whitespace-nowrap">{layerLabel(layer, t)}</td>
+                <td className="max-w-[12rem] truncate py-1.5 pr-3">
+                  {layer.kind === 'text' ? (
+                    <span className="flex items-center gap-1.5">
+                      {layer.color && (
+                        <span
+                          aria-hidden
+                          className="size-3 shrink-0 rounded-sm border border-border"
+                          style={{ background: layer.color }}
+                        />
+                      )}
+                      <span className="truncate">{layer.text}</span>
+                      {layer.color && (
+                        <span className="text-muted-foreground">{layer.color}</span>
+                      )}
+                    </span>
+                  ) : layer.kind === 'image' && layer.imageUrl ? (
+                    <a href={layer.imageUrl} target="_blank" rel="noreferrer">
+                      <img
+                        src={layer.imageUrl}
+                        alt=""
+                        className="size-8 rounded-sm border border-border bg-white object-contain"
+                      />
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </td>
+                <td className="py-1.5 pr-3">{pct(layer.x)}</td>
+                <td className="py-1.5 pr-3">{pct(layer.y)}</td>
+                <td className="py-1.5 pr-3">{pct(layer.width)}</td>
+                <td className="py-1.5 pr-3">
+                  {layer.rotation ? `${Math.round(layer.rotation)}°` : '—'}
+                </td>
+                <td className="py-1.5 text-muted-foreground">
+                  {layer.kind === 'text'
+                    ? layer.fontWeight === 'bold'
+                      ? t('dashboard.orders.detail.placement.bold', {
+                          face: layer.fontStyle ?? 'sans',
+                        })
+                      : (layer.fontStyle ?? 'sans')
+                    : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          {t('dashboard.orders.detail.placement.note')}
+        </p>
+      </div>
+    </details>
   )
 }
 

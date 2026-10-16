@@ -1,11 +1,12 @@
 import { useMemo } from 'react'
-import { CircleAlert, Inbox, Loader2, RotateCw, Search, X } from 'lucide-react'
+import { CircleAlert, Inbox, Loader2, RotateCw, Search, SlidersHorizontal, X } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import type { TFunction } from 'i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DatePicker } from '@/components/ui/date-picker'
 import { Input } from '@/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
@@ -58,7 +59,6 @@ const PAYMENT_STYLE: Record<PaymentStatus, string> = {
 const TABS = [
   { key: 'action', test: (_o: Order, todos: OrderTodo[]) => todos.length > 0 },
   { key: 'new', test: (o: Order) => o.status === 'new' },
-  { key: 'quoted', test: (o: Order) => o.status === 'quoted' },
   { key: 'unpaid', test: (o: Order) => Boolean(o.invoice) && o.paymentStatus !== 'paid' },
   { key: 'paid', test: (o: Order) => o.paymentStatus === 'paid' },
   { key: 'cancelled', test: (o: Order) => o.status === 'cancelled' },
@@ -66,13 +66,6 @@ const TABS = [
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
-
-function originLabel(order: Order, t: TFunction): string {
-  if (order.source === 'funnel') {
-    return order.collectionName ?? order.collectionSlug ?? t('dashboard.orders.list.originCollection')
-  }
-  return order.isGuest ? t('dashboard.orders.list.originShopGuest') : t('dashboard.orders.list.originShop')
-}
 
 /** `all`, `storefront`, `funnel`, or `c:<collection id>` — one control, not two. */
 function matchesOrigin(order: Order, origin: string): boolean {
@@ -155,6 +148,9 @@ export function OrdersPage() {
     })
 
   const filtering = Boolean(q || origin !== 'all' || shipping !== 'all' || from || to)
+  // How many of the folded-away filters are set, shown on the button.
+  const activeFilters = [origin !== 'all', shipping !== 'all', Boolean(from || to), sort !== 'newest']
+    .filter(Boolean).length
 
   if (isLoading) {
     return (
@@ -245,62 +241,78 @@ export function OrdersPage() {
             className="h-9 pl-9"
           />
         </div>
-        {admin && (
-          <Select value={origin} onValueChange={(v) => set('origin', v, 'all')}>
-            <SelectTrigger className="h-9 w-[190px]" aria-label={t('dashboard.orders.list.origin')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('dashboard.orders.list.allOrigins')}</SelectItem>
-              <SelectItem value="storefront">{t('dashboard.orders.list.originShop')}</SelectItem>
-              <SelectItem value="funnel">{t('dashboard.orders.list.anyCollection')}</SelectItem>
-              {collections?.length ? <SelectSeparator /> : null}
-              {collections?.map((c) => (
-                <SelectItem key={c.id} value={`c:${c.id}`}>
-                  {c.title.de || c.title.en || c.slug}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <Select value={shipping} onValueChange={(v) => set('ship', v, 'all')}>
-          <SelectTrigger className="h-9 w-[150px]" aria-label={t('dashboard.orders.list.shipping')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('dashboard.orders.list.anyShipping')}</SelectItem>
-            <SelectItem value="bulk">{shippingLabel('bulk')}</SelectItem>
-            <SelectItem value="individual">{shippingLabel('individual')}</SelectItem>
-            <SelectItem value="mixed">{shippingLabel('mixed')}</SelectItem>
-          </SelectContent>
-        </Select>
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          {t('dashboard.orders.list.neededBy')}
-          <Input
-            type="date"
-            value={from}
-            onChange={(e) => set('from', e.target.value)}
-            className="h-9 w-[140px]"
-            aria-label={t('dashboard.orders.list.dateFrom')}
-          />
-          –
-          <Input
-            type="date"
-            value={to}
-            onChange={(e) => set('to', e.target.value)}
-            className="h-9 w-[140px]"
-            aria-label={t('dashboard.orders.list.dateTo')}
-          />
-        </label>
-        <Select value={sort} onValueChange={(v) => set('sort', v, 'newest')}>
-          <SelectTrigger className="h-9 w-[170px]" aria-label={t('dashboard.orders.list.sort')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">{t('dashboard.orders.list.sortNewest')}</SelectItem>
-            <SelectItem value="due">{t('dashboard.orders.list.sortDue')}</SelectItem>
-          </SelectContent>
-        </Select>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9">
+              <SlidersHorizontal className="size-4" />
+              {t('dashboard.orders.list.filters')}
+              {activeFilters > 0 && (
+                <span className="rounded-full bg-primary px-1.5 text-xs tabular-nums text-primary-foreground">
+                  {activeFilters}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-80 space-y-3">
+            {admin && (
+              <Select value={origin} onValueChange={(v) => set('origin', v, 'all')}>
+                <SelectTrigger className="h-9 w-full" aria-label={t('dashboard.orders.list.origin')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('dashboard.orders.list.allOrigins')}</SelectItem>
+                  <SelectItem value="storefront">{t('dashboard.orders.list.originShop')}</SelectItem>
+                  <SelectItem value="funnel">{t('dashboard.orders.list.anyCollection')}</SelectItem>
+                  {collections?.length ? <SelectSeparator /> : null}
+                  {collections?.map((c) => (
+                    <SelectItem key={c.id} value={`c:${c.id}`}>
+                      {c.title.de || c.title.en || c.slug}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Select value={shipping} onValueChange={(v) => set('ship', v, 'all')}>
+              <SelectTrigger className="h-9 w-full" aria-label={t('dashboard.orders.list.shipping')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('dashboard.orders.list.anyShipping')}</SelectItem>
+                <SelectItem value="bulk">{shippingLabel('bulk')}</SelectItem>
+                <SelectItem value="individual">{shippingLabel('individual')}</SelectItem>
+                <SelectItem value="mixed">{shippingLabel('mixed')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">{t('dashboard.orders.list.neededBy')}</p>
+              <div className="space-y-2">
+                <DatePicker
+                  value={from}
+                  onChange={(v) => set('from', v)}
+                  max={to || undefined}
+                  placeholder={t('dashboard.orders.list.from')}
+                  clearable
+                />
+                <DatePicker
+                  value={to}
+                  onChange={(v) => set('to', v)}
+                  min={from || undefined}
+                  placeholder={t('dashboard.orders.list.to')}
+                  clearable
+                />
+              </div>
+            </div>
+            <Select value={sort} onValueChange={(v) => set('sort', v, 'newest')}>
+              <SelectTrigger className="h-9 w-full" aria-label={t('dashboard.orders.list.sort')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">{t('dashboard.orders.list.sortNewest')}</SelectItem>
+                <SelectItem value="due">{t('dashboard.orders.list.sortDue')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </PopoverContent>
+        </Popover>
         {filtering && (
           <Button
             variant="ghost"
@@ -347,7 +359,6 @@ export function OrdersPage() {
                   <span className="block text-xs text-muted-foreground">
                     {formatDateTime(order.createdAt)}
                   </span>
-                  <span className="block text-xs text-muted-foreground">{originLabel(order, t)}</span>
                 </TableCell>
                 <TableCell>
                   <span className="block text-sm">
